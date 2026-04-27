@@ -4,14 +4,14 @@
 
 - [x] 1.1 Initialize monorepo structure with `backend/`, `frontend/`, `shared/` directories
 - [x] 1.2 Initialize backend: `npm init`, install Express, TypeScript, Prisma, stellar-sdk, bcrypt, jsonwebtoken, express-rate-limit, multer, dotenv
-- [ ] 1.3 Initialize frontend: `npm create vite@latest` with React + TypeScript, install TailwindCSS, React Router v6, Axios
+- [x] 1.3 Initialize frontend: `npm create vite@latest` with React + TypeScript, install TailwindCSS, React Router v6, Axios
 - [x] 1.4 Create `backend/src/prisma/schema.prisma` with all models from design (Organization, Session, Ballot, Option, EligibilityList, EligibilityEntry, VoterToken, Vote, Result, AuditEvent)
-- [ ] 1.5 Run `prisma migrate dev` to create initial database migration
+- [ ] 1.5 Run `prisma migrate dev` to create initial database migration (requires running PostgreSQL — run manually: `cd backend && npx prisma migrate dev`)
 - [x] 1.6 Create `backend/src/config.ts` for environment variable loading (DATABASE_URL, JWT_SECRET, STELLAR_SECRET_KEY, BALLOT_ENCRYPTION_KEY, NODE_ENV)
-- [ ] 1.7 Create `backend/src/app.ts` with Express setup: JSON middleware, cookie-parser, CORS, rate limiter, error handler
+- [x] 1.7 Create `backend/src/app.ts` with Express setup: JSON middleware, cookie-parser, CORS, rate limiter, error handler
 - [x] 1.8 Create `docker-compose.yml` with PostgreSQL service
 - [x] 1.9 Create `.env.example` with all required environment variables documented
-- [ ] 1.10 Create root `README.md` with setup and run instructions
+- [x] 1.10 Create root `README.md` with setup and run instructions
 
 ## Task 2: Crypto and Utility Helpers
 
@@ -20,14 +20,14 @@
 - [x] 2.3 Add `hashToken(token: string): string` to crypto utils — SHA-256 of raw token
 - [x] 2.4 Add `encryptVote(optionId: string, ballotKey: string): string` using AES-256-GCM
 - [x] 2.5 Add `decryptVote(payload: string, ballotKey: string): string` for tally use
-- [ ] 2.6 Write unit tests for all crypto utilities
+- [x] 2.6 Write unit tests for all crypto utilities
 
 ## Task 3: Authentication Middleware and Session Management
 
 - [x] 3.1 Create `backend/src/middleware/auth.ts` — validates HTTP-only JWT cookie, attaches org to `req.organization`
 - [x] 3.2 Create `backend/src/middleware/rateLimiter.ts` — 10 failed attempts per 60s window blocks source for 300s
 - [x] 3.3 Create `backend/src/middleware/errorHandler.ts` — global error handler returning `{ error, message }` JSON
-- [ ] 3.4 Write tests for auth middleware (valid session, expired session, missing session)
+- [x] 3.4 Write tests for auth middleware (valid session, expired session, missing session)
 
 ## Task 4: Organization Registration and Login API
 
@@ -35,13 +35,13 @@
 - [x] 4.2 Implement `POST /api/organizations` — validate fields, hash password with bcrypt, create org + admin, return 201
 - [x] 4.3 Implement `POST /api/organizations/login` — validate credentials, create Session record, set HTTP-only JWT cookie, return 200
 - [x] 4.4 Implement `POST /api/organizations/logout` — invalidate Session record, clear cookie, return 200
-- [ ] 4.5 Write integration tests for registration (success, duplicate name, missing fields) and login (success, wrong password)
+- [x] 4.5 Write integration tests for registration (success, duplicate name, missing fields) and login (success, wrong password)
 
 ## Task 5: Eligibility List Upload API
 
 - [x] 5.1 Create `backend/src/routes/eligibility.ts`
 - [x] 5.2 Implement `POST /api/eligibility` — accept multipart CSV/TXT file upload (max 10MB), parse voter identifiers, SHA-256 hash each, deduplicate, store EligibilityList + EligibilityEntry records, return count
-- [ ] 5.3 Write tests for eligibility upload (success, duplicate deduplication, file too large, unauthenticated)
+- [x] 5.3 Write tests for eligibility upload (success, duplicate deduplication, file too large, unauthenticated)
 
 ## Task 6: Ballot Engine — Create and Retrieve Ballots API
 
@@ -50,48 +50,48 @@
 - [x] 6.3 Implement `GET /api/ballots` — return all ballots for authenticated org with status, deadline, eligible voter count, token issued count, vote count
 - [x] 6.4 Implement `GET /api/ballots/:id` — return ballot topic and options (public, no auth required)
 - [x] 6.5 Create `backend/src/utils/scheduler.ts` — polls every 30s, closes ballots past deadline, triggers result engine
-- [ ] 6.6 Write tests for ballot creation (success, <2 options, past deadline, unauthenticated) and retrieval
+- [x] 6.6 Write tests for ballot creation (success, <2 options, past deadline, unauthenticated) and retrieval
 
 ## Task 7: Identity Manager — Token Issuance API
 
 - [x] 7.1 Create `backend/src/services/identityManager.ts`
 - [x] 7.2 Implement `POST /api/tokens` — accept ballotId + voterIdentifier; hash identifier; check eligibility; check token not already issued; generate 32-byte CSPRNG token; store hash; mark entry as token-issued; write TOKEN_ISSUED audit event; return raw token
-- [ ] 7.3 Enforce: reject if ballot is CLOSED; reject if token already issued for this identifier+ballot; reject without revealing ballot existence if identifier not in list
-- [ ] 7.4 Write tests for token issuance (success, duplicate request, ineligible voter, closed ballot)
+- [x] 7.3 Enforce: reject if ballot is CLOSED; reject if token already issued for this identifier+ballot; reject without revealing ballot existence if identifier not in list
+- [x] 7.4 Write tests for token issuance (success, duplicate request, ineligible voter, closed ballot)
 
 ## Task 8: Privacy Engine — Vote Submission API
 
 - [x] 8.1 Create `backend/src/services/privacyEngine.ts`
 - [x] 8.2 Implement `POST /api/votes` — accept ballotId + voterToken + optionId; hash token; validate token exists and unused; validate optionId belongs to ballot; encrypt vote payload; create Vote record; mark token as used; write VOTE_CAST audit event; return confirmation
-- [ ] 8.3 Enforce: reject used tokens; reject invalid tokens; reject invalid options; reject if ballot CLOSED
-- [ ] 8.4 Write tests for vote submission (success, used token, invalid token, wrong option, closed ballot)
+- [x] 8.3 Enforce: reject used tokens; reject invalid tokens; reject invalid options; reject if ballot CLOSED
+- [x] 8.4 Write tests for vote submission (success, used token, invalid token, wrong option, closed ballot)
 
 ## Task 9: Stellar Blockchain Integration
 
 - [x] 9.1 Create `backend/src/services/stellarService.ts`
-- [ ] 9.2 Implement `writeRecord(data: object): Promise<string>` — serialize data, write as Stellar manageData operation, return transaction ID
-- [ ] 9.3 Add retry logic: up to 3 attempts on failure before throwing
-- [ ] 9.4 Integrate Stellar writes into vote submission (after Vote record created) and audit event creation
-- [ ] 9.5 Integrate Stellar writes into result publication
-- [ ] 9.6 Store returned stellarTxId back on Vote, AuditEvent, and Result records
-- [ ] 9.7 Write tests for Stellar service with mocked SDK (success, retry on failure, failure after 3 retries)
+- [x] 9.2 Implement `writeRecord(data: object): Promise<string>` — serialize data, write as Stellar manageData operation, return transaction ID
+- [x] 9.3 Add retry logic: up to 3 attempts on failure before throwing
+- [x] 9.4 Integrate Stellar writes into vote submission (after Vote record created) and audit event creation
+- [x] 9.5 Integrate Stellar writes into result publication
+- [x] 9.6 Store returned stellarTxId back on Vote, AuditEvent, and Result records
+- [x] 9.7 Write tests for Stellar service with mocked SDK (success, retry on failure, failure after 3 retries)
 
 ## Task 10: Result Engine — Tally and Publication API
 
 - [x] 10.1 Create `backend/src/services/resultEngine.ts`
 - [x] 10.2 Implement `tallyBallot(ballotId: string)` — count votes per option; compare total votes to used token count; flag inconsistency if mismatch; create Result record; write RESULT_PUBLISHED audit event; write Stellar record
 - [x] 10.3 Implement `GET /api/results/:ballotId` — return published result with tally, total votes, stellarTxId (public, no auth)
-- [ ] 10.4 Write tests for tally (correct counts, inconsistency detection, Stellar write called)
+- [x] 10.4 Write tests for tally (correct counts, inconsistency detection, Stellar write called)
 
 ## Task 11: Audit API
 
 - [x] 11.1 Create `backend/src/routes/audit.ts`
 - [x] 11.2 Implement `GET /api/audit/:ballotId` — return counts of TOKEN_ISSUED and VOTE_CAST events, plus stellarTxIds for each event type (public, no auth)
-- [ ] 11.3 Write tests for audit endpoint (known ballot, unknown ballot)
+- [x] 11.3 Write tests for audit endpoint (known ballot, unknown ballot)
 
 ## Task 12: Frontend — Project Setup and Routing
 
-- [ ] 12.1 Configure TailwindCSS in `frontend/tailwind.config.ts` and `frontend/src/index.css`
+- [x] 12.1 Configure TailwindCSS in `frontend/tailwind.config.ts` and `frontend/src/index.css`
 - [x] 12.2 Create `frontend/src/api/client.ts` — Axios instance with base URL, `withCredentials: true`, response interceptor for 401 redirect
 - [x] 12.3 Create `frontend/src/types/index.ts` with shared TypeScript types (Ballot, Option, Result, AuditCounts, etc.)
 - [x] 12.4 Set up React Router in `frontend/src/App.tsx` with routes for all 8 pages
@@ -131,10 +131,10 @@
 
 ## Task 19: End-to-End Integration and Final Wiring
 
-- [ ] 19.1 Connect ballot deadline scheduler to result engine tally trigger
-- [ ] 19.2 Verify CORS config allows frontend origin with credentials
+- [x] 19.1 Connect ballot deadline scheduler to result engine tally trigger
+- [x] 19.2 Verify CORS config allows frontend origin with credentials
 - [x] 19.3 Add `proxy` config in `vite.config.ts` to forward `/api` to backend in development
-- [ ] 19.4 Write one end-to-end test covering: register org → create ballot → request token → submit vote → verify result
+- [x] 19.4 Write one end-to-end test covering: register org → create ballot → request token → submit vote → verify result
 - [x] 19.5 Add `package.json` scripts at root for `dev`, `build`, `test`
 
 ## Task 20: GitHub Push
