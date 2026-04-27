@@ -5,3 +5,4 @@ dist/
 prisma/migrations/
 .DS_Store
 coverage/
+.kiro/
