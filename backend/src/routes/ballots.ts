@@ -1,5 +1,62 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import { requireAuth } from "../middleware/auth";
+import {
+  createBallot,
+  getBallotsByOrg,
+  getBallotById,
+} from "../services/ballotEngine";
+import { badRequest } from "../utils/errors";
 
 const router = Router();
+
+// POST /api/ballots — Create a new ballot
+router.post(
+  "/",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { topic, options, eligibilityListId, deadline } = req.body;
+      if (!topic || !options || !eligibilityListId || !deadline) {
+        throw badRequest(
+          "Missing required fields: topic, options, eligibilityListId, deadline",
+        );
+      }
+      const ballot = await createBallot(
+        req.organization!.id,
+        topic,
+        options,
+        eligibilityListId,
+        new Date(deadline),
+      );
+      res.status(201).json({ data: ballot });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/ballots — List org ballots
+router.get(
+  "/",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ballots = await getBallotsByOrg(req.organization!.id);
+      res.status(200).json({ data: ballots });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/ballots/:id — Get ballot (public)
+router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ballot = await getBallotById(req.params.id);
+    res.status(200).json({ data: ballot });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

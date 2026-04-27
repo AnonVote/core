@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { AppError } from "../utils/errors";
 
 export function errorHandler(
   err: Error,
@@ -6,6 +7,17 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  console.error(err.stack);
-  res.status(500).json({ error: "InternalServerError", message: err.message });
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      error: err.error,
+      message: err.message,
+    });
+    return;
+  }
+
+  console.error("[Unhandled Error]", err);
+  res.status(500).json({
+    error: "InternalServerError",
+    message: "An unexpected error occurred",
+  });
 }

@@ -1,10 +1,31 @@
-import { Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 
-export function rateLimiter(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  // TODO: implement rate limiting (10 failed attempts per 60s, block for 300s)
-  next();
-}
+export const rateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 60 seconds
+  max: 10,
+  skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: "TooManyRequests",
+      message: "Too many attempts, please try again later",
+    });
+  },
+});
+
+// Stricter limiter for sensitive endpoints (token requests, vote submission)
+export const strictRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: "TooManyRequests",
+      message: "Too many attempts. Access blocked for 5 minutes.",
+    });
+  },
+  skipFailedRequests: false,
+});
