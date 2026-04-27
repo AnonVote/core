@@ -1,1 +1,5 @@
-{}
+{
+  "files.exclude": {
+    "**/.kiro": true
+  }
+}
