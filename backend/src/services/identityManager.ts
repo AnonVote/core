@@ -6,11 +6,12 @@ import { badRequest, notFound } from "../utils/errors";
 /**
  * Issue a one-time anonymous voter token.
  * Privacy guarantee: no link is stored between the voter identifier and the token.
+ * Stellar write is required — token issuance is rolled back if Stellar write fails.
  */
 export async function issueToken(
   ballotId: string,
   voterIdentifier: string,
-): Promise<string> {
+): Promise<{ token: string; stellarTxId: string }> {
   // Get ballot with eligibility list
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
@@ -57,9 +58,9 @@ export async function issueToken(
   const rawToken = generateToken();
   const tokenHash = hashToken(rawToken);
 
-  await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // Store token hash only
-    await tx.voterToken.create({
+    const voterToken = await tx.voterToken.create({
       data: { tokenHash, ballotId },
     });
 
@@ -74,20 +75,27 @@ export async function issueToken(
       data: { ballotId, eventType: "TOKEN_ISSUED" },
     });
 
-    // Write to Stellar async (non-blocking)
-    writeRecord({ type: "TOKEN_ISSUED", ballotId, auditEventId: auditEvent.id })
-      .then((txId) => {
-        if (txId) {
-          prisma.auditEvent
-            .update({
-              where: { id: auditEvent.id },
-              data: { stellarTxId: txId },
-            })
-            .catch(console.error);
-        }
-      })
-      .catch(console.error);
+    return { auditEventId: auditEvent.id };
   });
 
-  return rawToken;
+  // Write to Stellar (required for transaction to complete)
+  const stellarTxId = await writeRecord({
+    type: "TOKEN_ISSUED",
+    ballotId,
+    auditEventId: result.auditEventId,
+  });
+
+  if (!stellarTxId) {
+    throw new Error(
+      "Stellar blockchain write failed. Token issuance could not be recorded.",
+    );
+  }
+
+  // Update audit event with Stellar transaction ID
+  await prisma.auditEvent.update({
+    where: { id: result.auditEventId },
+    data: { stellarTxId },
+  });
+
+  return { token: rawToken, stellarTxId };
 }

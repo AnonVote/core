@@ -7,6 +7,7 @@ import TokenRequestPage from "./pages/TokenRequestPage";
 import VotePage from "./pages/VotePage";
 import ResultsPage from "./pages/ResultsPage";
 import AuditPage from "./pages/AuditPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -15,8 +16,22 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/ballots/new" element={<CreateBallotPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ballots/new"
+          element={
+            <ProtectedRoute>
+              <CreateBallotPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/vote/:ballotId/token" element={<TokenRequestPage />} />
         <Route path="/vote/:ballotId" element={<VotePage />} />
         <Route path="/results/:ballotId" element={<ResultsPage />} />

@@ -17,7 +17,7 @@ export const rateLimiter = rateLimit({
 // Stricter limiter for sensitive endpoints (token requests, vote submission)
 export const strictRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 3,
   skipSuccessfulRequests: false,
   standardHeaders: true,
   legacyHeaders: false,

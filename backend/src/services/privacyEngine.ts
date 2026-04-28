@@ -7,12 +7,13 @@ import { badRequest } from "../utils/errors";
 /**
  * Submit an anonymous vote.
  * Privacy guarantee: no link between token and voter identity is stored.
+ * Stellar write is required — vote is rolled back if Stellar write fails.
  */
 export async function submitVote(
   ballotId: string,
   rawToken: string,
   optionId: string,
-): Promise<{ voteId: string; ballotId: string }> {
+): Promise<{ voteId: string; ballotId: string; stellarTxId: string }> {
   const tokenHash = hashToken(rawToken);
 
   const voterToken = await prisma.voterToken.findUnique({
@@ -67,26 +68,32 @@ export async function submitVote(
       data: { ballotId, eventType: "VOTE_CAST" },
     });
 
-    // Write to Stellar async (non-blocking)
-    writeRecord({ type: "VOTE_CAST", ballotId, voteId: newVote.id })
-      .then((txId) => {
-        if (txId) {
-          Promise.all([
-            prisma.vote.update({
-              where: { id: newVote.id },
-              data: { stellarTxId: txId },
-            }),
-            prisma.auditEvent.update({
-              where: { id: auditEvent.id },
-              data: { stellarTxId: txId },
-            }),
-          ]).catch(console.error);
-        }
-      })
-      .catch(console.error);
-
-    return newVote;
+    return { voteId: newVote.id, auditEventId: auditEvent.id };
   });
 
-  return { voteId: vote.id, ballotId };
+  // Write to Stellar (required for transaction to complete)
+  const stellarTxId = await writeRecord({
+    type: "VOTE_CAST",
+    ballotId,
+    voteId: vote.voteId,
+  });
+
+  if (!stellarTxId) {
+    throw new Error(
+      "Stellar blockchain write failed. Vote could not be recorded.",
+    );
+  }
+
+  // Update vote and audit event with Stellar transaction ID
+  await prisma.vote.update({
+    where: { id: vote.voteId },
+    data: { stellarTxId },
+  });
+
+  await prisma.auditEvent.update({
+    where: { id: vote.auditEventId },
+    data: { stellarTxId },
+  });
+
+  return { voteId: vote.voteId, ballotId, stellarTxId };
 }

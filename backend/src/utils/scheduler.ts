@@ -1,12 +1,27 @@
 import { getOpenExpiredBallots, closeBallot } from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
+import { prisma } from "../prisma/client";
 
-export function startScheduler(): void {
-  console.log(
-    "[Scheduler] Started — polling every 30 seconds for expired ballots",
-  );
+async function getNextDeadline(): Promise<Date | null> {
+  const ballot = await prisma.ballot.findFirst({
+    where: {
+      status: "OPEN",
+      deadline: {
+        gte: new Date(),
+      },
+    },
+    orderBy: {
+      deadline: "asc",
+    },
+    select: {
+      deadline: true,
+    },
+  });
+  return ballot?.deadline ?? null;
+}
 
-  setInterval(async () => {
+export async function startScheduler(): Promise<void> {
+  async function processExpiredBallots(): Promise<void> {
     try {
       const expiredBallots = await getOpenExpiredBallots();
       if (expiredBallots.length === 0) return;
@@ -31,5 +46,22 @@ export function startScheduler(): void {
     } catch (err) {
       console.error("[Scheduler] Poll error:", err);
     }
-  }, 30_000);
+
+    // Schedule next check
+    const nextDeadline = await getNextDeadline();
+    if (nextDeadline) {
+      const timeUntil = nextDeadline.getTime() - Date.now();
+      const safeDelay = Math.max(1000, timeUntil);
+      console.log(
+        `[Scheduler] Next ballot expires in ${Math.round(timeUntil / 1000)}s, scheduling check`,
+      );
+      setTimeout(processExpiredBallots, safeDelay);
+    } else {
+      console.log("[Scheduler] No upcoming ballots, polling every 30 seconds");
+      setTimeout(processExpiredBallots, 30_000);
+    }
+  }
+
+  console.log("[Scheduler] Started — waiting for ballots to schedule checks");
+  processExpiredBallots();
 }
