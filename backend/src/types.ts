@@ -34,7 +34,6 @@ export interface Ballot {
   votesCast?: number;
   tokensIssued?: number;
   eligibleVoters?: number;
-  result?: Result;
 }
 
 export interface EligibilityList {
@@ -95,16 +94,4 @@ export interface TokenResponse {
 export interface LoginResponse {
   organizationId: string;
   name: string;
-}
-
-export interface TallyEntry {
-  optionId: string;
-  optionText: string;
-  count: number;
-  percentage: number;
-}
-
-export interface ApiError {
-  error: string;
-  message: string;
 }

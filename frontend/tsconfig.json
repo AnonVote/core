@@ -17,6 +17,6 @@
     "noFallthroughCasesInSwitch": true,
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src"],
+  "include": ["src", "../shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
