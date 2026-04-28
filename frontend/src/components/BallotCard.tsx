@@ -79,7 +79,7 @@ export default function BallotCard({ ballot }: Props) {
         {isOpen && (
           <button
             onClick={copyLink}
-            className="flex-1 min-w-0 bg-primary hover:bg-primary-hover text-white text-sm px-3 py-2 rounded-lg transition truncate"
+            className="flex-1 min-w-0 bg-[#2cb67d] hover:bg-[#198259] text-white text-sm px-3 py-2 rounded-lg transition truncate"
           >
             Copy Voter Link
           </button>

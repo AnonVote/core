@@ -53,6 +53,16 @@
   background-color: var(--color-card-border);
 }
 
+/* Login/Register buttons in navbar */
+.navbar a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.navbar a:hover {
+  color: var(--color-primary);
+}
+
 /* Hexagon Icon */
 .hexagon-icon {
   width: 32px;
