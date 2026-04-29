@@ -100,25 +100,22 @@ export default function CreateBallotPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Ballot Topic
             </label>
-            <div className="input-with-icon">
-              <svg
-                className="input-icon w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
+            <div className="input-wrapper">
+              <span className="input-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </span>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                className={`input-field ${errors.topic ? "border-red-500" : ""}`}
+                className="input-field has-icon"
                 placeholder="e.g. Adopt new remote work policy"
               />
             </div>
@@ -134,13 +131,26 @@ export default function CreateBallotPage() {
             <div className="space-y-2">
               {options.map((opt, i) => (
                 <div key={i} className="flex gap-2">
-                  <div className="input-with-icon flex-1">
-                    <span className="input-icon text-gray-400">{i + 1}.</span>
+                  <div className="input-wrapper flex-1">
+                    <span className="input-icon">
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </span>
                     <input
                       type="text"
                       value={opt}
                       onChange={(e) => updateOption(i, e.target.value)}
-                      className={`input-field ${errors.options ? "border-red-500" : ""}`}
+                      className="input-field has-icon"
                       placeholder={`Option ${i + 1}`}
                     />
                   </div>
@@ -172,26 +182,23 @@ export default function CreateBallotPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Voting Deadline
             </label>
-            <div className="input-with-icon">
-              <svg
-                className="input-icon w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+            <div className="input-wrapper">
+              <span className="input-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </span>
               <input
                 type="datetime-local"
                 value={deadline}
                 min={minDeadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className={`input-field ${errors.deadline ? "border-red-500" : ""}`}
+                className="input-field has-icon"
               />
             </div>
             {errors.deadline && (

@@ -1,435 +1,1001 @@
-/* 
- * AnonVote Design System - Theme Variables
- * Light mode default with dark mode toggle
- * Inspired by: Vercel (dark precision), Uber (bold CTAs), Apple (light spacing), Cal (clean interface), Figma (modern UI)
+/*
+ * AnonVote Design System — theme.css
+ * Built from: Apple (light mode spacing + surface hierarchy),
+ *             Vercel (dark precision + depth), Uber (bold CTAs + type scale)
+ *
+ * USAGE: Import this file once in main.tsx
+ * All values reference tokens — never use raw hex in component files.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
+/* ============================================================
+   1. DESIGN TOKENS — LIGHT MODE (default)
+   Apple-inspired: clean surfaces, premium white space, ink type
+   ============================================================ */
 :root {
-  /* Light Theme - Apple-inspired clean, premium feel (DEFAULT) */
-  --color-bg: #fafafa;
-  --color-text: #1a1a1a;
-  --color-card-bg: #ffffff;
-  --color-card-border: #e6e6e6;
-  --color-input-bg: #f5f5f5;
-  --color-input-border: #d6d6d6;
-  --color-input-focus-ring: #198259;
-  --color-primary: #2cb67d;
-  --color-primary-hover: #198259;
-  --color-success: #10b981;
-  --color-success-bg: #eefbf4;
-  --color-success-border: #d7f4e3;
-  --color-error: #ff0005;
-  --color-error-bg: #ffe5e5;
-  --color-error-border: #ffcccc;
-  --color-muted: #767676;
-  --color-grid-overlay: rgba(26, 26, 26, 0.03);
-  --color-glow-indigo: rgba(25, 130, 89, 0.08);
-  --color-glow-emerald: rgba(44, 182, 125, 0.08);
-  --shadow-card:
-    0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  --shadow-card-hover:
-    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-uber: 0 10px 20px rgba(0, 0, 0, 0.12);
-  --shadow-uber-hover: 0 14px 28px rgba(0, 0, 0, 0.15);
+  /* — Surfaces — */
+  --surface-base: #f5f5f7; /* Apple canvas-parchment — page background */
+  --surface-raised: #ffffff; /* Cards, modals, inputs */
+  --surface-sunken: #e8e8ed; /* Inset inputs, code blocks */
+  --surface-overlay: rgba(255, 255, 255, 0.72); /* Frosted glass nav */
+
+  /* — Borders — */
+  --border-soft: #e0e0e5; /* Card edges */
+  --border-medium: #c7c7cc; /* Input default */
+  --border-strong: #a0a0a8; /* Input hover */
+
+  /* — Ink (Text) — Apple's precise type hierarchy */
+  --ink-primary: #1d1d1f; /* Headlines, labels */
+  --ink-secondary: #4a4a4f; /* Body text */
+  --ink-muted: #7a7a80; /* Captions, placeholders */
+  --ink-disabled: #aeaeb2; /* Disabled states */
+  --ink-inverse: #ffffff; /* Text on dark surfaces */
+
+  /* — Brand — Indigo: authority, trust, precision */
+  --brand-primary: #4f46e5;
+  --brand-primary-dim: #6366f1; /* Hover / active state */
+  --brand-primary-pale: rgba(79, 70, 229, 0.08); /* Tinted bg */
+  --brand-primary-ring: rgba(79, 70, 229, 0.18); /* Focus ring */
+
+  /* — Semantic: Success — */
+  --semantic-success: #059669;
+  --semantic-success-light: #d1fae5;
+  --semantic-success-border: #6ee7b7;
+
+  /* — Semantic: Error — */
+  --semantic-error: #dc2626;
+  --semantic-error-light: #fee2e2;
+  --semantic-error-border: #fca5a5;
+
+  /* — Semantic: Warning — */
+  --semantic-warning: #d97706;
+  --semantic-warning-light: #fef3c7;
+  --semantic-warning-border: #fcd34d;
+
+  /* — Typography Scale — Uber-inspired tight, bold hierarchy */
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 40px;
+  --text-hero: 56px;
+
+  /* — Font Families — */
+  --font-display: "Space Grotesk", system-ui, sans-serif; /* Logo, headings */
+  --font-body: "DM Sans", system-ui, sans-serif; /* Body, inputs, UI */
+  --font-mono: "JetBrains Mono", monospace; /* Hashes, tokens, metadata */
+
+  /* — Font Weights — Apple's deliberate ladder: no 500 in display */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* — Letter Spacing — Apple's signature tight headings */
+  --tracking-tighter: -0.03em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;
+  --tracking-widest: 0.12em;
+
+  /* — Spacing Scale — Apple 8pt grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* — Border Radius — */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+
+  /* — Shadows — Apple: shadows only on raised surfaces, never chrome */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.06);
+
+  /* — Transitions — standardized durations */
+  --transition-fast: 100ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 300ms ease;
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* — Depth FX — */
+  --overlay-grid: rgba(26, 26, 26, 0.035);
+  --glow-brand: rgba(79, 70, 229, 0.1);
+  --glow-success: rgba(5, 150, 105, 0.1);
+
+  /* — Layout — */
+  --content-max: 1440px;
+  --content-md: 768px;
+  --content-sm: 480px;
 }
 
+/* ============================================================
+   2. DARK MODE OVERRIDES
+   BMW M-inspired: pure black canvas, engineered precision,
+   structured chrome, no warmth — cold authority.
+   Accent: BMW M tricolor adapted → electric blue as primary,
+   deep red as danger, white as ink. Zero compromise.
+   ============================================================ */
 [data-theme="dark"] {
-  /* Dark Theme - Vercel-inspired precision and depth */
-  --color-bg: #000000;
-  --color-text: #e6e6e6;
-  --color-card-bg: #1a1a1a;
-  --color-card-border: #292929;
-  --color-input-bg: #0a0a0a;
-  --color-input-border: #434343;
-  --color-input-focus-ring: #4abd8a;
-  --color-primary: #4abd8a;
-  --color-primary-hover: #2cb67d;
-  --color-success: #10b981;
-  --color-success-bg: #064e3b;
-  --color-success-border: #115e59;
-  --color-error: #ff0005;
-  --color-error-bg: #7f1d1d;
-  --color-error-border: #991b1b;
-  --color-muted: #a5a5a5;
-  --color-grid-overlay: rgba(255, 255, 255, 0.04);
-  --color-glow-indigo: rgba(25, 130, 89, 0.12);
-  --color-glow-emerald: rgba(74, 189, 138, 0.12);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-  --shadow-card-hover:
-    0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-uber: 0 10px 20px rgba(0, 0, 0, 0.3);
-  --shadow-uber-hover: 0 14px 28px rgba(0, 0, 0, 0.4);
+  /* — Surfaces — BMW M: true black foundation, micro-stepped layers */
+  --surface-base: #000000; /* Pure black canvas — M motorsport */
+  --surface-raised: #0f0f0f; /* Cards — barely lifted off black */
+  --surface-sunken: #080808; /* Inset inputs — recessed into black */
+  --surface-overlay: rgba(0, 0, 0, 0.92); /* Nav — near-opaque black glass */
+
+  /* — Borders — engineered hairlines, BMW precision chrome */
+  --border-soft: rgba(255, 255, 255, 0.07); /* Ghost dividers */
+  --border-medium: rgba(255, 255, 255, 0.12); /* Input edges */
+  --border-strong: rgba(255, 255, 255, 0.22); /* Active / hover */
+
+  /* — Ink — BMW M: white type on black, no warmth */
+  --ink-primary: #ffffff; /* Pure white — headlines */
+  --ink-secondary: rgba(255, 255, 255, 0.7); /* Body — 70% white */
+  --ink-muted: rgba(255, 255, 255, 0.38); /* Captions, placeholders */
+  --ink-disabled: rgba(255, 255, 255, 0.18); /* Disabled */
+  --ink-inverse: #000000; /* Text on light surfaces */
+
+  /* — Brand — BMW M electric blue, cold and precise */
+  --brand-primary: #1c7ed6; /* M sport blue */
+  --brand-primary-dim: #339af0; /* Lighter on hover */
+  --brand-primary-pale: rgba(28, 126, 214, 0.1); /* Tinted bg */
+  --brand-primary-ring: rgba(28, 126, 214, 0.22); /* Focus ring */
+
+  /* — Semantic: Success — cold green, not warm */
+  --semantic-success: #20c997;
+  --semantic-success-light: rgba(32, 201, 151, 0.08);
+  --semantic-success-border: rgba(32, 201, 151, 0.18);
+
+  /* — Semantic: Error — BMW M red stripe */
+  --semantic-error: #e03131;
+  --semantic-error-light: rgba(224, 49, 49, 0.08);
+  --semantic-error-border: rgba(224, 49, 49, 0.2);
+
+  /* — Semantic: Warning — */
+  --semantic-warning: #f59f00;
+  --semantic-warning-light: rgba(245, 159, 0, 0.08);
+  --semantic-warning-border: rgba(245, 159, 0, 0.18);
+
+  /* — Shadows — on black, shadows = subtle elevation glow */
+  --shadow-sm:
+    0 1px 3px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-md:
+    0 4px 12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-lg:
+    0 12px 28px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --shadow-xl:
+    0 24px 48px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  /* — Depth FX — */
+  --overlay-grid: rgba(255, 255, 255, 0.025); /* Barely visible grid */
+  --glow-brand: rgba(28, 126, 214, 0.12); /* Blue glow bloom */
+  --glow-success: rgba(32, 201, 151, 0.08);
 }
 
-/* Font Families */
-.font-space-grotesk {
-  font-family: "Space Grotesk", system-ui, sans-serif;
+/* ============================================================
+   3. BASE RESET & GLOBAL STYLES
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.font-dm-sans {
-  font-family: "DM Sans", system-ui, sans-serif;
-}
-
-.font-mono {
-  font-family: "JetBrains Mono", monospace;
-}
-
-/* Base Styles */
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: "DM Sans", system-ui, sans-serif;
+html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
-/* Grid Overlay for Background */
-.bg-grid-overlay {
-  background-image:
-    radial-gradient(var(--color-grid-overlay) 1px, transparent 1px),
-    radial-gradient(var(--color-grid-overlay) 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position:
-    0 0,
-    16px 16px;
+body {
+  background-color: var(--surface-base);
+  color: var(--ink-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: 1.6;
+  min-height: 100vh;
+  transition:
+    background-color var(--transition-slow),
+    color var(--transition-slow);
 }
 
-/* Glow Blobs for Depth */
-.glow-indigo {
-  background: radial-gradient(
+/* ============================================================
+   4. TYPOGRAPHY UTILITIES
+   ============================================================ */
+.text-hero {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tighter);
+  line-height: 1.05;
+}
+
+.text-display {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+}
+
+.text-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+}
+
+.text-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.3;
+}
+
+.text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: 1.6;
+  color: var(--ink-secondary);
+}
+
+.text-caption {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+}
+
+.text-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--brand-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Line AFTER the text, not before — reads more naturally */
+.text-eyebrow::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: var(--brand-primary);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   5. LAYOUT UTILITIES
+   ============================================================ */
+.page-wrapper {
+  min-height: 100vh;
+  background-color: var(--surface-base);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Dot grid background — Apple/Vercel depth effect */
+.bg-grid {
+  background-image: radial-gradient(
     circle,
-    var(--color-glow-indigo) 0%,
-    transparent 70%
+    var(--overlay-grid) 1px,
+    transparent 1px
   );
+  background-size: 28px 28px;
 }
 
-.glow-emerald {
-  background: radial-gradient(
-    circle,
-    var(--color-glow-emerald) 0%,
-    transparent 70%
-  );
+/* Radial glow blobs */
+.glow-blob-brand {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-brand) 0%, transparent 65%);
+  pointer-events: none;
 }
 
-/* Card Component */
+.glow-blob-success {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-success) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.content-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-4);
+}
+
+/* ============================================================
+   6. CARD COMPONENT
+   ============================================================ */
 .card {
-  background-color: var(--color-card-bg);
-  border: 1px solid var(--color-card-border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-card);
-  transition: box-shadow 0.2s ease;
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-medium);
 }
 
-/* Input Field */
-.input-field {
-  background-color: var(--color-input-bg);
-  border: 1px solid var(--color-input-border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  color: var(--color-text);
-  font-family: "DM Sans", system-ui, sans-serif;
-  font-size: 14px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.input-field::placeholder {
-  color: var(--color-muted);
-}
-
-.input-field:focus {
-  outline: none;
-  border-color: var(--color-input-focus-ring);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-/* Primary Button */
-.btn-primary {
-  background: linear-gradient(
-    135deg,
-    var(--color-primary) 0%,
-    var(--color-primary-hover) 100%
-  );
-  color: white;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 12px 24px;
-  border-radius: 8px;
-  border: none;
+.card-interactive {
   cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+}
+
+.card-interactive:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--brand-primary);
+}
+
+.card-selected {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-ring);
+}
+
+/* ============================================================
+   7. INPUT COMPONENTS
+   ============================================================ */
+.input-wrapper {
   position: relative;
-  overflow: hidden;
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Shimmer Animation */
-.btn-primary::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: left 0.5s ease;
-}
-
-.btn-primary:hover::before {
-  left: 100%;
-}
-
-/* Loading Dot Animation */
-.loading-dots {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.loading-dots span {
-  width: 6px;
-  height: 6px;
-  background-color: white;
-  border-radius: 50%;
-  animation: bounce 0.6s infinite ease-in-out both;
-}
-
-.loading-dots span:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.loading-dots span:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes bounce {
-  0%,
-  80%,
-  100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
-}
-
-/* Error Message */
-.error-message {
-  background-color: var(--color-error-bg);
-  border-left: 4px solid var(--color-error);
-  padding: 12px 16px;
-  border-radius: 8px;
-  color: var(--color-text);
-  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
-.error-message svg {
-  flex-shrink: 0;
-  color: var(--color-error);
-}
-
-/* Success Message */
-.success-message {
-  background-color: var(--color-success-bg);
-  border-left: 4px solid var(--color-success);
-  padding: 12px 16px;
-  border-radius: 8px;
-  color: var(--color-text);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.success-message svg {
-  flex-shrink: 0;
-  color: var(--color-success);
-}
-
-/* Section Eyebrow */
-.section-eyebrow {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  color: var(--color-primary);
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.section-eyebrow::before {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background-color: var(--color-primary);
-  opacity: 0.5;
-}
-
-/* Input with Left Icon */
-.input-with-icon {
-  position: relative;
-}
-
-.input-with-icon .input-icon {
+.input-icon {
   position: absolute;
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--color-muted);
+  color: var(--ink-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  z-index: 1;
+}
+
+/* Ensure SVGs inside icons are always correctly sized */
+.input-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.input-field {
+  width: 100%;
+  background-color: var(--surface-sunken);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.input-field.has-icon {
+  padding-left: 38px;
+}
+
+.input-field::placeholder {
+  color: var(--ink-muted);
+  font-weight: var(--weight-regular);
+}
+
+.input-field:hover {
+  border-color: var(--border-strong);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-primary-ring);
+  background-color: var(--surface-raised);
+}
+
+.input-field.error {
+  border-color: var(--semantic-error);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* Mono input — for token/hash entry */
+.input-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   8. BUTTON COMPONENTS
+   ============================================================ */
+
+/* Primary — Uber bold CTA energy */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary) 0%,
+    var(--brand-primary-dim) 100%
+  );
+  color: white;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-normal);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    opacity var(--transition-base);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Shimmer on hover — Vercel feel */
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  transform: translateX(100%);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 20px var(--brand-primary-pale);
+}
+
+.btn-primary:active {
+  transform: scale(0.98) translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-primary.full-width {
+  width: 100%;
+}
+
+/* Ghost — outline variant */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: transparent;
+  color: var(--ink-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    color var(--transition-base);
+  white-space: nowrap;
+}
+
+.btn-ghost:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
+}
+
+/* Danger variant */
+.btn-danger {
+  background: linear-gradient(135deg, var(--semantic-error) 0%, #b91c1c 100%);
+  color: white;
+}
+
+/* Loading state */
+.btn-loading {
   pointer-events: none;
 }
 
-.input-with-icon input {
-  padding-left: 40px;
+.loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
 }
 
-/* Badge Component */
+.loading-dots span {
+  width: 5px;
+  height: 5px;
+  background: white;
+  border-radius: 50%;
+  animation: dot-bounce 0.9s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.3s;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.15s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0;
+}
+
+@keyframes dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   9. FEEDBACK: ERROR & SUCCESS MESSAGES
+   ============================================================ */
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+.message-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.message-error {
+  background-color: var(--semantic-error-light);
+  border-left: 3px solid var(--semantic-error);
+  color: var(--ink-primary);
+}
+
+.message-error .message-icon {
+  color: var(--semantic-error);
+}
+
+.message-success {
+  background-color: var(--semantic-success-light);
+  border-left: 3px solid var(--semantic-success);
+  color: var(--ink-primary);
+}
+
+.message-success .message-icon {
+  color: var(--semantic-success);
+}
+
+.message-warning {
+  background-color: var(--semantic-warning-light);
+  border-left: 3px solid var(--semantic-warning);
+  color: var(--ink-primary);
+}
+
+.field-error {
+  font-size: var(--text-sm);
+  color: var(--semantic-error);
+  margin-top: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ============================================================
+   10. BADGES & CHIPS
+   ============================================================ */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: "Space Grotesk", system-ui, sans-serif;
+  gap: var(--space-1);
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .badge-open {
-  background-color: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid var(--color-success-border);
+  background: var(--semantic-success-light);
+  color: var(--semantic-success);
+  border: 1px solid var(--semantic-success-border);
 }
 
 .badge-closed {
-  background-color: var(--color-muted);
-  color: white;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  border: 1px solid var(--border-soft);
 }
 
 .badge-upcoming {
-  background-color: var(--color-primary);
-  color: white;
+  background: var(--brand-primary-pale);
+  color: var(--brand-primary);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-/* Progress Bar */
-.progress-bar {
-  height: 6px;
-  background-color: var(--color-card-border);
-  border-radius: 3px;
+/* Monospace chip — for Stellar tx IDs and hashes */
+.chip-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+  max-width: 100%;
   overflow: hidden;
 }
 
-.progress-bar-fill {
-  height: 100%;
-  background-color: var(--color-primary);
-  border-radius: 3px;
-  transition: width 0.5s ease;
+.chip-mono-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Monospace Chip */
-.chip-mono {
-  background-color: var(--color-card-bg);
-  border: 1px solid var(--color-card-border);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
-  color: var(--color-text);
+/* Network status pill */
+.chip-network {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wide);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--semantic-success-light);
+  color: var(--semantic-success);
+  border: 1px solid var(--semantic-success-border);
+}
+
+/* Trust chips — shown on login */
+.chip-trust {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
 }
 
-/* Theme Toggle Button */
-.theme-toggle {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  color: var(--color-text);
-  transition: background-color 0.2s ease;
+.chip-trust-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--semantic-success);
+  flex-shrink: 0;
 }
 
-.theme-toggle:hover {
-  background-color: var(--color-card-border);
+.chip-trust-dot.warning {
+  background: var(--semantic-warning);
+}
+.chip-trust-dot.brand {
+  background: var(--brand-primary);
 }
 
-/* Navbar */
+/* ============================================================
+   11. PROGRESS BAR
+   ============================================================ */
+.progress-track {
+  height: 6px;
+  background: var(--border-soft);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--brand-primary),
+    var(--brand-primary-dim)
+  );
+  border-radius: var(--radius-pill);
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.progress-fill.winner {
+  background: linear-gradient(90deg, var(--brand-primary), #a5b4fc);
+  box-shadow: 0 0 8px var(--brand-primary-pale);
+}
+
+/* ============================================================
+   12. NAVBAR
+   ============================================================ */
 .navbar {
-  background-color: var(--color-card-bg);
-  border-bottom: 1px solid var(--color-card-border);
-  padding: 16px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--surface-overlay);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0 var(--space-6);
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: var(--shadow-card);
+  transition:
+    background-color var(--transition-slow),
+    border-color var(--transition-slow);
+}
+
+/* BMW M dark mode: drop blur, go pure black — blur on black looks muddy */
+[data-theme="dark"] .navbar {
+  background-color: #000000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-primary);
+  gap: var(--space-2);
   text-decoration: none;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--brand-primary);
 }
 
-.navbar-network {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  background-color: var(--color-input-bg);
-  color: var(--color-muted);
-  border: 1px solid var(--color-input-border);
+.navbar-logo svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--brand-primary);
 }
 
-/* Hexagon Icon */
-.hexagon-icon {
-  width: 32px;
-  height: 32px;
-  position: relative;
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    color var(--transition-base);
 }
 
-.hexagon-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: var(--color-primary);
+.theme-toggle:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
+}
+
+/* ============================================================
+   13. STAT CARDS (Dashboard)
+   ============================================================ */
+.stat-card {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stat-card-number {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tighter);
+  color: var(--ink-primary);
+  line-height: 1;
+}
+
+.stat-card-label {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  font-weight: var(--weight-medium);
+}
+
+/* ============================================================
+   14. VOTE OPTION CARDS
+   ============================================================ */
+.vote-option {
+  padding: var(--space-5) var(--space-6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.vote-option:hover {
+  border-color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
+}
+
+.vote-option.selected {
+  border-color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
+  box-shadow: 0 0 0 3px var(--brand-primary-ring);
+}
+
+.vote-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.vote-option.selected .vote-check {
+  border-color: var(--brand-primary);
+  background-color: var(--brand-primary);
+}
+
+/* ============================================================
+   15. FILE UPLOAD AREA
+   ============================================================ */
+.upload-area {
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10) var(--space-8);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.upload-area:hover,
+.upload-area.drag-over {
+  border-color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
+}
+
+/* ============================================================
+   16. LINK STYLES
+   ============================================================ */
+.link {
+  color: var(--brand-primary);
+  text-decoration: none;
+  font-weight: var(--weight-medium);
+  transition:
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.link:hover {
+  color: var(--brand-primary-dim);
+  text-decoration: underline;
+}
+
+/* ============================================================
+   17. RESPONSIVE BREAKPOINTS
+   Matches Apple's structural breakpoints
+   ============================================================ */
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 36px;
+    --text-3xl: 28px;
+    --text-2xl: 24px;
+    --text-xl: 20px;
+  }
+
+  .navbar {
+    padding: 0 var(--space-4);
+  }
+
+  .content-center {
+    padding: var(--space-8) var(--space-4);
+  }
+}
+
+@media (max-width: 1068px) {
+  :root {
+    --text-hero: 44px;
+  }
 }

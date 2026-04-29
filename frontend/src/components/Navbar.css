@@ -1,77 +1,92 @@
 /* Navbar Component Styles */
 .navbar {
-  background-color: var(--color-card-bg);
-  border-bottom: 1px solid var(--color-card-border);
-  padding: 16px 24px;
+  background-color: var(--surface-overlay);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0 var(--space-6);
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: var(--shadow-card);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  transition:
+    background-color var(--transition-slow),
+    border-color var(--transition-slow);
+}
+
+/* BMW M dark mode: drop blur, go pure black — blur on black looks muddy */
+[data-theme="dark"] .navbar {
+  background-color: #000000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-primary);
+  gap: var(--space-2);
   text-decoration: none;
-  transition: color 0.2s ease;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink-primary);
 }
 
-.navbar-logo:hover {
-  color: var(--color-primary-hover);
+.navbar-logo svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--brand-primary);
 }
 
 .navbar-network {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  background-color: var(--color-input-bg);
-  color: var(--color-muted);
-  border: 1px solid var(--color-input-border);
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-widest);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--semantic-success-light);
+  color: var(--semantic-success);
+  border: 1px solid var(--semantic-success-border);
 }
 
 .theme-toggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
-  border: none;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
   cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  color: var(--color-text);
-  transition: background-color 0.2s ease;
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    color var(--transition-base);
 }
 
 .theme-toggle:hover {
-  background-color: var(--color-card-border);
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background-color: var(--brand-primary-pale);
 }
 
 /* Login/Register buttons in navbar */
-.navbar a {
-  color: var(--color-text);
+.navBarLogin a {
+  color: var(--ink-primary);
   text-decoration: none;
 }
 
-.navbar a:hover {
-  color: var(--color-primary);
+.navBarLogin a:hover {
+  color: var(--brand-primary);
 }
 
-/* Hexagon Icon */
-.hexagon-icon {
-  width: 32px;
-  height: 32px;
-  position: relative;
-}
-
-.hexagon-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: var(--color-primary);
+/* Org Name */
+.orgName span {
+  color: var(--ink-primary);
+  text-decoration: none;
 }
