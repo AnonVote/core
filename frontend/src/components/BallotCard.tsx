@@ -1,35 +1,63 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import type { Ballot } from "../types";
+import Toast from "./Toast";
 
 interface Props {
   ballot: Ballot;
 }
 
 export default function BallotCard({ ballot }: Props) {
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
   const isOpen = ballot.status === "OPEN";
   const deadline = new Date(ballot.deadline);
   const tokenLink = `${window.location.origin}/vote/${ballot.id}/token`;
 
-  const copyLink = () => navigator.clipboard.writeText(tokenLink);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(tokenLink);
+      setToast({ message: "Voter link copied to clipboard!", type: "success" });
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      setToast({
+        message: "Failed to copy link. Please try again.",
+        type: "error",
+      });
+    }
+  };
 
   return (
-    <div className="card p-6 hover:border-gray-600 dark:hover:border-gray-500 transition">
+    <div
+      className="card p-6"
+      style={{
+        transition:
+          "border-color var(--transition-base), box-shadow var(--transition-base)",
+      }}
+    >
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
-        <h3 className="text-gray-900 dark:text-white font-semibold text-lg leading-snug">
+        <h3
+          className="font-space-grotesk font-semibold text-lg leading-snug"
+          style={{ color: "var(--ink-primary)" }}
+        >
           {ballot.topic}
         </h3>
-        <span
-          className={`shrink-0 text-xs font-space-grotesk font-semibold px-2.5 py-1 rounded-full ${isOpen ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600"}`}
-        >
+        <span className={isOpen ? "badge badge-open" : "badge badge-closed"}>
           {isOpen ? "OPEN" : "CLOSED"}
         </span>
       </div>
 
+      {/* Inconsistency Warning */}
       {ballot.result && !ballot.result.isConsistent && (
-        <div className="bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 rounded-lg px-3 py-2 text-xs mb-4">
-          <div className="flex items-center gap-2">
+        <div className="message message-warning mb-4">
+          <span className="message-icon">
             <svg
-              className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+              width="16"
+              height="16"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -41,45 +69,110 @@ export default function BallotCard({ ballot }: Props) {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <span className="text-yellow-800 dark:text-yellow-200">
-              Inconsistency detected: vote count does not match issued tokens.
-            </span>
-          </div>
+          </span>
+          <span style={{ fontSize: "var(--text-sm)" }}>
+            Inconsistency detected: vote count does not match issued tokens.
+          </span>
         </div>
       )}
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+        <div
+          style={{
+            background: "var(--surface-base)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3)",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              color: "var(--ink-muted)",
+              fontSize: "var(--text-xs)",
+              marginBottom: "var(--space-1)",
+            }}
+          >
             Eligible
           </p>
-          <p className="text-gray-900 dark:text-white font-semibold">
+          <p
+            style={{
+              color: "var(--ink-primary)",
+              fontWeight: "var(--weight-semibold)",
+              fontSize: "var(--text-base)",
+            }}
+          >
             {ballot.eligibleVoters ?? "—"}
           </p>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+        <div
+          style={{
+            background: "var(--surface-base)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3)",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              color: "var(--ink-muted)",
+              fontSize: "var(--text-xs)",
+              marginBottom: "var(--space-1)",
+            }}
+          >
             Votes Cast
           </p>
-          <p className="text-gray-900 dark:text-white font-semibold">
+          <p
+            style={{
+              color: "var(--ink-primary)",
+              fontWeight: "var(--weight-semibold)",
+              fontSize: "var(--text-base)",
+            }}
+          >
             {ballot.votesCast ?? "—"}
           </p>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-xs mb-1">
+        <div
+          style={{
+            background: "var(--surface-base)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-3)",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              color: "var(--ink-muted)",
+              fontSize: "var(--text-xs)",
+              marginBottom: "var(--space-1)",
+            }}
+          >
             Deadline
           </p>
-          <p className="text-gray-900 dark:text-white font-semibold text-xs">
+          <p
+            style={{
+              color: "var(--ink-primary)",
+              fontWeight: "var(--weight-semibold)",
+              fontSize: "var(--text-xs)",
+            }}
+          >
             {deadline.toLocaleDateString()}
           </p>
         </div>
       </div>
 
+      {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
         {isOpen && (
           <button
             onClick={copyLink}
-            className="flex-1 min-w-0 bg-[#2cb67d] hover:bg-[#198259] text-white text-sm px-3 py-2 rounded-lg transition truncate"
+            className="btn-primary"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: "var(--text-sm)",
+              padding: "8px 12px",
+            }}
           >
             Copy Voter Link
           </button>
@@ -87,18 +180,35 @@ export default function BallotCard({ ballot }: Props) {
         {!isOpen && ballot.result && (
           <Link
             to={`/results/${ballot.id}`}
-            className="flex-1 min-w-0 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm px-3 py-2 rounded-lg transition text-center"
+            className="btn-ghost"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: "var(--text-sm)",
+              padding: "8px 12px",
+              textAlign: "center",
+            }}
           >
             View Results
           </Link>
         )}
         <Link
           to={`/audit/${ballot.id}`}
-          className="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 rounded-lg transition"
+          className="btn-ghost"
+          style={{ fontSize: "var(--text-sm)", padding: "8px 12px" }}
         >
           Audit
         </Link>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

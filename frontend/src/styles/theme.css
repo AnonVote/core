@@ -33,8 +33,8 @@
   --ink-inverse: #ffffff; /* Text on dark surfaces */
 
   /* — Brand — Indigo: authority, trust, precision */
-  --brand-primary: #4f46e5;
-  --brand-primary-dim: #6366f1; /* Hover / active state */
+  --brand-primary: #1c7ed6;
+  --brand-primary-dim: #339af0;
   --brand-primary-pale: rgba(79, 70, 229, 0.08); /* Tinted bg */
   --brand-primary-ring: rgba(79, 70, 229, 0.18); /* Focus ring */
 
@@ -303,14 +303,16 @@ body {
    5. LAYOUT UTILITIES
    ============================================================ */
 .page-wrapper {
+  height: 100%;
   min-height: 100vh;
   background-color: var(--surface-base);
   position: relative;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding-top: 24px;
-  padding-bottom: 60px;
+  padding-top: var(--space-16); /* adds breathing room at top */
+  padding-left: var(--space-10);
+  padding-right: var(--space-10);
 }
 
 .page-content {
@@ -318,20 +320,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-16) var(--space-4);
-  overflow: hidden;
-  padding-top: 56px;
-  padding-bottom: 60px;
+  padding: var(--space-8) var(--space-4);
+  width: 100%;
+  height: 100vh;
 }
 
-/* Scrollable content wrapper for login/register pages */
 .scrollable-content {
-  flex: 1;
+  flex: 1; /* this is the fix — fills all space between navbar and footer */
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-16) var(--space-4);
-  overflow-y: auto;
+  padding: var(--space-8) var(--space-4);
+  width: 100%;
 }
 
 /* Skeleton loading animation */
@@ -509,6 +509,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  min-height: 48px;
   background: linear-gradient(
     135deg,
     var(--brand-primary) 0%,
@@ -861,7 +862,7 @@ body {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--border-soft);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-10);
   height: 56px;
   display: flex;
   align-items: center;
@@ -888,13 +889,13 @@ body {
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
-  color: var(--brand-primary);
+  color: #ffffff;
 }
 
 .navbar-logo svg {
   width: 20px;
   height: 20px;
-  fill: var(--brand-primary);
+  fill: #ffffff;
 }
 
 .theme-toggle {

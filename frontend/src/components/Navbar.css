@@ -4,7 +4,7 @@
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--border-soft);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-10);
   height: 56px;
   display: flex;
   align-items: center;
@@ -31,13 +31,13 @@
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
-  color: var(--ink-primary);
+  color: #ffffff;
 }
 
 .navbar-logo svg {
   width: 20px;
   height: 20px;
-  fill: var(--brand-primary);
+  fill: #ffffff;
 }
 
 .navbar-network {
