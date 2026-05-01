@@ -31,13 +31,11 @@
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
-  color: #ffffff;
 }
 
 .navbar-logo svg {
   width: 20px;
   height: 20px;
-  fill: #ffffff;
 }
 
 .navbar-network {

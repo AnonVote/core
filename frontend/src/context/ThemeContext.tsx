@@ -21,8 +21,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const savedTheme = localStorage.getItem("anonvote-theme") as Theme;
     if (savedTheme) return savedTheme;
 
-    // Default to light on first load
-    return "light";
+    // Default to dark on first load
+    return "dark";
   });
 
   useEffect(() => {

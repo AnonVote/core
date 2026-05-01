@@ -220,7 +220,11 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
         <Link
           to={`/audit/${ballot.id}`}
           className="btn-ghost"
-          style={{ fontSize: "var(--text-sm)", padding: "8px 12px" }}
+          style={{
+            fontSize: "var(--text-sm)",
+            padding: "8px 12px",
+            minWidth: "auto",
+          }}
         >
           Audit
         </Link>
@@ -234,7 +238,7 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
             minWidth: "auto",
           }}
         >
-          {isDeleting ? "Deleting..." : "Delete"}
+          {isDeleting ? "Deleting" : "Delete"}
         </button>
       </div>
 

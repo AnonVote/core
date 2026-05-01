@@ -607,6 +607,7 @@ body {
 /* Danger variant */
 .btn-danger {
   background: linear-gradient(135deg, var(--semantic-error) 0%, #b91c1c 100%);
+  border-radius: var(--radius-md);
   color: white;
 }
 
@@ -889,12 +890,20 @@ body {
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
-  color: #ffffff;
+  color: #1d1d1f;
 }
 
 .navbar-logo svg {
   width: 20px;
   height: 20px;
+  fill: #1d1d1f;
+}
+
+[data-theme="dark"] .navbar-logo {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .navbar-logo svg {
   fill: #ffffff;
 }
 

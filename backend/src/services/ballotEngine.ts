@@ -81,9 +81,11 @@ export async function getOpenExpiredBallots() {
 }
 
 export async function deleteBallot(ballotId: string, orgId: string) {
+  console.log("[deleteBallot] ballotId:", ballotId, "orgId:", orgId);
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
   });
+  console.log("[deleteBallot] ballot:", ballot);
   if (!ballot) throw notFound("Ballot not found");
   if (ballot.organizationId !== orgId) {
     throw badRequest("You can only delete your own ballots");
