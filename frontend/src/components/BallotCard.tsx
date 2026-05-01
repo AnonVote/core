@@ -41,10 +41,13 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
       await deleteBallot(ballot.id);
       setToast({ message: "Ballot deleted successfully", type: "success" });
       onBallotDeleted();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete:", err);
+      const errorMessage =
+        err?.response?.data?.message ||
+        "Failed to delete ballot. Please try again.";
       setToast({
-        message: "Failed to delete ballot. Please try again.",
+        message: errorMessage,
         type: "error",
       });
     } finally {

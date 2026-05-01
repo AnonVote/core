@@ -66,9 +66,12 @@ router.delete(
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      console.log("[DELETE] Deleting ballot:", req.params.id);
+      console.log("[DELETE] Org ID:", req.organization?.id);
       await deleteBallot(req.params.id, req.organization!.id);
       res.status(200).json({ message: "Ballot deleted successfully" });
     } catch (err) {
+      console.error("[DELETE] Error:", err);
       next(err);
     }
   },
