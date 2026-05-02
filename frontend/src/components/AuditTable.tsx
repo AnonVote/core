@@ -41,7 +41,7 @@ export default function AuditTable({
         <div className="card p-4" style={{ textAlign: "center" }}>
           <p
             style={{
-              color: "var(--ink-muted)",
+              color: "var(--ink-secondary)",
               fontSize: "var(--text-xs)",
               textTransform: "uppercase",
               letterSpacing: "var(--tracking-wide)",
@@ -65,7 +65,7 @@ export default function AuditTable({
         <div className="card p-4" style={{ textAlign: "center" }}>
           <p
             style={{
-              color: "var(--ink-muted)",
+              color: "var(--ink-secondary)",
               fontSize: "var(--text-xs)",
               textTransform: "uppercase",
               letterSpacing: "var(--tracking-wide)",
@@ -152,7 +152,7 @@ export default function AuditTable({
                 style={{
                   textAlign: "left",
                   padding: "var(--space-2) var(--space-4) var(--space-2) 0",
-                  color: "var(--ink-muted)",
+                  color: "var(--ink-primary)",
                   fontFamily: "var(--font-body)",
                   fontWeight: "var(--weight-medium)",
                   fontSize: "var(--text-xs)",
@@ -166,7 +166,7 @@ export default function AuditTable({
                 style={{
                   textAlign: "left",
                   padding: "var(--space-2) var(--space-4) var(--space-2) 0",
-                  color: "var(--ink-muted)",
+                  color: "var(--ink-primary)",
                   fontFamily: "var(--font-body)",
                   fontWeight: "var(--weight-medium)",
                   fontSize: "var(--text-xs)",
@@ -180,7 +180,7 @@ export default function AuditTable({
                 style={{
                   textAlign: "left",
                   padding: "var(--space-2) 0",
-                  color: "var(--ink-muted)",
+                  color: "var(--ink-primary)",
                   fontFamily: "var(--font-body)",
                   fontWeight: "var(--weight-medium)",
                   fontSize: "var(--text-xs)",

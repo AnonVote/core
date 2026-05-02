@@ -46,6 +46,9 @@ export const logoutOrg = () => api.post("/organizations/logout");
 export const getMe = () =>
   api.get<ApiResponse<Organization>>("/organizations/me");
 
+export const updateOrg = (data: { name?: string; email?: string }) =>
+  api.patch<ApiResponse<Organization>>("/organizations/me", data);
+
 // Ballots
 export const getBallots = () => api.get<ApiResponse<Ballot[]>>("/ballots");
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { updateOrg } from "../api/client";
 import Navbar from "../components/Navbar";
 import "./SettingsPage.css";
 
@@ -11,10 +12,27 @@ type SettingsSection =
   | "danger"
   | "contact";
 
+interface OrganizationDetails {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
 export default function SettingsPage() {
-  const { orgName, orgEmail } = useAuth();
+  const { orgName, orgEmail, orgId, loading: authLoading } = useAuth();
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("profile");
+  const [orgDetails, setOrgDetails] = useState<OrganizationDetails | null>(
+    null,
+  );
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [editedEmail, setEditedEmail] = useState("");
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "success" | "error"
+  >("idle");
 
   const sidebarItems = [
     { id: "profile", label: "Profile", icon: "profile" },
@@ -25,41 +43,242 @@ export default function SettingsPage() {
     { id: "contact", label: "Contact Support", icon: "contact" },
   ];
 
+  useEffect(() => {
+    if (!authLoading && orgId) {
+      setOrgDetails({
+        id: orgId,
+        name: orgName || "",
+        email: orgEmail || "",
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }, [orgId, orgName, orgEmail, authLoading]);
+
+  const handleSaveName = async () => {
+    if (!editedName.trim()) return;
+    setSaveStatus("saving");
+    try {
+      await updateOrg({ name: editedName });
+      setOrgDetails((prev) => (prev ? { ...prev, name: editedName } : null));
+      setIsEditingName(false);
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      setSaveStatus("error");
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    if (!editedEmail.trim()) return;
+    setSaveStatus("saving");
+    try {
+      await updateOrg({ email: editedEmail });
+      setOrgDetails((prev) => (prev ? { ...prev, email: editedEmail } : null));
+      setIsEditingEmail(false);
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      setSaveStatus("error");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+    setIsEditingEmail(false);
+    if (orgDetails) {
+      setEditedName(orgDetails.name);
+      setEditedEmail(orgDetails.email);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case "profile":
         return (
           <div className="settings-content">
             <h2 className="settings-title">Profile</h2>
+            <p className="settings-page-subtitle">
+              Manage your organization's public information.
+            </p>
+
+            {/* Profile Picture Card */}
             <div className="card settings-card">
               <div className="settings-section-header">
-                <h3 className="settings-section-title">
-                  Organization Information
-                </h3>
+                <h3 className="settings-section-title">Profile Picture</h3>
                 <p className="settings-section-description">
-                  Manage your organization's public profile
+                  Add a photo to your organization profile
                 </p>
               </div>
+              <div className="profile-picture-section">
+                <div className="profile-avatar">
+                  {orgDetails?.name
+                    ? orgDetails.name.charAt(0).toUpperCase()
+                    : "U"}
+                </div>
+                <div className="profile-actions">
+                  <button className="btn-ghost">Upload photo</button>
+                  <span className="profile-remove">Remove</span>
+                </div>
+                <p className="profile-note">
+                  Supported formats: JPG, PNG. Max 2MB.
+                </p>
+              </div>
+            </div>
+
+            {/* Organization Details Card */}
+            <div className="card settings-card">
+              <div className="settings-section-header">
+                <h3 className="settings-section-title">Organization Details</h3>
+                <p className="settings-section-description">
+                  Manage your organization's public information
+                </p>
+              </div>
+
+              {/* Organization Name */}
               <div className="form-group">
                 <label className="form-label">Organization Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={orgName || ""}
-                  readOnly
-                />
+                <div className="form-row">
+                  {isEditingName ? (
+                    <div className="editing-row">
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        placeholder="Enter organization name"
+                      />
+                      <div className="form-actions">
+                        <button
+                          className="btn-primary"
+                          onClick={handleSaveName}
+                          disabled={saveStatus === "saving"}
+                        >
+                          {saveStatus === "saving" ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="view-row">
+                      <span className="chip-mono">
+                        {orgDetails?.name || "—"}
+                      </span>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          if (orgDetails) {
+                            setEditedName(orgDetails.name);
+                            setIsEditingName(true);
+                          }
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Email Address */}
               <div className="form-group">
                 <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={orgEmail || ""}
-                  readOnly
-                />
+                <div className="form-row">
+                  {isEditingEmail ? (
+                    <div className="editing-row">
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={editedEmail}
+                        onChange={(e) => setEditedEmail(e.target.value)}
+                        placeholder="Enter email address"
+                      />
+                      <div className="form-actions">
+                        <button
+                          className="btn-primary"
+                          onClick={handleSaveEmail}
+                          disabled={saveStatus === "saving"}
+                        >
+                          {saveStatus === "saving" ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="view-row">
+                      <span className="chip-mono">
+                        {orgDetails?.email || "—"}
+                      </span>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          if (orgDetails) {
+                            setEditedEmail(orgDetails.email);
+                            setIsEditingEmail(true);
+                          }
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="form-actions">
-                <button className="btn-primary">Update Profile</button>
+
+              {/* Account ID */}
+              <div className="form-group">
+                <label className="form-label">Account ID</label>
+                <div className="form-row">
+                  <span className="chip-mono">{orgDetails?.id || "—"}</span>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      if (orgDetails?.id) {
+                        navigator.clipboard.writeText(orgDetails.id);
+                        alert("Account ID copied to clipboard!");
+                      }
+                    }}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                      />
+                    </svg>
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              {/* Member Since */}
+              <div className="form-group">
+                <label className="form-label">Member Since</label>
+                <div className="form-row">
+                  <span className="chip-mono">
+                    {orgDetails ? formatDate(orgDetails.createdAt) : "—"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

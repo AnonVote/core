@@ -374,3 +374,122 @@
     display: none;
   }
 }
+
+/* Profile Section Styles */
+.settings-page-subtitle {
+  font-size: var(--text-base);
+  color: var(--ink-secondary);
+  margin-bottom: var(--space-6);
+}
+
+.profile-picture-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: var(--brand-primary);
+  color: white;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.profile-remove {
+  font-size: var(--text-sm);
+  color: var(--semantic-error);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.profile-note {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-top: var(--space-2);
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.editing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.view-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+/* Form actions in row */
+.form-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+/* Override for inline form actions */
+.form-row .form-actions {
+  margin-top: 0;
+}
+
+/* Input with Copy Button */
+.input-with-copy {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input-with-copy .form-input {
+  flex: 1;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink-primary);
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.btn-secondary:hover {
+  background-color: var(--surface-base);
+  border-color: var(--border-strong);
+}
+
+.btn-secondary svg {
+  width: 16px;
+  height: 16px;
+}
