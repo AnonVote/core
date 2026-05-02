@@ -23,31 +23,78 @@ export default function AuditTable({
   const isConsistent = tokensIssued === votesCast;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="card p-4 text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1 font-mono">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-4)",
+      }}
+    >
+      {/* Stats Row */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "var(--space-4)",
+        }}
+      >
+        <div className="card p-4" style={{ textAlign: "center" }}>
+          <p
+            style={{
+              color: "var(--ink-muted)",
+              fontSize: "var(--text-xs)",
+              textTransform: "uppercase",
+              letterSpacing: "var(--tracking-wide)",
+              fontFamily: "var(--font-mono)",
+              marginBottom: "var(--space-1)",
+            }}
+          >
             Tokens Issued
           </p>
-          <p className="text-gray-900 dark:text-white text-2xl font-bold">
+          <p
+            style={{
+              color: "var(--ink-primary)",
+              fontSize: "var(--text-2xl)",
+              fontFamily: "var(--font-display)",
+              fontWeight: "var(--weight-bold)",
+            }}
+          >
             {tokensIssued}
           </p>
         </div>
-        <div className="card p-4 text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1 font-mono">
+        <div className="card p-4" style={{ textAlign: "center" }}>
+          <p
+            style={{
+              color: "var(--ink-muted)",
+              fontSize: "var(--text-xs)",
+              textTransform: "uppercase",
+              letterSpacing: "var(--tracking-wide)",
+              fontFamily: "var(--font-mono)",
+              marginBottom: "var(--space-1)",
+            }}
+          >
             Votes Cast
           </p>
-          <p className="text-gray-900 dark:text-white text-2xl font-bold">
+          <p
+            style={{
+              color: "var(--ink-primary)",
+              fontSize: "var(--text-2xl)",
+              fontFamily: "var(--font-display)",
+              fontWeight: "var(--weight-bold)",
+            }}
+          >
             {votesCast}
           </p>
         </div>
       </div>
 
+      {/* Inconsistency Warning */}
       {!isConsistent && (
-        <div className="bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 rounded-lg px-4 py-3 text-sm">
-          <div className="flex items-center gap-2">
+        <div className="message message-warning">
+          <span className="message-icon">
             <svg
-              className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+              width="16"
+              height="16"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -59,19 +106,21 @@ export default function AuditTable({
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <span className="text-yellow-800 dark:text-yellow-200">
-              Inconsistency detected: tokens issued ({tokensIssued}) does not
-              equal votes cast ({votesCast}).
-            </span>
-          </div>
+          </span>
+          <span>
+            Inconsistency detected: tokens issued ({tokensIssued}) does not
+            equal votes cast ({votesCast}).
+          </span>
         </div>
       )}
 
+      {/* Consistent Success */}
       {isConsistent && (
-        <div className="bg-green-100 dark:bg-green-900/30 border-l-4 border-green-500 rounded-lg px-4 py-3 text-sm">
-          <div className="flex items-center gap-2">
+        <div className="message message-success">
+          <span className="message-icon">
             <svg
-              className="w-4 h-4 text-green-600 dark:text-green-400"
+              width="16"
+              height="16"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -83,52 +132,141 @@ export default function AuditTable({
                 d="M5 13l4 4L19 7"
               />
             </svg>
-            <span className="text-green-800 dark:text-green-200">
-              Audit consistent: all issued tokens accounted for.
-            </span>
-          </div>
+          </span>
+          <span>Audit consistent: all issued tokens accounted for.</span>
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      {/* Events Table */}
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            fontSize: "var(--text-sm)",
+            borderCollapse: "collapse",
+          }}
+        >
           <thead>
-            <tr className="text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left py-2 pr-4">Event</th>
-              <th className="text-left py-2 pr-4">Time</th>
-              <th className="text-left py-2">Stellar TX</th>
+            <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
+              <th
+                style={{
+                  textAlign: "left",
+                  padding: "var(--space-2) var(--space-4) var(--space-2) 0",
+                  color: "var(--ink-muted)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--weight-medium)",
+                  fontSize: "var(--text-xs)",
+                  textTransform: "uppercase",
+                  letterSpacing: "var(--tracking-wide)",
+                }}
+              >
+                Event
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  padding: "var(--space-2) var(--space-4) var(--space-2) 0",
+                  color: "var(--ink-muted)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--weight-medium)",
+                  fontSize: "var(--text-xs)",
+                  textTransform: "uppercase",
+                  letterSpacing: "var(--tracking-wide)",
+                }}
+              >
+                Time
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  padding: "var(--space-2) 0",
+                  color: "var(--ink-muted)",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--weight-medium)",
+                  fontSize: "var(--text-xs)",
+                  textTransform: "uppercase",
+                  letterSpacing: "var(--tracking-wide)",
+                }}
+              >
+                Stellar TX
+              </th>
             </tr>
           </thead>
           <tbody>
-            {events.map((ev, i) => (
-              <tr
-                key={i}
-                className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-              >
-                <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                  {ev.eventType.replace(/_/g, " ")}
-                </td>
-                <td className="py-2 pr-4 text-gray-600 dark:text-gray-400 text-xs">
-                  {new Date(ev.createdAt).toLocaleString()}
-                </td>
-                <td className="py-2">
-                  {ev.stellarTxId ? (
-                    <a
-                      href={`${explorerBase}/${ev.stellarTxId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:text-primary-hover font-mono text-xs truncate block max-w-[120px]"
-                    >
-                      {ev.stellarTxId.slice(0, 12)}...
-                    </a>
-                  ) : (
-                    <span className="text-gray-500 dark:text-gray-600 text-xs">
-                      —
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {events.map((ev, i) => {
+              const txHref = explorerBase + "/" + ev.stellarTxId;
+              const txShort = ev.stellarTxId
+                ? ev.stellarTxId.slice(0, 12) + "..."
+                : "";
+              return (
+                <tr
+                  key={i}
+                  style={{ borderBottom: "1px solid var(--border-soft)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      "var(--surface-sunken)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                >
+                  <td
+                    style={{
+                      padding: "var(--space-3) var(--space-4) var(--space-3) 0",
+                      color: "var(--ink-primary)",
+                      fontFamily: "var(--font-body)",
+                    }}
+                  >
+                    {ev.eventType.replace(/_/g, " ")}
+                  </td>
+                  <td
+                    style={{
+                      padding: "var(--space-3) var(--space-4) var(--space-3) 0",
+                      color: "var(--ink-muted)",
+                      fontSize: "var(--text-xs)",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    {new Date(ev.createdAt).toLocaleString()}
+                  </td>
+                  <td style={{ padding: "var(--space-3) 0" }}>
+                    {ev.stellarTxId ? (
+                      <a
+                        href={txHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          fontSize: "var(--text-xs)",
+                          maxWidth: "120px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          color: "var(--brand-primary)",
+                          textDecoration: "none",
+                          fontFamily: "var(--font-mono)",
+                          background: "var(--surface-sunken)",
+                          border: "1px solid var(--border-soft)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "2px 8px",
+                        }}
+                      >
+                        {txShort}
+                      </a>
+                    ) : (
+                      <span
+                        style={{
+                          color: "var(--ink-muted)",
+                          fontSize: "var(--text-xs)",
+                        }}
+                      >
+                        —
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

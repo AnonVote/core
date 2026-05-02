@@ -8,6 +8,7 @@ import TokenRequestPage from "./pages/TokenRequestPage";
 import VotePage from "./pages/VotePage";
 import ResultsPage from "./pages/ResultsPage";
 import AuditPage from "./pages/AuditPage";
+import SettingsPage from "./pages/SettingsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageLoader from "./components/PageLoader";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -42,6 +43,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <CreateBallotPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
