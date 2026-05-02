@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useTheme } from "../context/ThemeContext";
 import { updateOrg } from "../api/client";
 import Navbar from "../components/Navbar";
 import "./SettingsPage.css";
@@ -33,6 +34,16 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "success" | "error"
   >("idle");
+
+  const { theme } = useTheme();
+  const [selectedColor, setSelectedColor] = useState<string>(() => {
+    const saved = localStorage.getItem("anonvote-accent");
+    return saved || "#1c7ed6";
+  });
+  const [selectedFontSize, setSelectedFontSize] = useState<string>(() => {
+    const saved = localStorage.getItem("anonvote-font-size");
+    return saved || "14px";
+  });
 
   const sidebarItems = [
     { id: "profile", label: "Profile", icon: "profile" },
@@ -288,34 +299,202 @@ export default function SettingsPage() {
         return (
           <div className="settings-content">
             <h2 className="settings-title">Appearance</h2>
+            <p className="settings-page-subtitle">
+              Customize how AnonVote looks for you.
+            </p>
+
+            {/* Theme Card */}
             <div className="card settings-card">
               <div className="settings-section-header">
-                <h3 className="settings-section-title">Theme Settings</h3>
+                <h3 className="settings-section-title">Theme</h3>
                 <p className="settings-section-description">
-                  Customize how AnonVote looks for you
+                  Choose your preferred theme
                 </p>
               </div>
-              <div className="form-group">
-                <label className="form-label">Theme Mode</label>
-                <div className="theme-options">
-                  <label className="theme-option">
-                    <input type="radio" name="theme" defaultChecked />
-                    <span className="theme-option-label">Light Mode</span>
-                  </label>
-                  <label className="theme-option">
-                    <input type="radio" name="theme" />
-                    <span className="theme-option-label">Dark Mode</span>
-                  </label>
-                </div>
+              <div className="theme-cards">
+                <button
+                  className={`theme-card ${theme === "light" ? "selected" : ""}`}
+                  onClick={() => {
+                    document.documentElement.setAttribute(
+                      "data-theme",
+                      "light",
+                    );
+                    localStorage.setItem("anonvote-theme", "light");
+                  }}
+                >
+                  <div className="theme-card-icon">
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                      />
+                    </svg>
+                  </div>
+                  <span className="theme-card-label">Light</span>
+                  <p className="theme-card-description">Clean and bright</p>
+                  {theme === "light" && (
+                    <span className="theme-card-checkmark">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+                <button
+                  className={`theme-card ${theme === "dark" ? "selected" : ""}`}
+                  onClick={() => {
+                    document.documentElement.setAttribute("data-theme", "dark");
+                    localStorage.setItem("anonvote-theme", "dark");
+                  }}
+                >
+                  <div className="theme-card-icon">
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                      />
+                    </svg>
+                  </div>
+                  <span className="theme-card-label">Dark</span>
+                  <p className="theme-card-description">Easy on the eyes</p>
+                  {theme === "dark" && (
+                    <span className="theme-card-checkmark">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                </button>
               </div>
-              <div className="form-group">
-                <label className="form-label">Font Size</label>
-                <select className="form-select">
-                  <option>Small (14px)</option>
-                  <option selected>Medium (16px)</option>
-                  <option>Large (18px)</option>
-                  <option>Extra Large (20px)</option>
-                </select>
+            </div>
+
+            {/* Brand Color Card */}
+            <div className="card settings-card">
+              <div className="settings-section-header">
+                <h3 className="settings-section-title">Accent Color</h3>
+                <p className="settings-section-description">
+                  Choose your preferred accent color for buttons and highlights
+                </p>
+              </div>
+              <div className="color-swatches">
+                {[
+                  { name: "Indigo", hex: "#4f46e5" },
+                  { name: "Blue", hex: "#1c7ed6" },
+                  { name: "Emerald", hex: "#059669" },
+                  { name: "Violet", hex: "#7c3aed" },
+                  { name: "Rose", hex: "#e11d48" },
+                  { name: "Amber", hex: "#d97706" },
+                ].map((color) => (
+                  <button
+                    key={color.name}
+                    className={`color-swatch ${
+                      selectedColor === color.hex ? "selected" : ""
+                    }`}
+                    style={{ backgroundColor: color.hex }}
+                    onClick={() => {
+                      document.documentElement.style.setProperty(
+                        "--brand-primary",
+                        color.hex,
+                      );
+                      document.documentElement.style.setProperty(
+                        "--brand-primary-dim",
+                        color.hex,
+                      );
+                      document.documentElement.style.setProperty(
+                        "--brand-primary-pale",
+                        `${color.hex}14`,
+                      );
+                      localStorage.setItem("anonvote-accent", color.hex);
+                      setSelectedColor(color.hex);
+                    }}
+                  >
+                    {selectedColor === color.hex && (
+                      <span className="color-swatch-checkmark">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Size Card */}
+            <div className="card settings-card">
+              <div className="settings-section-header">
+                <h3 className="settings-section-title">Text Size</h3>
+                <p className="settings-section-description">
+                  Adjust the base font size for body text
+                </p>
+              </div>
+              <div className="font-size-options">
+                {[
+                  { label: "Small", value: "13px" },
+                  { label: "Default", value: "14px" },
+                  { label: "Large", value: "16px" },
+                ].map((size) => (
+                  <button
+                    key={size.label}
+                    className={`font-size-pill ${
+                      selectedFontSize === size.value ? "selected" : ""
+                    }`}
+                    onClick={() => {
+                      document.documentElement.style.setProperty(
+                        "--text-base",
+                        size.value,
+                      );
+                      localStorage.setItem("anonvote-font-size", size.value);
+                      setSelectedFontSize(size.value);
+                    }}
+                  >
+                    {size.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -550,7 +729,7 @@ export default function SettingsPage() {
       <div
         style={{
           padding: "var(--space-8)",
-          maxWidth: "800px",
+          maxWidth: "1000px",
           margin: "0 auto",
           width: "100%",
         }}
