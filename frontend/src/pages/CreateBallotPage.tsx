@@ -247,6 +247,13 @@ export default function CreateBallotPage() {
               Voting Deadline
             </label>
             <div className="input-wrapper">
+              <input
+                type="datetime-local"
+                value={deadline}
+                min={minDeadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className={`input-field ${errors.deadline ? "error" : ""}`}
+              />
               <span className="input-icon">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -257,13 +264,6 @@ export default function CreateBallotPage() {
                   />
                 </svg>
               </span>
-              <input
-                type="datetime-local"
-                value={deadline}
-                min={minDeadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className={`input-field has-icon ${errors.deadline ? "error" : ""}`}
-              />
             </div>
             {errors.deadline && (
               <p className="field-error">{errors.deadline}</p>

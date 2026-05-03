@@ -428,7 +428,6 @@ body {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--ink-muted);
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -444,6 +443,7 @@ body {
   height: 16px;
   display: block;
   flex-shrink: 0;
+  color: var(--ink-secondary);
 }
 
 .input-field {
