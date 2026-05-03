@@ -4,6 +4,90 @@ All notable changes to AnonVote will be documented here.
 
 ---
 
+## v1.4.0
+
+### Added
+
+- **Weighted Voting System**
+  - Added `weight` field to `EligibilityEntry` and `Vote` models
+  - Added `allowWeightedVoting` flag to `Ballot` model
+  - Updated ballot creation to accept weighted voting option
+  - Updated token issuance to include weight in response
+  - Updated vote submission to record weight
+  - Updated result calculation to use weighted votes
+  - Added UI toggle for weighted voting in CreateBallotPage
+
+- **Delegated Voting System**
+  - Added `delegatedFrom` and `delegatedTo` fields to `VoterToken` model
+  - Created `delegationManager` service for vote delegation
+  - Added `/api/delegations` endpoint for delegation operations
+  - Updated privacyEngine to handle delegated votes
+  - Updated resultEngine to count delegated votes correctly
+
+- **Multi-round / Ranked-Choice Voting**
+  - Added `rank` field to `Vote` model for storing voter rankings
+  - Added `allowRankedChoice` and `maxRankings` fields to `Ballot` model
+  - Updated ballot creation with ranked-choice toggle and max rankings input
+  - Updated privacyEngine to handle ranked votes
+
+- **Blind Vote Verification**
+  - Created `verificationService` for generating and verifying vote hashes
+  - Added `/api/verification/generate` endpoint for voters to get verification hash
+  - Added `/api/verification/verify` endpoint for public vote verification
+  - Verification hash allows voters to confirm their vote without exposing identity
+
+- **Soroban Smart Contracts Service**
+  - Created `sorobanService` for contract deployment and interaction
+  - Added `deployContract`, `callContract`, and `getContractData` functions
+  - Ready for future Soroban smart contract implementation
+
+### Improved
+
+- **Backend compilation** — Added `--transpile-only` flag to ts-node-dev for faster compilation
+- **Logo consistency** — Updated all logo references to use the simple 4-circle logo
+- **Icon visibility** — Made calendar icon visible in both light and dark modes
+
+### Fixed
+
+- **Prisma type errors** — Fixed TypeScript errors in delegationManager.ts by adding type assertions
+- **IdentityManager weight** — Fixed weight property error in identityManager.ts
+
+### Technical
+
+- **New files:**
+  - `backend/src/services/delegationManager.ts`
+  - `backend/src/services/verificationService.ts`
+  - `backend/src/services/sorobanService.ts`
+  - `backend/src/routes/delegations.ts`
+  - `backend/src/routes/verification.ts`
+
+- **Updated files:**
+  - `backend/prisma/schema.prisma` — Added weighted voting, delegation, and ranked-choice fields
+  - `backend/src/types.ts` — Added new fields to types
+  - `backend/src/services/ballotEngine.ts` — Added weighted voting support
+  - `backend/src/services/identityManager.ts` — Added weight to token response
+  - `backend/src/services/privacyEngine.ts` — Added weight and rank support
+  - `backend/src/services/resultEngine.ts` — Updated to use weighted votes
+  - `backend/src/routes/ballots.ts` — Added weighted voting option
+  - `backend/src/routes/tokens.ts` — Added weight to response
+  - `backend/src/routes/votes.ts` — Added rank support
+  - `backend/src/app.ts` — Added new route handlers
+  - `frontend/src/types/index.ts` — Added new fields to types
+  - `frontend/src/api/client.ts` — Added new API parameters
+  - `frontend/src/pages/CreateBallotPage.tsx` — Added weighted voting and ranked-choice UI
+  - `frontend/src/pages/VotePage.tsx` — Updated to handle weighted votes
+  - `frontend/public/favicon.svg` — Updated to simple logo
+  - `frontend/src/components/Navbar.tsx` — Updated logo
+  - `frontend/src/components/PageLoader.tsx` — Updated logo
+  - `frontend/src/styles/theme.css` — Fixed icon visibility
+
+- **Migrations:**
+  - `20260503162041_add_weighted_voting`
+  - `20260503172112_add_delegated_voting`
+  - `20260503173305_add_ranked_choice_voting`
+
+---
+
 ## v1.1.0
 
 ### Improved

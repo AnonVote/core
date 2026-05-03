@@ -266,11 +266,17 @@ Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_
 - [x] Stellar blockchain recording
 - [x] Automatic tally and result publication
 - [x] Public verification page
-- [ ] Weighted voting system
-- [ ] Delegated voting
-- [ ] Multi-round / ranked-choice voting
-- [ ] Blind vote verification (voter self-verification without identity exposure)
-- [ ] Soroban smart contracts (fully on-chain logic)
+- [x] Weighted voting system
+- [x] Delegated voting
+- [x] Multi-round / ranked-choice voting
+- [x] Blind vote verification (voter self-verification without identity exposure)
+- [x] Soroban smart contracts (service ready for deployment)
+- [ ] Full Soroban smart contract implementation (on-chain logic)
+- [ ] Frontend tests
+- [ ] Email notifications for ballot creation/closing
+- [ ] Mobile responsiveness improvements
+- [ ] Accessibility audit (WCAG compliance)
+- [ ] Performance optimization (lazy loading, code splitting)
 
 </details>
 
