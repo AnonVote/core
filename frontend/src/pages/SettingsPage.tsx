@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../context/ThemeContext";
-import { updateOrg, changePassword, deleteAccount } from "../api/client";
+import { updateOrg, changePassword, deleteAccount, getMe } from "../api/client";
 import Navbar from "../components/Navbar";
 import "./SettingsPage.css";
 
@@ -21,7 +21,8 @@ interface OrganizationDetails {
 }
 
 export default function SettingsPage() {
-  const { orgName, orgEmail, orgId, loading: authLoading } = useAuth();
+  const { orgName, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("profile");
   const [orgDetails, setOrgDetails] = useState<OrganizationDetails | null>(
@@ -34,15 +35,13 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "success" | "error"
   >("idle");
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  const { theme } = useTheme();
   const [selectedColor, setSelectedColor] = useState<string>(() => {
-    const saved = localStorage.getItem("anonvote-accent");
-    return saved || "#1c7ed6";
+    return localStorage.getItem("anonvote-accent") || "#1c7ed6";
   });
   const [selectedFontSize, setSelectedFontSize] = useState<string>(() => {
-    const saved = localStorage.getItem("anonvote-font-size");
-    return saved || "14px";
+    return localStorage.getItem("anonvote-font-size") || "14px";
   });
   const [network, setNetwork] = useState<"testnet" | "mainnet">("testnet");
   const stellarExpertUrl =
@@ -53,12 +52,13 @@ export default function SettingsPage() {
   const [lastTransactionId] = useState<string | null>(null);
   const [totalTransactions] = useState<number>(0);
 
-  // Security state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState<
+    "idle" | "saving" | "success" | "error"
+  >("idle");
 
-  // Danger zone state
   const [showDeleteBallotsConfirm, setShowDeleteBallotsConfirm] =
     useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] =
@@ -66,18 +66,38 @@ export default function SettingsPage() {
   const [deleteBallotsConfirmText, setDeleteBallotsConfirmText] = useState("");
   const [deleteAccountConfirmText, setDeleteAccountConfirmText] = useState("");
 
+  // Fetch org details from API
+  useEffect(() => {
+    if (!authLoading) {
+      getMe()
+        .then((res) => {
+          const data = res.data.data;
+          setOrgDetails({
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            createdAt: data.createdAt,
+          });
+          setEditedName(data.name);
+          setEditedEmail(data.email);
+        })
+        .catch(() => {});
+    }
+  }, [authLoading]);
+
   const handleUpdatePassword = async () => {
     if (newPassword.length < 8 || newPassword !== confirmPassword) return;
-    setSaveStatus("saving");
+    setPasswordStatus("saving");
     try {
       await changePassword({ currentPassword, newPassword });
-      setSaveStatus("success");
+      setPasswordStatus("success");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setSaveStatus("idle"), 2000);
+      setTimeout(() => setPasswordStatus("idle"), 3000);
     } catch {
-      setSaveStatus("error");
+      setPasswordStatus("error");
+      setTimeout(() => setPasswordStatus("idle"), 3000);
     }
   };
 
@@ -87,29 +107,30 @@ export default function SettingsPage() {
     if (ua.includes("Firefox")) return "Firefox";
     if (ua.includes("Safari")) return "Safari";
     if (ua.includes("Edge")) return "Edge";
-    if (ua.includes("MSIE") || ua.includes("Trident"))
-      return "Internet Explorer";
-    return "Unknown";
+    return "Unknown Browser";
+  };
+
+  const handleCopyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    });
   };
 
   const handleDeleteAllBallots = async () => {
-    // In a real app, this would call an API to delete all ballots
-    console.log("Delete all ballots");
     setShowDeleteBallotsConfirm(false);
     setDeleteBallotsConfirmText("");
-    alert("All ballots deleted");
   };
 
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
-      // Clear auth state
       localStorage.removeItem("anonvote-theme");
       localStorage.removeItem("anonvote-accent");
       localStorage.removeItem("anonvote-font-size");
       window.location.href = "/login";
     } catch {
-      alert("Failed to delete account. Please try again.");
+      // handle error
     }
   };
 
@@ -122,17 +143,6 @@ export default function SettingsPage() {
     { id: "contact", label: "Contact Support", icon: "contact" },
   ];
 
-  useEffect(() => {
-    if (!authLoading && orgId) {
-      setOrgDetails({
-        id: orgId,
-        name: orgName || "",
-        email: orgEmail || "",
-        createdAt: new Date().toISOString(),
-      });
-    }
-  }, [orgId, orgName, orgEmail, authLoading]);
-
   const handleSaveName = async () => {
     if (!editedName.trim()) return;
     setSaveStatus("saving");
@@ -144,6 +154,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch {
       setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 2000);
     }
   };
 
@@ -158,6 +169,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch {
       setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 2000);
     }
   };
 
@@ -171,8 +183,10 @@ export default function SettingsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", { month: "long", year: "numeric" });
+    return new Date(dateString).toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
   };
 
   const renderContent = () => {
@@ -201,9 +215,25 @@ export default function SettingsPage() {
                 </div>
                 <div className="profile-actions">
                   <button className="btn-ghost">Upload photo</button>
-                  <span className="profile-remove">Remove</span>
+                  <span
+                    className="profile-remove"
+                    style={{
+                      color: "var(--ink-muted)",
+                      fontSize: "var(--text-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Remove
+                  </span>
                 </div>
-                <p className="profile-note">
+                <p
+                  className="profile-note"
+                  style={{
+                    color: "var(--ink-muted)",
+                    fontSize: "var(--text-xs)",
+                    marginTop: "var(--space-2)",
+                  }}
+                >
                   Supported formats: JPG, PNG. Max 2MB.
                 </p>
               </div>
@@ -214,9 +244,59 @@ export default function SettingsPage() {
               <div className="settings-section-header">
                 <h3 className="settings-section-title">Organization Details</h3>
                 <p className="settings-section-description">
-                  Manage your organization's public information
+                  Manage your organization's information
                 </p>
               </div>
+
+              {saveStatus === "success" && (
+                <div
+                  className="message message-success"
+                  style={{ marginBottom: "var(--space-4)" }}
+                >
+                  <span className="message-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </span>
+                  <span>Changes saved successfully</span>
+                </div>
+              )}
+
+              {saveStatus === "error" && (
+                <div
+                  className="message message-error"
+                  style={{ marginBottom: "var(--space-4)" }}
+                >
+                  <span className="message-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </span>
+                  <span>Failed to save changes. Please try again.</span>
+                </div>
+              )}
 
               {/* Organization Name */}
               <div className="form-group">
@@ -226,7 +306,7 @@ export default function SettingsPage() {
                     <div className="editing-row">
                       <input
                         type="text"
-                        className="form-input"
+                        className="input-field"
                         value={editedName}
                         onChange={(e) => setEditedName(e.target.value)}
                         placeholder="Enter organization name"
@@ -236,12 +316,14 @@ export default function SettingsPage() {
                           className="btn-primary"
                           onClick={handleSaveName}
                           disabled={saveStatus === "saving"}
+                          style={{ minHeight: "36px", padding: "8px 16px" }}
                         >
                           {saveStatus === "saving" ? "Saving..." : "Save"}
                         </button>
                         <button
-                          className="btn-secondary"
+                          className="btn-ghost"
                           onClick={handleCancelEdit}
+                          style={{ minHeight: "36px", padding: "8px 16px" }}
                         >
                           Cancel
                         </button>
@@ -253,13 +335,14 @@ export default function SettingsPage() {
                         {orgDetails?.name || "—"}
                       </span>
                       <button
-                        className="btn-secondary"
+                        className="btn-ghost"
                         onClick={() => {
                           if (orgDetails) {
                             setEditedName(orgDetails.name);
                             setIsEditingName(true);
                           }
                         }}
+                        style={{ minHeight: "36px", padding: "8px 16px" }}
                       >
                         Edit
                       </button>
@@ -276,7 +359,7 @@ export default function SettingsPage() {
                     <div className="editing-row">
                       <input
                         type="email"
-                        className="form-input"
+                        className="input-field"
                         value={editedEmail}
                         onChange={(e) => setEditedEmail(e.target.value)}
                         placeholder="Enter email address"
@@ -286,12 +369,14 @@ export default function SettingsPage() {
                           className="btn-primary"
                           onClick={handleSaveEmail}
                           disabled={saveStatus === "saving"}
+                          style={{ minHeight: "36px", padding: "8px 16px" }}
                         >
                           {saveStatus === "saving" ? "Saving..." : "Save"}
                         </button>
                         <button
-                          className="btn-secondary"
+                          className="btn-ghost"
                           onClick={handleCancelEdit}
+                          style={{ minHeight: "36px", padding: "8px 16px" }}
                         >
                           Cancel
                         </button>
@@ -303,13 +388,14 @@ export default function SettingsPage() {
                         {orgDetails?.email || "—"}
                       </span>
                       <button
-                        className="btn-secondary"
+                        className="btn-ghost"
                         onClick={() => {
                           if (orgDetails) {
                             setEditedEmail(orgDetails.email);
                             setIsEditingEmail(true);
                           }
                         }}
+                        style={{ minHeight: "36px", padding: "8px 16px" }}
                       >
                         Edit
                       </button>
@@ -321,31 +407,26 @@ export default function SettingsPage() {
               {/* Account ID */}
               <div className="form-group">
                 <label className="form-label">Account ID</label>
-                <div className="form-row">
-                  <span className="chip-mono">{orgDetails?.id || "—"}</span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => {
-                      if (orgDetails?.id) {
-                        navigator.clipboard.writeText(orgDetails.id);
-                        alert("Account ID copied to clipboard!");
-                      }
+                <div className="view-row">
+                  <span
+                    className="chip-mono"
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "260px",
                     }}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                      />
-                    </svg>
-                    Copy
+                    {orgDetails?.id || "—"}
+                  </span>
+                  <button
+                    className="btn-ghost"
+                    onClick={() =>
+                      orgDetails?.id && handleCopyToClipboard(orgDetails.id)
+                    }
+                    style={{ minHeight: "36px", padding: "8px 16px" }}
+                  >
+                    {copySuccess ? "Copied!" : "Copy"}
                   </button>
                 </div>
               </div>
@@ -353,11 +434,9 @@ export default function SettingsPage() {
               {/* Member Since */}
               <div className="form-group">
                 <label className="form-label">Member Since</label>
-                <div className="form-row">
-                  <span className="chip-mono">
-                    {orgDetails ? formatDate(orgDetails.createdAt) : "—"}
-                  </span>
-                </div>
+                <span className="chip-mono">
+                  {orgDetails ? formatDate(orgDetails.createdAt) : "—"}
+                </span>
               </div>
             </div>
           </div>
@@ -381,7 +460,9 @@ export default function SettingsPage() {
               </div>
               <div className="theme-cards">
                 <button
-                  className={`theme-card ${theme === "light" ? "selected" : ""}`}
+                  className={
+                    "theme-card " + (theme === "light" ? "selected" : "")
+                  }
                   onClick={() => {
                     document.documentElement.setAttribute(
                       "data-theme",
@@ -426,7 +507,9 @@ export default function SettingsPage() {
                   )}
                 </button>
                 <button
-                  className={`theme-card ${theme === "dark" ? "selected" : ""}`}
+                  className={
+                    "theme-card " + (theme === "dark" ? "selected" : "")
+                  }
                   onClick={() => {
                     document.documentElement.setAttribute("data-theme", "dark");
                     localStorage.setItem("anonvote-theme", "dark");
@@ -489,10 +572,12 @@ export default function SettingsPage() {
                 ].map((color) => (
                   <button
                     key={color.name}
-                    className={`color-swatch ${
-                      selectedColor === color.hex ? "selected" : ""
-                    }`}
+                    className={
+                      "color-swatch " +
+                      (selectedColor === color.hex ? "selected" : "")
+                    }
                     style={{ backgroundColor: color.hex }}
+                    title={color.name}
                     onClick={() => {
                       document.documentElement.style.setProperty(
                         "--brand-primary",
@@ -504,7 +589,7 @@ export default function SettingsPage() {
                       );
                       document.documentElement.style.setProperty(
                         "--brand-primary-pale",
-                        `${color.hex}14`,
+                        color.hex + "14",
                       );
                       localStorage.setItem("anonvote-accent", color.hex);
                       setSelectedColor(color.hex);
@@ -548,9 +633,10 @@ export default function SettingsPage() {
                 ].map((size) => (
                   <button
                     key={size.label}
-                    className={`font-size-pill ${
-                      selectedFontSize === size.value ? "selected" : ""
-                    }`}
+                    className={
+                      "font-size-pill " +
+                      (selectedFontSize === size.value ? "selected" : "")
+                    }
                     onClick={() => {
                       document.documentElement.style.setProperty(
                         "--text-base",
@@ -588,17 +674,19 @@ export default function SettingsPage() {
                 <label className="form-label">Network</label>
                 <div className="network-options">
                   <button
-                    className={`network-option ${
-                      network === "testnet" ? "active" : ""
-                    }`}
+                    className={
+                      "network-option " +
+                      (network === "testnet" ? "active" : "")
+                    }
                     onClick={() => setNetwork("testnet")}
                   >
                     <span className="badge badge-open">Testnet</span>
                   </button>
                   <button
-                    className={`network-option ${
-                      network === "mainnet" ? "active" : ""
-                    }`}
+                    className={
+                      "network-option " +
+                      (network === "mainnet" ? "active" : "")
+                    }
                     onClick={() => setNetwork("mainnet")}
                   >
                     <span className="badge badge-closed">Mainnet</span>
@@ -607,27 +695,23 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Stellar Expert URL</label>
-                <div className="form-row">
-                  <a
-                    href={stellarExpertUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <div className="view-row">
+                  <span
                     className="chip-mono chip-mono-truncate"
-                    style={{
-                      textDecoration: "none",
-                      color: "var(--ink-primary)",
-                    }}
+                    style={{ maxWidth: "260px" }}
                   >
                     {stellarExpertUrl}
-                  </a>
+                  </span>
                   <a
                     href={stellarExpertUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-secondary"
+                    className="btn-ghost"
+                    style={{ minHeight: "36px", padding: "8px 12px" }}
                   >
                     <svg
-                      className="w-4 h-4"
+                      width="14"
+                      height="14"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -644,9 +728,25 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Transaction Signing</label>
-                <div className="form-row">
-                  <span className="status-badge status-active">
-                    <span className="status-dot" />
+                <div className="view-row">
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "var(--space-2)",
+                      fontSize: "var(--text-sm)",
+                      color: "var(--semantic-success)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--semantic-success)",
+                        display: "inline-block",
+                      }}
+                    />
                     Automatic
                   </span>
                 </div>
@@ -663,37 +763,25 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Public Key</label>
-                <div className="form-row">
+                <div className="view-row">
                   {orgStellarPublicKey ? (
-                    <div className="form-row">
-                      <span className="chip-mono chip-mono-truncate">
+                    <>
+                      <span
+                        className="chip-mono chip-mono-truncate"
+                        style={{ maxWidth: "220px" }}
+                      >
                         {orgStellarPublicKey}
                       </span>
                       <button
-                        className="btn-secondary"
-                        onClick={() => {
-                          if (orgStellarPublicKey) {
-                            navigator.clipboard.writeText(orgStellarPublicKey);
-                            alert("Public key copied to clipboard!");
-                          }
-                        }}
+                        className="btn-ghost"
+                        onClick={() =>
+                          handleCopyToClipboard(orgStellarPublicKey)
+                        }
+                        style={{ minHeight: "36px", padding: "8px 16px" }}
                       >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                          />
-                        </svg>
                         Copy
                       </button>
-                    </div>
+                    </>
                   ) : (
                     <span
                       className="chip-mono"
@@ -706,42 +794,24 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Last Transaction</label>
-                <div className="form-row">
+                <div className="view-row">
                   {lastTransactionId ? (
-                    <div className="form-row">
-                      <a
-                        href={`${stellarExpertUrl}/${lastTransactionId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="chip-mono chip-mono-truncate"
-                        style={{
-                          textDecoration: "none",
-                          color: "var(--brand-primary)",
-                        }}
-                      >
-                        {lastTransactionId}
-                      </a>
-                      <a
-                        href={`${stellarExpertUrl}/${lastTransactionId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-secondary"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    </div>
+                    <a
+                      href={stellarExpertUrl + "/tx/" + lastTransactionId}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="chip-mono"
+                      style={{
+                        color: "var(--brand-primary)",
+                        textDecoration: "none",
+                        maxWidth: "220px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {lastTransactionId}
+                    </a>
                   ) : (
                     <span
                       className="chip-mono"
@@ -754,10 +824,31 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Total Transactions</label>
-                <div className="form-row">
-                  <span className="chip-mono">{totalTransactions}</span>
-                </div>
+                <span className="chip-mono">{totalTransactions}</span>
               </div>
+            </div>
+
+            <div className="message message-warning">
+              <span className="message-icon">
+                <svg
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </span>
+              <span>
+                Switching to Mainnet will use real XLM for transactions. Make
+                sure your account is funded.
+              </span>
             </div>
           </div>
         );
@@ -780,21 +871,23 @@ export default function SettingsPage() {
                 <label className="form-label">Current Password</label>
                 <input
                   type="password"
-                  className="form-input"
+                  className="input-field"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">New Password</label>
                 <input
                   type="password"
-                  className="form-input"
+                  className="input-field"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min. 8 characters"
                 />
                 {newPassword.length > 0 && newPassword.length < 8 && (
-                  <p className="form-error">
+                  <p className="field-error">
                     Password must be at least 8 characters
                   </p>
                 )}
@@ -803,17 +896,22 @@ export default function SettingsPage() {
                 <label className="form-label">Confirm New Password</label>
                 <input
                   type="password"
-                  className="form-input"
+                  className="input-field"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
                 />
                 {confirmPassword.length > 0 &&
                   newPassword !== confirmPassword && (
-                    <p className="form-error">Passwords do not match</p>
+                    <p className="field-error">Passwords do not match</p>
                   )}
               </div>
-              {saveStatus === "success" && (
-                <div className="message message-success">
+
+              {passwordStatus === "success" && (
+                <div
+                  className="message message-success"
+                  style={{ marginBottom: "var(--space-4)" }}
+                >
                   <span className="message-icon">
                     <svg
                       width="16"
@@ -833,8 +931,11 @@ export default function SettingsPage() {
                   <span>Password updated successfully</span>
                 </div>
               )}
-              {saveStatus === "error" && (
-                <div className="message message-error">
+              {passwordStatus === "error" && (
+                <div
+                  className="message message-error"
+                  style={{ marginBottom: "var(--space-4)" }}
+                >
                   <span className="message-icon">
                     <svg
                       width="16"
@@ -847,26 +948,28 @@ export default function SettingsPage() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
                   </span>
                   <span>Failed to update password. Please try again.</span>
                 </div>
               )}
-              <div className="form-actions">
-                <button
-                  className="btn-primary"
-                  onClick={handleUpdatePassword}
-                  disabled={
-                    saveStatus === "saving" ||
-                    newPassword.length < 8 ||
-                    newPassword !== confirmPassword
-                  }
-                >
-                  {saveStatus === "saving" ? "Updating..." : "Update Password"}
-                </button>
-              </div>
+
+              <button
+                className="btn-primary"
+                onClick={handleUpdatePassword}
+                disabled={
+                  passwordStatus === "saving" ||
+                  newPassword.length < 8 ||
+                  newPassword !== confirmPassword
+                }
+                style={{ minHeight: "48px", marginTop: "var(--space-2)" }}
+              >
+                {passwordStatus === "saving"
+                  ? "Updating..."
+                  : "Update Password"}
+              </button>
             </div>
 
             {/* Sessions Card */}
@@ -879,23 +982,47 @@ export default function SettingsPage() {
               </div>
               <div className="session-row">
                 <div className="session-info">
-                  <span className="status-badge status-active">
-                    <span className="status-dot" />
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "var(--space-2)",
+                      fontSize: "var(--text-sm)",
+                      color: "var(--semantic-success)",
+                      fontWeight: "var(--weight-medium)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--semantic-success)",
+                        display: "inline-block",
+                      }}
+                    />
                     Current Session
                   </span>
-                  <span className="session-browser">{getBrowserInfo()}</span>
-                  <span className="session-label">This device</span>
+                  <span
+                    style={{
+                      fontSize: "var(--text-xs)",
+                      color: "var(--ink-muted)",
+                      marginLeft: "var(--space-2)",
+                    }}
+                  >
+                    {getBrowserInfo()} — This device
+                  </span>
                 </div>
                 <button
                   className="btn-ghost"
-                  onClick={() => alert("Sign out all other sessions clicked")}
+                  style={{ minHeight: "36px", padding: "8px 16px" }}
                 >
                   Sign out all other sessions
                 </button>
               </div>
             </div>
 
-            {/* Two-Factor Authentication Card */}
+            {/* 2FA Card */}
             <div className="card settings-card">
               <div className="settings-section-header">
                 <h3 className="settings-section-title">
@@ -907,40 +1034,56 @@ export default function SettingsPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">2FA Status</label>
-                <div className="form-row">
-                  <span
-                    className="status-badge"
-                    style={{
-                      backgroundColor: "var(--semantic-warning-light)",
-                      color: "var(--semantic-warning)",
-                    }}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                    Not enabled
-                  </span>
-                </div>
-              </div>
-              <div className="form-actions">
-                <button
-                  className="btn-ghost"
-                  onClick={() => alert("Coming soon")}
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    fontSize: "var(--text-sm)",
+                    color: "var(--semantic-warning)",
+                    background: "var(--semantic-warning-light)",
+                    padding: "4px 12px",
+                    borderRadius: "var(--radius-pill)",
+                    border: "1px solid var(--semantic-warning-border)",
+                  }}
                 >
-                  Enable 2FA
-                </button>
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  Not enabled
+                </span>
               </div>
+              <button
+                className="btn-ghost"
+                style={{
+                  minHeight: "36px",
+                  padding: "8px 16px",
+                  marginTop: "var(--space-3)",
+                }}
+                onClick={() => {}}
+              >
+                Enable 2FA
+              </button>
+              <p
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--ink-muted)",
+                  marginTop: "var(--space-2)",
+                }}
+              >
+                Coming soon
+              </p>
             </div>
           </div>
         );
@@ -948,13 +1091,21 @@ export default function SettingsPage() {
       case "danger":
         return (
           <div className="settings-content">
-            <h2 className="settings-title danger-title">Danger Zone</h2>
+            <h2
+              className="settings-title"
+              style={{ color: "var(--semantic-error)" }}
+            >
+              Danger Zone
+            </h2>
             <p className="settings-page-subtitle">
               Irreversible actions. Proceed with caution.
             </p>
 
-            {/* Delete All Ballots Card */}
-            <div className="card settings-card danger-card">
+            {/* Delete All Ballots */}
+            <div
+              className="card settings-card"
+              style={{ borderColor: "var(--semantic-error-border)" }}
+            >
               <div className="settings-section-header">
                 <h3 className="settings-section-title">Delete All Ballots</h3>
                 <p className="settings-section-description">
@@ -963,51 +1114,74 @@ export default function SettingsPage() {
                 </p>
               </div>
               {showDeleteBallotsConfirm ? (
-                <div className="danger-confirm">
-                  <label className="form-label">
-                    <span style={{ color: "var(--semantic-error)" }}>
-                      Type DELETE to confirm
-                    </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-3)",
+                  }}
+                >
+                  <label
+                    className="form-label"
+                    style={{ color: "var(--semantic-error)" }}
+                  >
+                    Type DELETE to confirm
                   </label>
-                  <div className="danger-confirm-row">
+                  <div style={{ display: "flex", gap: "var(--space-2)" }}>
                     <input
                       type="text"
-                      className="form-input"
+                      className="input-field"
                       value={deleteBallotsConfirmText}
                       onChange={(e) =>
                         setDeleteBallotsConfirmText(e.target.value)
                       }
                       placeholder="Type DELETE"
+                      style={{ flex: 1 }}
                     />
                     <button
-                      className="btn-danger"
+                      className="btn-primary btn-danger"
                       onClick={handleDeleteAllBallots}
                       disabled={deleteBallotsConfirmText !== "DELETE"}
+                      style={{ minHeight: "44px", padding: "8px 16px" }}
                     >
-                      Confirm Delete
+                      Confirm
                     </button>
                     <button
-                      className="btn-secondary"
+                      className="btn-ghost"
                       onClick={() => setShowDeleteBallotsConfirm(false)}
+                      style={{ minHeight: "44px", padding: "8px 16px" }}
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="form-actions">
-                  <button
-                    className="btn-danger btn-outline-danger"
-                    onClick={() => setShowDeleteBallotsConfirm(true)}
-                  >
-                    Delete All Ballots
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowDeleteBallotsConfirm(true)}
+                  style={{
+                    background: "none",
+                    border: "1px solid var(--semantic-error)",
+                    color: "var(--semantic-error)",
+                    fontFamily: "var(--font-display)",
+                    fontWeight: "var(--weight-semibold)",
+                    fontSize: "var(--text-sm)",
+                    padding: "8px 16px",
+                    borderRadius: "var(--radius-md)",
+                    cursor: "pointer",
+                    minHeight: "36px",
+                    transition: "background var(--transition-fast)",
+                  }}
+                >
+                  Delete All Ballots
+                </button>
               )}
             </div>
 
-            {/* Delete Account Card */}
-            <div className="card settings-card danger-card">
+            {/* Delete Account */}
+            <div
+              className="card settings-card"
+              style={{ borderColor: "var(--semantic-error-border)" }}
+            >
               <div className="settings-section-header">
                 <h3 className="settings-section-title">Delete Account</h3>
                 <p className="settings-section-description">
@@ -1016,46 +1190,55 @@ export default function SettingsPage() {
                 </p>
               </div>
               {showDeleteAccountConfirm ? (
-                <div className="danger-confirm">
-                  <label className="form-label">
-                    <span style={{ color: "var(--semantic-error)" }}>
-                      Type your organization name to confirm
-                    </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-3)",
+                  }}
+                >
+                  <label
+                    className="form-label"
+                    style={{ color: "var(--semantic-error)" }}
+                  >
+                    Type your organization name to confirm
                   </label>
-                  <div className="danger-confirm-row">
+                  <div style={{ display: "flex", gap: "var(--space-2)" }}>
                     <input
                       type="text"
-                      className="form-input"
+                      className="input-field"
                       value={deleteAccountConfirmText}
                       onChange={(e) =>
                         setDeleteAccountConfirmText(e.target.value)
                       }
                       placeholder={orgName || "Your organization name"}
+                      style={{ flex: 1 }}
                     />
                     <button
-                      className="btn-danger"
+                      className="btn-primary btn-danger"
                       onClick={handleDeleteAccount}
                       disabled={deleteAccountConfirmText !== orgName}
+                      style={{ minHeight: "44px", padding: "8px 16px" }}
                     >
-                      Confirm Delete
+                      Confirm
                     </button>
                     <button
-                      className="btn-secondary"
+                      className="btn-ghost"
                       onClick={() => setShowDeleteAccountConfirm(false)}
+                      style={{ minHeight: "44px", padding: "8px 16px" }}
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="form-actions">
-                  <button
-                    className="btn-primary btn-danger"
-                    onClick={() => setShowDeleteAccountConfirm(true)}
-                  >
-                    Delete Account
-                  </button>
-                </div>
+                <button
+                  className="btn-primary btn-danger"
+                  onClick={() => setShowDeleteAccountConfirm(true)}
+                  style={{ minHeight: "36px", padding: "8px 16px" }}
+                >
+                  Delete Account
+                </button>
               )}
             </div>
           </div>
@@ -1069,100 +1252,92 @@ export default function SettingsPage() {
               Get help from the AnonVote team.
             </p>
 
-            {/* Contact Card */}
             <div className="card settings-card">
               <div className="settings-section-header">
-                <h3 className="settings-section-title">Contact</h3>
+                <h3 className="settings-section-title">Get in Touch</h3>
                 <p className="settings-section-description">
                   Reach out to our support team
                 </p>
               </div>
               <div className="form-group">
                 <label className="form-label">Email Support</label>
-                <div className="form-row">
-                  <a
-                    href="mailto:support@anonvote.com"
-                    className="link-dark"
-                    style={{ textDecoration: "none" }}
-                  >
-                    support@anonvote.com
-                  </a>
-                </div>
+                <a href="mailto:support@anonvote.com" className="link-dark">
+                  support@anonvote.com
+                </a>
               </div>
               <div className="form-group">
                 <label className="form-label">GitHub Issues</label>
-                <div className="form-row">
-                  <a
-                    href="https://github.com/Just-Bamford/AnonVote/issues"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link-dark"
-                    style={{ textDecoration: "none" }}
+                <a
+                  href="https://github.com/Just-Bamford/AnonVote/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-dark"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-1)",
+                  }}
+                >
+                  github.com/Just-Bamford/AnonVote/issues
+                  <svg
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <span className="chip-mono chip-mono-truncate">
-                      github.com/Just-Bamford/AnonVote/issues
-                    </span>
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      style={{ marginLeft: "var(--space-2)" }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                  </a>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
               </div>
               <div className="form-group">
                 <label className="form-label">Documentation</label>
-                <div className="form-row">
-                  <a
-                    href="https://github.com/Just-Bamford/AnonVote"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link-dark"
-                    style={{ textDecoration: "none" }}
+                <a
+                  href="https://github.com/Just-Bamford/AnonVote"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-dark"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-1)",
+                  }}
+                >
+                  github.com/Just-Bamford/AnonVote
+                  <svg
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <span className="chip-mono chip-mono-truncate">
-                      github.com/Just-Bamford/AnonVote
-                    </span>
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      style={{ marginLeft: "var(--space-2)" }}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                  </a>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
               </div>
               <div className="form-group">
                 <label className="form-label">Response Time</label>
-                <div className="form-row">
-                  <span
-                    className="chip-mono"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Usually within 24 hours
-                  </span>
-                </div>
+                <span
+                  style={{
+                    fontSize: "var(--text-sm)",
+                    color: "var(--ink-muted)",
+                  }}
+                >
+                  Usually within 24 hours
+                </span>
               </div>
             </div>
 
-            {/* System Info Card */}
             <div className="card settings-card">
               <div className="settings-section-header">
                 <h3 className="settings-section-title">System Information</h3>
@@ -1170,30 +1345,17 @@ export default function SettingsPage() {
                   Version and environment details
                 </p>
               </div>
-              <div className="form-group">
-                <label className="form-label">Version</label>
-                <div className="form-row">
-                  <span className="chip-mono">v1.1.0</span>
+              {[
+                { label: "Version", value: "v1.1.0" },
+                { label: "Environment", value: "Testnet" },
+                { label: "Frontend", value: "React 18 + Vite" },
+                { label: "Blockchain", value: "Stellar" },
+              ].map((item) => (
+                <div key={item.label} className="form-group">
+                  <label className="form-label">{item.label}</label>
+                  <span className="chip-mono">{item.value}</span>
                 </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Environment</label>
-                <div className="form-row">
-                  <span className="chip-mono">Testnet</span>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Frontend</label>
-                <div className="form-row">
-                  <span className="chip-mono">React 18 + Vite</span>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Blockchain</label>
-                <div className="form-row">
-                  <span className="chip-mono">Stellar</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         );
@@ -1222,9 +1384,11 @@ export default function SettingsPage() {
               {sidebarItems.map((item) => (
                 <li key={item.id}>
                   <button
-                    className={`settings-sidebar-item ${
-                      activeSection === item.id ? "active" : ""
-                    }`}
+                    className={
+                      "settings-sidebar-item " +
+                      (activeSection === item.id ? "active" : "") +
+                      (item.id === "danger" ? " danger" : "")
+                    }
                     onClick={() => setActiveSection(item.id as SettingsSection)}
                   >
                     <span className="settings-sidebar-icon">

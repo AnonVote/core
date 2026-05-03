@@ -119,31 +119,25 @@ export default function PageLoader() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: "8px",
+        gap: "16px",
         backgroundColor: "var(--surface-base)",
         zIndex: 9999,
       }}
     >
-      <div style={{ width: "140px", height: "140px" }}>
+      <div style={{ width: "64px", height: "64px" }}>
         <svg
-          viewBox="0 0 100 100"
-          fill="none"
+          viewBox="0 0 256 256"
+          xmlns="http://www.w3.org/2000/svg"
           style={{
             width: "100%",
             height: "100%",
-            overflow: "visible",
             color: "var(--brand-primary)",
           }}
         >
-          <g ref={groupRef}>
-            <path
-              ref={pathRef}
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.15"
-            />
-          </g>
+          <path
+            d="M 64 128 C 64 163.346 92.654 192 128 192 L 128 256 C 57.308 256 0 198.692 0 128 Z M 192 128 C 192 163.346 220.654 192 256 192 L 256 256 C 185.308 256 128 198.692 128 128 Z M 64 0 C 64 35.346 92.654 64 128 64 L 128 128 C 57.308 128 0 70.692 0 0 Z M 192 0 C 192 35.346 220.654 64 256 64 L 256 128 C 185.308 128 128 70.692 128 0 Z"
+            fill="currentColor"
+          />
         </svg>
       </div>
       <div
