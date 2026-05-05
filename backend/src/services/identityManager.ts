@@ -40,7 +40,7 @@ export async function issueToken(
   if (!entry) {
     // Generic error — don't reveal whether identifier was not found
     throw badRequest(
-      "Unable to issue token. Please check your ballot link and identifier.",
+      "The identifier you entered is not in the eligibility list. Please check your email or contact your administrator.",
     );
   }
 
