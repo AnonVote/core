@@ -29,7 +29,7 @@ interface OrganizationDetails {
 
 export default function SettingsPage() {
   const { orgName, loading: authLoading } = useAuth();
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("profile");
   const [orgDetails, setOrgDetails] = useState<OrganizationDetails | null>(
@@ -511,13 +511,7 @@ export default function SettingsPage() {
                   className={
                     "theme-card " + (theme === "light" ? "selected" : "")
                   }
-                  onClick={() => {
-                    document.documentElement.setAttribute(
-                      "data-theme",
-                      "light",
-                    );
-                    localStorage.setItem("anonvote-theme", "light");
-                  }}
+                  onClick={() => setTheme("light")}
                 >
                   <div className="theme-card-icon">
                     <svg
@@ -558,10 +552,7 @@ export default function SettingsPage() {
                   className={
                     "theme-card " + (theme === "dark" ? "selected" : "")
                   }
-                  onClick={() => {
-                    document.documentElement.setAttribute("data-theme", "dark");
-                    localStorage.setItem("anonvote-theme", "dark");
-                  }}
+                  onClick={() => setTheme("dark")}
                 >
                   <div className="theme-card-icon">
                     <svg
