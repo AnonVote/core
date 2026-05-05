@@ -25,3 +25,11 @@ export function forbidden(message: string = "Forbidden"): AppError {
 export function notFound(message: string = "Not found"): AppError {
   return new AppError(message, 404, "NotFound");
 }
+
+export function alreadyVoted(message: string): AppError {
+  return new AppError(message, 409, "AlreadyVoted");
+}
+
+export function tokenAlreadyIssued(message: string): AppError {
+  return new AppError(message, 409, "TokenAlreadyIssued");
+}

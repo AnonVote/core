@@ -46,9 +46,12 @@ export default function TokenRequestPage() {
       });
       setToken(res.data.data.token);
     } catch (err: any) {
+      const errorCode = err?.response?.data?.error || "";
       const serverMsg = err?.response?.data?.message || "";
-      if (serverMsg.includes("already been issued")) {
-        // Token was issued before — offer reissue
+
+      if (errorCode === "AlreadyVoted") {
+        setPageState("vote_already_cast");
+      } else if (errorCode === "TokenAlreadyIssued") {
         setPageState("lost_token");
       } else {
         setError(
@@ -72,8 +75,9 @@ export default function TokenRequestPage() {
       setToken(res.data.data.token);
       setPageState("form");
     } catch (err: any) {
+      const errorCode = err?.response?.data?.error || "";
       const serverMsg = err?.response?.data?.message || "";
-      if (serverMsg.includes("already been cast")) {
+      if (errorCode === "AlreadyVoted") {
         setPageState("vote_already_cast");
       } else {
         setError(serverMsg || "Unable to reissue token. Please try again.");

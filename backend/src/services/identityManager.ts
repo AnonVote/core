@@ -1,7 +1,12 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
-import { badRequest, notFound } from "../utils/errors";
+import {
+  badRequest,
+  notFound,
+  alreadyVoted,
+  tokenAlreadyIssued,
+} from "../utils/errors";
 
 /**
  * Issue a one-time anonymous voter token.
@@ -65,11 +70,31 @@ export async function issueToken(
   }
 
   if (entry.tokenIssued) {
+    // Check if the token was already used to vote
+    const usedTokenCount = await prisma.voterToken.count({
+      where: { ballotId, used: true },
+    });
+    const issuedCount = await prisma.eligibilityEntry.count({
+      where: {
+        eligibilityListId: ballot.eligibilityListId,
+        tokenIssued: true,
+      },
+    });
+
     // Record duplicate attempt in audit log (no identifier stored)
     await prisma.auditEvent.create({
       data: { ballotId, eventType: "DUPLICATE_TOKEN_ATTEMPT" },
     });
-    throw badRequest(
+
+    if (usedTokenCount >= issuedCount) {
+      // All issued tokens have been used — this voter already voted
+      throw alreadyVoted(
+        "Your vote has already been cast. You cannot request a new token.",
+      );
+    }
+
+    // Token issued but not yet used — offer reissue
+    throw tokenAlreadyIssued(
       "A token has already been issued for this identifier on this ballot.",
     );
   }
