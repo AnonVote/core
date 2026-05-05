@@ -221,6 +221,9 @@ export async function reissueToken(
 
   return { token: rawToken, weight: (entry as any).weight ?? 1 };
 }
+
+/**
+ * Reset all token issuance flags for a ballot's eligibility list.
  * Admin function — allows voters to request tokens again.
  * WARNING: Does not revoke already-issued tokens, only resets the issued flag.
  */
