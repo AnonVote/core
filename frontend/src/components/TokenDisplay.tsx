@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Toast from "./Toast";
 
 interface Props {
   token: string;
@@ -8,11 +9,13 @@ interface Props {
 
 export default function TokenDisplay({ token, ballotId }: Props) {
   const [copied, setCopied] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const navigate = useNavigate();
 
   const copy = async () => {
     await navigator.clipboard.writeText(token);
     setCopied(true);
+    setShowToast(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -187,6 +190,14 @@ export default function TokenDisplay({ token, ballotId }: Props) {
       >
         Proceed to Vote →
       </button>
+
+      {showToast && (
+        <Toast
+          message="Token copied to clipboard"
+          type="success"
+          onClose={() => setShowToast(false)}
+        />
+      )}
     </div>
   );
 }
