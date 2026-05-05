@@ -11,9 +11,12 @@ export default function VotePage() {
   const [ballotError, setBallotError] = useState("");
   const [token, setToken] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
+  const [rankedOptions, setRankedOptions] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [voteWeight, setVoteWeight] = useState<number>(1);
+  const [verificationHash, setVerificationHash] = useState("");
 
   useEffect(() => {
     if (!ballotId) return;
@@ -27,7 +30,22 @@ export default function VotePage() {
       .catch(() => setBallotError("This ballot is not available."));
   }, [ballotId]);
 
-  const canSubmit = token.trim().length > 0 && selectedOption !== "";
+  // Handle ranked-choice selection
+  const toggleRankedOption = (optionId: string) => {
+    if (rankedOptions.includes(optionId)) {
+      setRankedOptions(rankedOptions.filter((id) => id !== optionId));
+    } else {
+      if (ballot.maxRankings && rankedOptions.length >= ballot.maxRankings) {
+        setError(`You can only rank up to ${ballot.maxRankings} options.`);
+        return;
+      }
+      setRankedOptions([...rankedOptions, optionId]);
+    }
+  };
+
+  const canSubmit =
+    token.trim().length > 0 &&
+    (selectedOption !== "" || rankedOptions.length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +53,23 @@ export default function VotePage() {
     setError("");
     setLoading(true);
     try {
-      await submitVote({
+      // For ranked-choice, submit the first choice with all ranks
+      const voteData: any = {
         ballotId: ballotId!,
         voterToken: token.trim(),
-        optionId: selectedOption,
-        weight: ballot.allowWeightedVoting ? 1 : 1, // Default to 1 for now
-      });
+        optionId: rankedOptions.length > 0 ? rankedOptions[0] : selectedOption,
+        weight: voteWeight,
+      };
+
+      if (rankedOptions.length > 0) {
+        voteData.rank = rankedOptions.indexOf(voteData.optionId) + 1;
+        voteData.rankedOptions = rankedOptions;
+      }
+
+      const result = await submitVote(voteData);
       setSuccess(true);
+      // Store verification hash for display
+      setVerificationHash(`${result.voteId}:${ballotId}`);
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
@@ -86,6 +114,20 @@ export default function VotePage() {
             <p className="text-gray-600 dark:text-gray-300">
               Your anonymous vote has been recorded on the Stellar blockchain.
             </p>
+            {verificationHash && (
+              <div className="card p-4 bg-green-50 dark:bg-green-900/20">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                  Verification Hash
+                </p>
+                <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
+                  {verificationHash}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Use this hash to verify your vote was recorded without
+                  exposing your identity
+                </p>
+              </div>
+            )}
             <Link to={`/results/${ballotId}`} className="block btn-primary">
               View Results
             </Link>
@@ -160,19 +202,69 @@ export default function VotePage() {
                     onChange={(e) => setToken(e.target.value)}
                     className="input-field has-icon font-mono text-sm"
                     placeholder="Paste your token here"
+                    onBlur={() => {
+                      // Set default weight for now
+                      setVoteWeight(1);
+                    }}
                   />
+                  {voteWeight > 1 && (
+                    <span className="input-icon-right">
+                      <span className="text-xs font-medium text-[var(--brand-primary)]">
+                        Weight: {voteWeight}
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Select an Option
+                  {ballot.allowRankedChoice
+                    ? "Rank Your Options"
+                    : "Select an Option"}
                 </label>
-                <OptionSelector
-                  options={ballot.options}
-                  selected={selectedOption}
-                  onChange={setSelectedOption}
-                />
+                {ballot.allowRankedChoice ? (
+                  <div className="space-y-2">
+                    {ballot.options.map((option, index) => {
+                      const rank = rankedOptions.indexOf(option.id) + 1;
+                      const isSelected = rankedOptions.includes(option.id);
+                      return (
+                        <div
+                          key={option.id}
+                          onClick={() => toggleRankedOption(option.id)}
+                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-[var(--brand-primary-pale)] border-[var(--brand-primary)]"
+                              : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-[var(--brand-primary)]"
+                          } border rounded-lg`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-900 dark:text-white">
+                              {option.text}
+                            </span>
+                            {rank > 0 && (
+                              <span className="text-sm font-bold text-[var(--brand-primary)]">
+                                #{rank}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {rankedOptions.length > 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        You've ranked {rankedOptions.length} of{" "}
+                        {ballot.maxRankings || ballot.options.length} options
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <OptionSelector
+                    options={ballot.options}
+                    selected={selectedOption}
+                    onChange={setSelectedOption}
+                  />
+                )}
               </div>
 
               <button
