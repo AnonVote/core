@@ -127,4 +127,21 @@ export const tallyBallot = (ballotId: string) =>
 export const getAudit = (ballotId: string) =>
   api.get<ApiResponse<AuditCounts>>(`/audit/${ballotId}`);
 
+// Admin
+export const getRateLimitSettings = () =>
+  api.get<
+    ApiResponse<{
+      current: { preset: string; maxAttempts: number; windowMinutes: number };
+      presets: Record<
+        string,
+        { preset: string; maxAttempts: number; windowMinutes: number }
+      >;
+    }>
+  >("/admin/rate-limit");
+
+export const updateRateLimitSettings = (preset: string) =>
+  api.patch<
+    ApiResponse<{ preset: string; maxAttempts: number; windowMinutes: number }>
+  >("/admin/rate-limit", { preset });
+
 export default api;

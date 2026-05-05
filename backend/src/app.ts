@@ -12,6 +12,7 @@ import resultsRouter from "./routes/results";
 import auditRouter from "./routes/audit";
 import delegationsRouter from "./routes/delegations";
 import verificationRouter from "./routes/verification";
+import adminRouter from "./routes/admin";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/results", resultsRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/delegations", delegationsRouter);
 app.use("/api/verification", verificationRouter);
+app.use("/api/admin", adminRouter);
 
 app.use(errorHandler);
 

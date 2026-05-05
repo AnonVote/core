@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../context/ThemeContext";
-import { updateOrg, changePassword, deleteAccount, getMe } from "../api/client";
+import {
+  updateOrg,
+  changePassword,
+  deleteAccount,
+  getMe,
+  getRateLimitSettings,
+  updateRateLimitSettings,
+} from "../api/client";
 import Navbar from "../components/Navbar";
 import "./SettingsPage.css";
 
@@ -66,6 +73,17 @@ export default function SettingsPage() {
   const [deleteBallotsConfirmText, setDeleteBallotsConfirmText] = useState("");
   const [deleteAccountConfirmText, setDeleteAccountConfirmText] = useState("");
 
+  // Rate limit state
+  const [rateLimitPreset, setRateLimitPreset] = useState<string>("standard");
+  const [rateLimitInfo, setRateLimitInfo] = useState<{
+    maxAttempts: number;
+    windowMinutes: number;
+  } | null>(null);
+  const [rateLimitSaving, setRateLimitSaving] = useState(false);
+  const [rateLimitStatus, setRateLimitStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+
   // Fetch org details from API
   useEffect(() => {
     if (!authLoading) {
@@ -82,8 +100,38 @@ export default function SettingsPage() {
           setEditedEmail(data.email);
         })
         .catch(() => {});
+
+      getRateLimitSettings()
+        .then((res) => {
+          const { current } = res.data.data;
+          setRateLimitPreset(current.preset);
+          setRateLimitInfo({
+            maxAttempts: current.maxAttempts,
+            windowMinutes: current.windowMinutes,
+          });
+        })
+        .catch(() => {});
     }
   }, [authLoading]);
+
+  const handleSaveRateLimit = async (preset: string) => {
+    setRateLimitSaving(true);
+    try {
+      const res = await updateRateLimitSettings(preset);
+      setRateLimitPreset(res.data.data.preset);
+      setRateLimitInfo({
+        maxAttempts: res.data.data.maxAttempts,
+        windowMinutes: res.data.data.windowMinutes,
+      });
+      setRateLimitStatus("success");
+      setTimeout(() => setRateLimitStatus("idle"), 2500);
+    } catch {
+      setRateLimitStatus("error");
+      setTimeout(() => setRateLimitStatus("idle"), 2500);
+    } finally {
+      setRateLimitSaving(false);
+    }
+  };
 
   const handleUpdatePassword = async () => {
     if (newPassword.length < 8 || newPassword !== confirmPassword) return;
@@ -969,6 +1017,172 @@ export default function SettingsPage() {
                 {passwordStatus === "saving"
                   ? "Updating..."
                   : "Update Password"}
+              </button>
+            </div>
+
+            {/* Rate Limiting Card */}
+            <div className="card settings-card">
+              <div className="settings-section-header">
+                <h3 className="settings-section-title">
+                  Token Request Rate Limiting
+                </h3>
+                <p className="settings-section-description">
+                  Control how many failed token requests are allowed per voter
+                  IP before they are temporarily blocked.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Preset</label>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-2)",
+                  }}
+                >
+                  {[
+                    {
+                      value: "off",
+                      label: "Off",
+                      desc: "No limit — unrestricted access",
+                    },
+                    {
+                      value: "relaxed",
+                      label: "Relaxed",
+                      desc: "20 attempts per 15 minutes",
+                    },
+                    {
+                      value: "standard",
+                      label: "Standard",
+                      desc: "10 attempts per 15 minutes (recommended)",
+                    },
+                    {
+                      value: "strict",
+                      label: "Strict",
+                      desc: "5 attempts per 30 minutes",
+                    },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-3)",
+                        padding: "var(--space-3) var(--space-4)",
+                        borderRadius: "var(--radius-md)",
+                        border: `1px solid ${rateLimitPreset === opt.value ? "var(--brand-primary)" : "var(--border-soft)"}`,
+                        background:
+                          rateLimitPreset === opt.value
+                            ? "var(--brand-primary-pale)"
+                            : "var(--surface-sunken)",
+                        cursor: "pointer",
+                        transition:
+                          "border-color var(--transition-fast), background var(--transition-fast)",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="rateLimit"
+                        value={opt.value}
+                        checked={rateLimitPreset === opt.value}
+                        onChange={() => setRateLimitPreset(opt.value)}
+                        style={{ accentColor: "var(--brand-primary)" }}
+                      />
+                      <div>
+                        <span
+                          style={{
+                            fontSize: "var(--text-sm)",
+                            fontWeight: "var(--weight-medium)",
+                            color: "var(--ink-primary)",
+                            display: "block",
+                          }}
+                        >
+                          {opt.label}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "var(--text-xs)",
+                            color: "var(--ink-muted)",
+                          }}
+                        >
+                          {opt.desc}
+                        </span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {rateLimitInfo && (
+                <p
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color: "var(--ink-muted)",
+                    marginBottom: "var(--space-3)",
+                  }}
+                >
+                  Active: {rateLimitInfo.maxAttempts} attempts /{" "}
+                  {rateLimitInfo.windowMinutes} min window
+                </p>
+              )}
+
+              {rateLimitStatus === "success" && (
+                <div
+                  className="message message-success"
+                  style={{ marginBottom: "var(--space-3)" }}
+                >
+                  <span className="message-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </span>
+                  <span>Rate limit updated</span>
+                </div>
+              )}
+              {rateLimitStatus === "error" && (
+                <div
+                  className="message message-error"
+                  style={{ marginBottom: "var(--space-3)" }}
+                >
+                  <span className="message-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </span>
+                  <span>Failed to update rate limit</span>
+                </div>
+              )}
+
+              <button
+                className="btn-primary"
+                onClick={() => handleSaveRateLimit(rateLimitPreset)}
+                disabled={rateLimitSaving}
+                style={{ minHeight: "44px" }}
+              >
+                {rateLimitSaving ? "Saving…" : "Save"}
               </button>
             </div>
 
