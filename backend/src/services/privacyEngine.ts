@@ -81,34 +81,41 @@ export async function submitVote(
     return { voteId: newVote.id, auditEventId: auditEvent.id };
   });
 
-  // Write to Stellar — non-blocking, vote is recorded regardless
-  const stellarResult = await writeRecord({
+  // Return vote immediately — Stellar write happens in background
+  const voteResponse = {
+    voteId: vote.voteId,
+    ballotId,
+    stellarTxId: "",
+  };
+
+  // Fire-and-forget Stellar write — does not block the response
+  writeRecord({
     type: "VOTE_CAST",
     ballotId,
     voteId: vote.voteId,
-  });
+  })
+    .then((stellarResult) => {
+      if (stellarResult.txHash) {
+        Promise.all([
+          prisma.vote.update({
+            where: { id: vote.voteId },
+            data: { stellarTxId: stellarResult.txHash },
+          }),
+          prisma.auditEvent.update({
+            where: { id: vote.auditEventId },
+            data: {
+              stellarTxId: stellarResult.txHash,
+              stellarLedgerAt: stellarResult.ledgerTimestamp,
+            },
+          }),
+        ]).catch(() => {});
+      } else {
+        console.warn(
+          `[Stellar] VOTE_CAST write failed for vote ${vote.voteId}`,
+        );
+      }
+    })
+    .catch(() => {});
 
-  if (stellarResult.txHash) {
-    await prisma.vote.update({
-      where: { id: vote.voteId },
-      data: { stellarTxId: stellarResult.txHash },
-    });
-    await prisma.auditEvent.update({
-      where: { id: vote.auditEventId },
-      data: {
-        stellarTxId: stellarResult.txHash,
-        stellarLedgerAt: stellarResult.ledgerTimestamp,
-      },
-    });
-  } else {
-    console.warn(
-      `[Stellar] VOTE_CAST write failed for vote ${vote.voteId} — vote still recorded`,
-    );
-  }
-
-  return {
-    voteId: vote.voteId,
-    ballotId,
-    stellarTxId: stellarResult.txHash || "",
-  };
+  return voteResponse;
 }

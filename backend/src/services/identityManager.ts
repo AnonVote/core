@@ -123,32 +123,39 @@ export async function issueToken(
     return { auditEventId: auditEvent.id, weight: (entry as any).weight };
   });
 
-  // Write to Stellar — non-blocking, token is issued regardless
-  const stellarResult = await writeRecord({
+  // Return token immediately — Stellar write happens in background
+  const tokenResponse = {
+    token: rawToken,
+    stellarTxId: "",
+    weight: result.weight,
+  };
+
+  // Fire-and-forget Stellar write — does not block the response
+  writeRecord({
     type: "TOKEN_ISSUED",
     ballotId,
     auditEventId: result.auditEventId,
-  });
+  })
+    .then((stellarResult) => {
+      if (stellarResult.txHash) {
+        prisma.auditEvent
+          .update({
+            where: { id: result.auditEventId },
+            data: {
+              stellarTxId: stellarResult.txHash,
+              stellarLedgerAt: stellarResult.ledgerTimestamp,
+            },
+          })
+          .catch(() => {});
+      } else {
+        console.warn(
+          `[Stellar] TOKEN_ISSUED write failed for auditEvent ${result.auditEventId}`,
+        );
+      }
+    })
+    .catch(() => {});
 
-  if (stellarResult.txHash) {
-    await prisma.auditEvent.update({
-      where: { id: result.auditEventId },
-      data: {
-        stellarTxId: stellarResult.txHash,
-        stellarLedgerAt: stellarResult.ledgerTimestamp,
-      },
-    });
-  } else {
-    console.warn(
-      `[Stellar] TOKEN_ISSUED write failed for auditEvent ${result.auditEventId} — token still issued`,
-    );
-  }
-
-  return {
-    token: rawToken,
-    stellarTxId: stellarResult.txHash || "",
-    weight: result.weight,
-  };
+  return tokenResponse;
 }
 
 /**
