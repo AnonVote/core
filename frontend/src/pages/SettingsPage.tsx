@@ -1726,14 +1726,19 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="page-wrapper">
+    <div
+      className="page-wrapper"
+      style={{ height: "100vh", overflow: "hidden" }}
+    >
       <Navbar />
       <div
         style={{
           padding: "var(--space-8)",
+          paddingTop: "var(--space-6)",
           maxWidth: "1000px",
           margin: "0 auto",
           width: "100%",
+          overflow: "hidden",
         }}
       >
         <div className="settings-container">
@@ -1761,9 +1766,15 @@ export default function SettingsPage() {
             </ul>
           </nav>
 
-          {/* Content — Radix ScrollArea */}
-          <ScrollArea.Root style={{ flex: 1, minWidth: 0 }}>
-            <ScrollArea.Viewport style={{ height: "100%", width: "100%" }}>
+          {/* Content — Radix ScrollArea fills settings-content-area height */}
+          <ScrollArea.Root style={{ flex: 1, minWidth: 0, height: "100%" }}>
+            <ScrollArea.Viewport
+              style={{
+                height: "100%",
+                width: "100%",
+                paddingRight: "var(--space-3)",
+              }}
+            >
               <main className="settings-content-area">{renderContent()}</main>
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar
@@ -1773,8 +1784,8 @@ export default function SettingsPage() {
                 userSelect: "none",
                 touchAction: "none",
                 padding: "2px",
-                width: "8px",
-                background: "var(--surface-sunken)",
+                width: "6px",
+                background: "transparent",
                 borderRadius: "var(--radius-pill)",
               }}
             >
@@ -1785,6 +1796,7 @@ export default function SettingsPage() {
                   borderRadius: "var(--radius-pill)",
                   position: "relative",
                   cursor: "pointer",
+                  opacity: 0.6,
                 }}
               />
             </ScrollArea.Scrollbar>
