@@ -211,19 +211,29 @@ Frontend → `http://localhost:5173` · Backend → `http://localhost:3001`
 <summary><strong>API Reference</strong></summary>
 <br>
 
-| Method | Endpoint                    | Auth    | Description            |
-| ------ | --------------------------- | ------- | ---------------------- |
-| POST   | `/api/organizations`        | —       | Register organization  |
-| POST   | `/api/organizations/login`  | —       | Admin login            |
-| POST   | `/api/organizations/logout` | Session | Admin logout           |
-| GET    | `/api/ballots`              | Session | List org ballots       |
-| POST   | `/api/ballots`              | Session | Create ballot          |
-| GET    | `/api/ballots/:id`          | —       | Get ballot (public)    |
-| POST   | `/api/eligibility`          | Session | Upload voter list      |
-| POST   | `/api/tokens`               | —       | Request voter token    |
-| POST   | `/api/votes`                | —       | Submit vote            |
-| GET    | `/api/results/:ballotId`    | —       | Get published result   |
-| GET    | `/api/audit/:ballotId`      | —       | Get audit event counts |
+| Method | Endpoint                       | Auth    | Description                        |
+| ------ | ------------------------------ | ------- | ---------------------------------- |
+| POST   | `/api/organizations`           | —       | Register organization              |
+| POST   | `/api/organizations/login`     | —       | Admin login                        |
+| POST   | `/api/organizations/logout`    | Session | Admin logout                       |
+| GET    | `/api/organizations/me`        | Session | Get current org                    |
+| PATCH  | `/api/organizations/me`        | Session | Update org name / email            |
+| PATCH  | `/api/organizations/password`  | Session | Change password                    |
+| GET    | `/api/ballots`                 | Session | List org ballots                   |
+| POST   | `/api/ballots`                 | Session | Create ballot                      |
+| GET    | `/api/ballots/:id`             | —       | Get ballot (public)                |
+| PATCH  | `/api/ballots/:id`             | Session | Edit ballot                        |
+| DELETE | `/api/ballots/:id`             | Session | Delete ballot                      |
+| POST   | `/api/eligibility`             | Session | Upload voter list                  |
+| POST   | `/api/tokens`                  | —       | Request voter token                |
+| POST   | `/api/tokens/reissue`          | —       | Reissue lost token (if not voted)  |
+| POST   | `/api/votes`                   | —       | Submit vote                        |
+| GET    | `/api/results/:ballotId`       | —       | Get published result               |
+| POST   | `/api/results/:ballotId/tally` | Session | Manually close and tally ballot    |
+| GET    | `/api/audit/:ballotId`         | —       | Get audit event counts             |
+| GET    | `/api/admin/rate-limit`        | Session | Get rate limit settings            |
+| PATCH  | `/api/admin/rate-limit`        | Session | Update rate limit preset           |
+| GET    | `/api/admin/tokens-issued`     | Session | Total tokens issued across ballots |
 
 </details>
 
@@ -270,13 +280,22 @@ Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_
 - [x] Delegated voting
 - [x] Multi-round / ranked-choice voting
 - [x] Blind vote verification (voter self-verification without identity exposure)
-- [x] Soroban smart contracts (service ready for deployment)
-- [ ] Full Soroban smart contract implementation (on-chain logic)
-- [ ] Frontend tests
+- [x] Soroban smart contracts (service stub — correct stellar-sdk v12 APIs, ready to wire)
+- [x] Frontend test suite (Vitest + React Testing Library, 28 tests)
+- [x] Accessibility (WCAG) — aria labels, roles, live regions across all components
+- [x] Performance optimization (lazy loading, code splitting per page)
+- [x] Stellar consensus timestamp — ledger close time stored and surfaced in audit log
+- [x] Token reissue flow — lost token recovery without double-voting
+- [x] Edit ballot — topic, deadline, eligibility list, vote-aware field locking
+- [x] Manual close & tally — admin can close ballot and publish results on demand
+- [x] Configurable rate limiting — admin-controlled presets in Settings
+- [x] Real-time notifications — ballot created, vote cast, results published
+- [x] Avatar upload — profile picture with navbar sync
+- [x] Gradient brand color — CSS gradient on buttons, badges, accents (Settings > Gradient)
+- [ ] Full Soroban on-chain logic (requires Rust contract deployment)
 - [ ] Email notifications for ballot creation/closing
 - [ ] Mobile responsiveness improvements
-- [ ] Accessibility audit (WCAG compliance)
-- [ ] Performance optimization (lazy loading, code splitting)
+- [ ] Landing page
 
 </details>
 
