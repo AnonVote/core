@@ -92,24 +92,8 @@ export default function LandingPage() {
             fontSize: "var(--text-lg)",
             letterSpacing: "var(--tracking-tight)",
             color: "#ffffff",
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--space-2)",
-            textDecoration: "none",
           }}
         >
-          <svg
-            viewBox="0 0 256 256"
-            xmlns="http://www.w3.org/2000/svg"
-            style={{
-              width: "20px",
-              height: "20px",
-              fill: "#ffffff",
-              flexShrink: 0,
-            }}
-          >
-            <path d="M 120 136 L 120 176 L 40 256 L 0 256 L 0 216 L 80 136 Z M 256 216 L 256 256 L 216 256 L 136 176 L 136 136 L 176 136 Z M 120 80 L 120 120 L 80 120 L 0 40 L 0 0 L 40 0 Z M 256 40 L 176 120 L 136 120 L 136 80 L 216 0 L 256 0 Z" />
-          </svg>
           AnonVote
         </span>
         <div
@@ -266,8 +250,7 @@ export default function LandingPage() {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow =
-                "0 8px 24px rgba(129,184,0,0.3)";
+              e.currentTarget.style.boxShadow = "var(--shadow-md)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0)";
