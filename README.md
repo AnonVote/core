@@ -293,7 +293,7 @@ Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_
 - [x] Avatar upload — profile picture with navbar sync
 - [ ] Full Soroban on-chain logic (requires Rust contract deployment)
 - [ ] Email notifications for ballot creation/closing
-- [ ] Mobile responsiveness improvements
+- [x] Mobile responsiveness improvements
 - [ ] Landing page
 
 </details>
