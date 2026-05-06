@@ -741,7 +741,7 @@ export default function LandingPage() {
         <h2
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "var(--text-xl)",
+            fontSize: "32px",
             fontWeight: "var(--weight-bold)",
             letterSpacing: "var(--tracking-tight)",
             color: "#ffffff",
