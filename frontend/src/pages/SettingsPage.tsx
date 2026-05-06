@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as ScrollArea from "@radix-ui/react-scroll-area";
 import {
   updateOrg,
   changePassword,
@@ -1760,8 +1761,34 @@ export default function SettingsPage() {
             </ul>
           </nav>
 
-          {/* Content */}
-          <main className="settings-content-area">{renderContent()}</main>
+          {/* Content — Radix ScrollArea */}
+          <ScrollArea.Root style={{ flex: 1, minWidth: 0 }}>
+            <ScrollArea.Viewport style={{ height: "100%", width: "100%" }}>
+              <main className="settings-content-area">{renderContent()}</main>
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar
+              orientation="vertical"
+              style={{
+                display: "flex",
+                userSelect: "none",
+                touchAction: "none",
+                padding: "2px",
+                width: "8px",
+                background: "var(--surface-sunken)",
+                borderRadius: "var(--radius-pill)",
+              }}
+            >
+              <ScrollArea.Thumb
+                style={{
+                  flex: 1,
+                  background: "var(--border-strong)",
+                  borderRadius: "var(--radius-pill)",
+                  position: "relative",
+                  cursor: "pointer",
+                }}
+              />
+            </ScrollArea.Scrollbar>
+          </ScrollArea.Root>
         </div>
       </div>
 

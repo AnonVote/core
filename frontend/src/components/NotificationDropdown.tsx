@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import * as ScrollArea from "@radix-ui/react-scroll-area";
 import { useNotifications } from "../context/NotificationContext";
 import "./Navbar.css";
 
@@ -24,14 +25,8 @@ export default function NotificationDropdown() {
         setIsOpen(false);
       }
     }
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   const recentNotifications = [...notifications]
@@ -74,8 +69,8 @@ export default function NotificationDropdown() {
           role="menu"
           aria-label="Notifications"
           style={{
-            minWidth: "250px",
-            maxWidth: "250px",
+            minWidth: "280px",
+            maxWidth: "280px",
             top: "calc(100% + 8px)",
           }}
         >
@@ -114,86 +109,113 @@ export default function NotificationDropdown() {
             </button>
           </div>
 
-          {/* Content */}
-          <div style={{ maxHeight: "320px", overflowY: "auto" }}>
-            {notifications.length === 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "var(--space-2)",
-                  padding: "var(--space-6) var(--space-4)",
-                }}
-              >
-                <svg
-                  width="24"
-                  height="24"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  style={{ color: "var(--ink-muted)" }}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-                <span
-                  style={{
-                    fontSize: "var(--text-sm)",
-                    color: "var(--ink-muted)",
-                  }}
-                >
-                  No notifications yet
-                </span>
-              </div>
-            ) : (
-              recentNotifications.map((notification) => (
+          {/* Radix ScrollArea */}
+          <ScrollArea.Root style={{ height: "320px" }}>
+            <ScrollArea.Viewport style={{ height: "100%", width: "100%" }}>
+              {notifications.length === 0 ? (
                 <div
-                  key={notification.id}
-                  className="navbar-dropdown-item"
                   style={{
+                    display: "flex",
                     flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: "var(--space-1)",
-                    borderLeft: !notification.read
-                      ? "3px solid var(--brand-primary)"
-                      : "3px solid transparent",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    padding: "var(--space-6) var(--space-4)",
                   }}
                 >
+                  <svg
+                    width="24"
+                    height="24"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                    />
+                  </svg>
                   <span
                     style={{
-                      fontWeight: "var(--weight-medium)",
                       fontSize: "var(--text-sm)",
-                      color: "var(--ink-primary)",
-                    }}
-                  >
-                    {notification.title}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "var(--text-xs)",
                       color: "var(--ink-muted)",
                     }}
                   >
-                    {notification.message}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
-                      color: "var(--ink-muted)",
-                    }}
-                  >
-                    {timeAgo(notification.time)}
+                    No notifications yet
                   </span>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                recentNotifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className="navbar-dropdown-item"
+                    style={{
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: "var(--space-1)",
+                      borderLeft: !notification.read
+                        ? "3px solid var(--brand-primary)"
+                        : "3px solid transparent",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: "var(--weight-medium)",
+                        fontSize: "var(--text-sm)",
+                        color: "var(--ink-primary)",
+                      }}
+                    >
+                      {notification.title}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "var(--text-xs)",
+                        color: "var(--ink-muted)",
+                      }}
+                    >
+                      {notification.message}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "var(--text-xs)",
+                        color: "var(--ink-muted)",
+                      }}
+                    >
+                      {timeAgo(notification.time)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </ScrollArea.Viewport>
+
+            {/* Scrollbar */}
+            <ScrollArea.Scrollbar
+              orientation="vertical"
+              style={{
+                display: "flex",
+                userSelect: "none",
+                touchAction: "none",
+                padding: "2px",
+                width: "8px",
+                background: "var(--surface-sunken)",
+                borderRadius: "var(--radius-pill)",
+                transition: "background var(--transition-fast)",
+              }}
+            >
+              <ScrollArea.Thumb
+                style={{
+                  flex: 1,
+                  background: "var(--border-strong)",
+                  borderRadius: "var(--radius-pill)",
+                  position: "relative",
+                  cursor: "pointer",
+                }}
+              />
+            </ScrollArea.Scrollbar>
+          </ScrollArea.Root>
         </div>
       )}
     </div>
