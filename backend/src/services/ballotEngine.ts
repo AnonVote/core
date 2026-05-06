@@ -1,5 +1,6 @@
 import { prisma } from "../prisma/client";
 import { badRequest, notFound } from "../utils/errors";
+import { sendBallotCreatedEmail } from "./emailService";
 
 export async function createBallot(
   orgId: string,
@@ -33,6 +34,22 @@ export async function createBallot(
     },
     include: { options: true },
   });
+
+  // Send confirmation email to org admin — non-blocking
+  prisma.organization
+    .findUnique({ where: { id: orgId }, select: { email: true, name: true } })
+    .then((org) => {
+      if (org) {
+        sendBallotCreatedEmail({
+          to: org.email,
+          orgName: org.name,
+          topic: ballot.topic,
+          deadline: ballot.deadline,
+          ballotId: ballot.id,
+        });
+      }
+    })
+    .catch(() => {});
 
   return ballot;
 }

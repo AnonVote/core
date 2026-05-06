@@ -42,4 +42,6 @@ export const config = {
   stellarNetwork: process.env.STELLAR_NETWORK || "testnet",
   ballotEncryptionKey: process.env.BALLOT_ENCRYPTION_KEY || "",
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",
 };

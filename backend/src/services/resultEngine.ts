@@ -3,11 +3,16 @@ import { decryptVote } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
 import { config } from "../config";
 import { notFound } from "../utils/errors";
+import { sendBallotClosedEmail } from "./emailService";
 
 export async function tallyBallot(ballotId: string) {
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
-    include: { options: true, votes: true },
+    include: {
+      options: true,
+      votes: true,
+      organization: { select: { email: true, name: true } },
+    },
   });
 
   if (!ballot) throw notFound("Ballot not found");
@@ -98,6 +103,15 @@ export async function tallyBallot(ballotId: string) {
       `[Stellar] RESULT_PUBLISHED write failed for ballot ${ballotId} — result still published`,
     );
   }
+
+  // Send results notification email to org admin — non-blocking
+  sendBallotClosedEmail({
+    to: ballot.organization.email,
+    orgName: ballot.organization.name,
+    topic: ballot.topic,
+    totalVotes: totalWeightedVotes,
+    ballotId,
+  }).catch(() => {});
 
   return result;
 }

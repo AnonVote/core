@@ -292,8 +292,8 @@ Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_
 - [x] Real-time notifications — ballot created, vote cast, results published
 - [x] Avatar upload — profile picture with navbar sync
 - [x] Mobile responsiveness improvements
+- [x] Email notifications (Resend — ballot created + results published)
 - [ ] Full Soroban on-chain logic (contract written — needs deployment, see contracts/README.md)
-- [ ] Email notifications for ballot creation/closing
 - [ ] Landing page
 
 </details>
