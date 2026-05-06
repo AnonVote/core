@@ -58,7 +58,7 @@ export default function SettingsPage() {
   const [copySuccess, setCopySuccess] = useState(false);
 
   const [selectedColor, setSelectedColor] = useState<string>(() => {
-    return localStorage.getItem("anonvote-accent") || "#1c7ed6";
+    return localStorage.getItem("anonvote-accent") || "#81b800";
   });
   const [selectedFontSize, setSelectedFontSize] = useState<string>(() => {
     return localStorage.getItem("anonvote-font-size") || "14px";

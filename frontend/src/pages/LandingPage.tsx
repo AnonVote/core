@@ -130,23 +130,6 @@ export default function LandingPage() {
           overflow: "hidden",
         }}
       >
-        {/* Radial glow */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "30%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "600px",
-            height: "600px",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(28,126,214,0.12) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }}
-        />
-
         {/* Eyebrow */}
         <div
           style={{
@@ -205,9 +188,9 @@ export default function LandingPage() {
         {/* Sub */}
         <p
           style={{
-            fontSize: "var(--text-lg)",
+            fontSize: "var(--text-md)",
             color: "rgba(255,255,255,0.5)",
-            maxWidth: "480px",
+            maxWidth: "500px",
             lineHeight: 1.6,
             marginBottom: "var(--space-10)",
           }}

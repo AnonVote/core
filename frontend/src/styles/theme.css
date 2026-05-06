@@ -32,11 +32,11 @@
   --ink-disabled: #aeaeb2; /* Disabled states */
   --ink-inverse: #ffffff; /* Text on dark surfaces */
 
-  /* — Brand — Indigo: authority, trust, precision */
-  --brand-primary: #1c7ed6;
-  --brand-primary-dim: #339af0;
-  --brand-primary-pale: rgba(79, 70, 229, 0.08); /* Tinted bg */
-  --brand-primary-ring: rgba(79, 70, 229, 0.18); /* Focus ring */
+  /* — Brand — Lime: fresh, bold, distinctive */
+  --brand-primary: #81b800;
+  --brand-primary-dim: #96d400;
+  --brand-primary-pale: rgba(129, 184, 0, 0.08);
+  --brand-primary-ring: rgba(129, 184, 0, 0.18);
 
   /* — Semantic: Success — */
   --semantic-success: #059669;
@@ -152,11 +152,11 @@
   --ink-disabled: rgba(255, 255, 255, 0.18); /* Disabled */
   --ink-inverse: #0a0a0a; /* Text on light surfaces */
 
-  /* — Brand — BMW M electric blue, cold and precise */
-  --brand-primary: #1c7ed6; /* M sport blue */
-  --brand-primary-dim: #339af0; /* Lighter on hover */
-  --brand-primary-pale: rgba(28, 126, 214, 0.1); /* Tinted bg */
-  --brand-primary-ring: rgba(28, 126, 214, 0.22); /* Focus ring */
+  /* — Brand — Lime */
+  --brand-primary: #81b800;
+  --brand-primary-dim: #96d400;
+  --brand-primary-pale: rgba(129, 184, 0, 0.1);
+  --brand-primary-ring: rgba(129, 184, 0, 0.22);
 
   /* — Semantic: Success — cold green, not warm */
   --semantic-success: #20c997;
