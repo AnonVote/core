@@ -112,7 +112,16 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
       <div className="flex items-start justify-between gap-3 mb-4">
         <h3
           className="font-space-grotesk font-semibold text-lg leading-snug"
-          style={{ color: "var(--ink-primary)", flex: 1 }}
+          style={{
+            color: "var(--ink-primary)",
+            flex: 1,
+            /* Always reserve 2 lines — consistent card height */
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            minHeight: "3em" /* 2 lines × 1.5 line-height */,
+          }}
         >
           {ballot.topic}
         </h3>
