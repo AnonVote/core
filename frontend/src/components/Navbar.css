@@ -23,7 +23,7 @@
 [data-theme="dark"] .navbar {
   background: var(--surface-overlay);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 

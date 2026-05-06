@@ -1,6 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import Lenis from "lenis";
 import Footer from "../components/Footer";
+
+// Initialise Lenis smooth scroll once
+function useSmoothScroll() {
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    const id = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(id);
+      lenis.destroy();
+    };
+  }, []);
+}
 
 const faqs = [
   {
@@ -31,11 +54,12 @@ const faqs = [
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  useSmoothScroll();
 
   return (
     <div
       style={{
-        background: "#0a0a0a",
+        background: "var(--suface-base)",
         color: "#ffffff",
         minHeight: "100vh",
         fontFamily: "var(--font-body)",
@@ -125,7 +149,7 @@ export default function LandingPage() {
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
-          padding: "var(--space-16) var(--space-6)",
+          padding: "var(--space-16) var(--space-6) 0",
           position: "relative",
           overflow: "hidden",
         }}
@@ -165,17 +189,17 @@ export default function LandingPage() {
           />
         </div>
 
-        {/* Headline */}
+        {/* Headline — reduced */}
         <h1
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "clamp(40px, 7vw, 80px)",
+            fontSize: "var(--text-hero)",
             fontWeight: "var(--weight-bold)",
             letterSpacing: "var(--tracking-tighter)",
-            lineHeight: 1.05,
+            lineHeight: 1.1,
             color: "#ffffff",
             maxWidth: "800px",
-            marginBottom: "var(--space-6)",
+            marginBottom: "var(--space-5)",
           }}
         >
           Private voting
@@ -188,11 +212,11 @@ export default function LandingPage() {
         {/* Sub */}
         <p
           style={{
-            fontSize: "var(--text-md)",
-            color: "rgba(255,255,255,0.5)",
-            maxWidth: "500px",
-            lineHeight: 1.6,
-            marginBottom: "var(--space-10)",
+            fontSize: "var(--text-sm)",
+            color: "rgba(255,255,255,0.45)",
+            maxWidth: "400px",
+            lineHeight: 1.7,
+            marginBottom: "var(--space-8)",
           }}
         >
           Anonymous tokens. Encrypted votes. Immutable results on the
@@ -203,9 +227,10 @@ export default function LandingPage() {
         <div
           style={{
             display: "flex",
-            gap: "var(--space-4)",
+            gap: "var(--space-3)",
             flexWrap: "wrap",
             justifyContent: "center",
+            marginBottom: "var(--space-16)",
           }}
         >
           <Link
@@ -216,8 +241,8 @@ export default function LandingPage() {
               textDecoration: "none",
               fontFamily: "var(--font-display)",
               fontWeight: "var(--weight-bold)",
-              fontSize: "var(--text-base)",
-              padding: "14px 32px",
+              fontSize: "var(--text-sm)",
+              padding: "11px 26px",
               borderRadius: "var(--radius-md)",
               transition:
                 "transform var(--transition-base), box-shadow var(--transition-base)",
@@ -226,7 +251,7 @@ export default function LandingPage() {
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-2px)";
               e.currentTarget.style.boxShadow =
-                "0 8px 24px rgba(28,126,214,0.35)";
+                "0 8px 24px rgba(129,184,0,0.3)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0)";
@@ -239,12 +264,12 @@ export default function LandingPage() {
             to="/login"
             style={{
               background: "transparent",
-              color: "rgba(255,255,255,0.7)",
+              color: "rgba(255,255,255,0.6)",
               textDecoration: "none",
               fontFamily: "var(--font-display)",
               fontWeight: "var(--weight-semibold)",
-              fontSize: "var(--text-base)",
-              padding: "14px 32px",
+              fontSize: "var(--text-sm)",
+              padding: "11px 26px",
               borderRadius: "var(--radius-md)",
               border: "1px solid rgba(255,255,255,0.12)",
               transition:
@@ -257,63 +282,72 @@ export default function LandingPage() {
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-              e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+              e.currentTarget.style.color = "rgba(255,255,255,0.6)";
             }}
           >
             Sign in →
           </Link>
         </div>
-      </section>
 
-      {/* ── Trust strip ── */}
-      <section
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          padding: "var(--space-6) var(--space-6)",
-          display: "flex",
-          justifyContent: "center",
-          flexWrap: "wrap",
-          gap: "var(--space-8)",
-        }}
-      >
-        {[
-          "One person, one vote",
-          "Votes stay private",
-          "Results verifiable",
-          "Tamper-proof record",
-        ].map((label) => (
-          <span
-            key={label}
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "var(--text-xs)",
-              letterSpacing: "var(--tracking-widest)",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.35)",
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-2)",
-            }}
-          >
+        {/* Trust strip — pinned to bottom of hero viewport */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            padding: "var(--space-6) var(--space-6)",
+            display: "flex",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            gap: "var(--space-10)",
+          }}
+        >
+          {[
+            "One person, one vote",
+            "Votes stay private",
+            "Results verifiable",
+            "Tamper-proof record",
+          ].map((label) => (
             <span
+              key={label}
               style={{
-                width: "5px",
-                height: "5px",
-                borderRadius: "50%",
-                background: "var(--brand-primary)",
-                display: "inline-block",
-                flexShrink: 0,
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-xs)",
+                letterSpacing: "var(--tracking-widest)",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.3)",
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
               }}
-            />
-            {label}
-          </span>
-        ))}
+            >
+              <span
+                style={{
+                  width: "5px",
+                  height: "5px",
+                  borderRadius: "50%",
+                  background: "var(--brand-primary)",
+                  display: "inline-block",
+                  flexShrink: 0,
+                }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
       </section>
 
       {/* ── How it works ── */}
       <section
         style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
           maxWidth: "960px",
           margin: "0 auto",
           padding: "var(--space-20) var(--space-6)",
@@ -348,8 +382,9 @@ export default function LandingPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gridTemplateColumns: "repeat(4, 1fr)",
             gap: "var(--space-6)",
+            width: "100%",
           }}
         >
           {[
@@ -386,9 +421,9 @@ export default function LandingPage() {
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLDivElement).style.borderColor =
-                  "rgba(28,126,214,0.3)";
+                  "var(--brand-primary-dim)";
                 (e.currentTarget as HTMLDivElement).style.background =
-                  "rgba(28,126,214,0.04)";
+                  "rgba(255,255,255,0.02)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLDivElement).style.borderColor =
@@ -438,10 +473,15 @@ export default function LandingPage() {
       <section
         style={{
           borderTop: "1px solid rgba(255,255,255,0.06)",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
           padding: "var(--space-20) var(--space-6)",
         }}
       >
-        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto", width: "100%" }}>
           <div style={{ textAlign: "center", marginBottom: "var(--space-16)" }}>
             <p
               style={{
@@ -576,10 +616,15 @@ export default function LandingPage() {
       <section
         style={{
           borderTop: "1px solid rgba(255,255,255,0.06)",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
           padding: "var(--space-20) var(--space-6)",
         }}
       >
-        <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "680px", margin: "0 auto", width: "100%" }}>
           <div style={{ textAlign: "center", marginBottom: "var(--space-16)" }}>
             <p
               style={{
@@ -731,8 +776,7 @@ export default function LandingPage() {
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow =
-              "0 8px 24px rgba(28,126,214,0.35)";
+            e.currentTarget.style.boxShadow = "var(--shadow-md)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
