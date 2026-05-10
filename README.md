@@ -1,29 +1,85 @@
-# AnonVote
+<div align="center">
 
-> Private decision infrastructure for organizations on Stellar.
+<h1>AnonVote</h1>
 
-AnonVote lets institutions run secure anonymous votes where participation is confidential, results are verifiable, and records are tamper-proof on the Stellar blockchain.
+<p><strong>Private decision infrastructure for organizations on Stellar.</strong></p>
+
+<p>
+  Run secure, anonymous votes where participation is confidential,<br>
+  results are verifiable, and records are tamper-proof on the blockchain.
+</p>
+
+<p>
+  <a href="https://github.com/Just-Bamford/AnonVote/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+  </a>
+  <a href="https://nodejs.org">
+    <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen" alt="Node.js ≥ 20" />
+  </a>
+  <a href="https://stellar.org">
+    <img src="https://img.shields.io/badge/blockchain-Stellar-6f42c1" alt="Stellar" />
+  </a>
+  <img src="https://img.shields.io/badge/tests-28%20passing-success" alt="28 Tests Passing" />
+  <img src="https://img.shields.io/badge/WCAG-accessible-orange" alt="WCAG Accessible" />
+</p>
+
+<br/>
+
+</div>
 
 ---
 
-<details>
-<summary><strong>Why AnonVote</strong></summary>
-<br>
+## Overview
 
-Most digital voting tools expose voter identity, store results centrally, and offer no real verification. AnonVote is built differently:
+AnonVote solves a fundamental problem with digital voting: most tools expose voter identity, store results on a server only you control, and provide no independent way to verify outcomes.
 
-- **One person, one vote** — enforced cryptographically, not by policy
-- **Votes stay private** — identity is separated from ballot at every layer
-- **Results are verifiable** — anyone can confirm outcomes via Stellar transaction records
-- **Records are immutable** — nothing can be altered after submission
+AnonVote is different. Identity is cryptographically separated from the ballot at every layer. Every vote is anchored to the Stellar blockchain, so results can be verified by anyone — without trusting AnonVote's servers.
 
-</details>
+| Property             | How it's enforced                                                             |
+| -------------------- | ----------------------------------------------------------------------------- |
+| One person, one vote | Cryptographic token system, not policy                                        |
+| Voter anonymity      | Structural unlinkability — no database join between identity and token tables |
+| Result integrity     | AES-256-GCM encrypted votes anchored to Stellar                               |
+| Auditability         | Public Stellar transaction links; anyone can verify                           |
 
 ---
 
-<details>
-<summary><strong>Who It's For</strong></summary>
-<br>
+## Table of Contents
+
+- [Features](#features)
+- [Who It's For](#who-its-for)
+- [How It Works](#how-it-works)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
+- [Privacy Design](#privacy-design)
+- [Stellar Integration](#stellar-integration)
+- [Running Tests](#running-tests)
+- [Roadmap](#roadmap)
+- [License](#license)
+
+---
+
+## Features
+
+- **Anonymous token issuance** — voters receive a one-time 32-byte CSPRNG token; no identity is stored alongside it
+- **Encrypted vote submission** — vote payloads are AES-256-GCM encrypted; tallying decrypts only the option selection
+- **Blockchain audit trail** — every vote and audit event is written to Stellar as a `manageData` operation
+- **Public verification** — anyone can confirm results independently via Stellar transaction IDs
+- **Weighted & delegated voting** — flexible vote-weight configuration and delegation support
+- **Ranked-choice / multi-round voting** — supports complex election formats
+- **Blind vote verification** — voters can self-verify their ballot was counted without exposing identity
+- **Configurable rate limiting** — admin-controlled presets to prevent abuse
+- **Real-time notifications** — ballot created, vote cast, results published
+- **Email notifications** — powered by Resend (ballot creation + results)
+- **Token reissue flow** — lost token recovery without enabling double-voting
+- **WCAG accessibility** — aria labels, roles, and live regions across all components
+- **Mobile responsive** — fully functional on iOS and Android browsers
+
+---
+
+## Who It's For
 
 | Sector          | Use Cases                                                 |
 | --------------- | --------------------------------------------------------- |
@@ -31,13 +87,9 @@ Most digital voting tools expose voter identity, store results centrally, and of
 | **Corporate**   | Policy votes, leadership surveys, board approvals         |
 | **Communities** | Governance decisions, membership votes, program approvals |
 
-</details>
-
 ---
 
-<details>
-<summary><strong>How It Works</strong></summary>
-<br>
+## How It Works
 
 ```
 Eligible Voter List
@@ -55,53 +107,26 @@ Eligible Voter List
   Result Engine ──► Public Verified Results
 ```
 
-1. An **Administrator** registers their organization and creates a ballot with a topic, options, deadline, and eligible voter list
-2. Each eligible voter receives a **one-time anonymous token** — no identity is stored alongside it
-3. Voters use their token to **submit an encrypted vote** — the token is marked used, preventing double voting
-4. After the deadline, votes are **automatically tallied** and results published
-5. Anyone can **verify the result** via the public verification page and Stellar transaction links
+**Administrator flow**
 
-</details>
+1. Register your organization at `/register` and log in
+2. Create a ballot — topic, options, deadline, and eligible voter list (CSV upload)
+3. After the voting period ends, results are automatically published and anchored to Stellar
 
----
+**Voter flow**
 
-<details>
-<summary><strong>User Flow</strong></summary>
-<br>
+1. Receive a voting link from your organization admin
+2. Enter your voter identifier (email, employee ID, etc.) to receive a one-time anonymous token
+3. Use the token to cast your encrypted vote
+4. After the deadline, verify the result at `/results/:ballotId`
 
-**For Administrators (Ballot Creators)**
+**Public verification**
 
-1. Go to `/register` and create an organization account
-2. Log in at `/login` with your credentials
-3. Navigate to `/dashboard` to see all your ballots
-4. Click "+ Create Ballot" to start a new vote
-5. Fill in the ballot details (topic, options, deadline) and upload your eligible voter list (CSV)
-6. After the voting period ends, results are automatically published at `/results/:ballotId`
-
-**For Voters (End Users)**
-
-1. Receive a link from your organization admin (e.g., `https://anonvote.app/vote/123/token`)
-2. Go to `/vote/:ballotId/token` and enter your voter identifier (email, employee ID, etc.)
-3. Click "Get My Token" — you'll receive a one-time anonymous token
-4. Copy or save your token (you'll need it to vote)
-5. Go to `/vote/:ballotId` and paste your token
-6. Select your preferred option and click "Cast Vote"
-7. Your vote is encrypted and recorded on the Stellar blockchain
-8. After the deadline, view results at `/results/:ballotId`
-
-**For Anyone (Public Verification)**
-
-1. Visit `/results/:ballotId` to see published results
-2. Check the "Blockchain Verification" section for the Stellar transaction link
-3. Visit `/audit/:ballotId` to see audit event counts (no personal data)
-
-</details>
+Anyone can visit `/results/:ballotId` and independently confirm the outcome via the Stellar transaction link — no trust required.
 
 ---
 
-<details>
-<summary><strong>Tech Stack</strong></summary>
-<br>
+## Tech Stack
 
 | Layer      | Technology                                            |
 | ---------- | ----------------------------------------------------- |
@@ -111,64 +136,33 @@ Eligible Voter List
 | Blockchain | Stellar SDK (Testnet / Mainnet)                       |
 | Auth       | JWT via HTTP-only cookies, bcrypt                     |
 | Crypto     | AES-256-GCM vote encryption, SHA-256 identity hashing |
-
-</details>
-
----
-
-<details>
-<summary><strong>Project Structure</strong></summary>
-<br>
-
-```
-AnonVote/
-├── backend/              # Node.js + Express REST API
-│   ├── src/
-│   │   ├── routes/       # API route handlers
-│   │   ├── services/     # Business logic (identity, ballot, privacy, result engines)
-│   │   ├── middleware/   # Auth, rate limiting, error handling
-│   │   ├── utils/        # Crypto helpers, deadline scheduler
-│   │   └── tests/        # Unit + integration + E2E tests
-│   └── prisma/           # Database schema
-├── frontend/             # React SPA
-│   └── src/
-│       ├── pages/        # All 8 UI pages
-│       ├── components/   # Reusable UI components
-│       ├── hooks/        # useAuth, useBallot
-│       └── api/          # Axios API client
-├── shared/               # Shared TypeScript types
-├── docker-compose.yml    # PostgreSQL local setup
-└── .env.example          # Environment variable template
-```
-
-</details>
+| Email      | Resend                                                |
+| Testing    | Vitest, React Testing Library                         |
 
 ---
 
-<details>
-<summary><strong>Getting Started</strong></summary>
-<br>
+## Getting Started
 
-**Prerequisites**
+### Prerequisites
 
 - Node.js 20+
 - Docker (for PostgreSQL)
-- A Stellar account (Testnet for development)
+- A Stellar account ([create a Testnet account](https://laboratory.stellar.org/#account-creator?network=test))
 
-**1. Clone the repo**
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Just-Bamford/AnonVote.git
 cd AnonVote
 ```
 
-**2. Set up environment variables**
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in `.env`:
+Open `.env` and fill in your values:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/anonvote
@@ -178,96 +172,154 @@ BALLOT_ENCRYPTION_KEY=your-32-byte-hex-key
 NODE_ENV=development
 ```
 
-**3. Start the database**
+> **Tip:** Generate a secure encryption key with `openssl rand -hex 32`
+
+### 3. Start the database
 
 ```bash
 docker-compose up -d
 ```
 
-**4. Install dependencies and run migrations**
+### 4. Install dependencies and run migrations
 
 ```bash
 cd backend && npm install && npx prisma migrate dev
 cd ../frontend && npm install
 ```
 
-**5. Start dev servers**
+### 5. Start development servers
 
 ```bash
-# Backend
-npm run dev:backend
-
-# Frontend
-npm run dev:frontend
+# In separate terminals:
+npm run dev:backend   # → http://localhost:3001
+npm run dev:frontend  # → http://localhost:5173
 ```
 
-Frontend → `http://localhost:5173` · Backend → `http://localhost:3001`
+---
 
-</details>
+## Project Structure
+
+```
+AnonVote/
+├── backend/
+│   ├── src/
+│   │   ├── routes/       # API route handlers
+│   │   ├── services/     # Business logic (identity, ballot, privacy, result engines)
+│   │   ├── middleware/   # Auth, rate limiting, error handling
+│   │   ├── utils/        # Crypto helpers, deadline scheduler
+│   │   └── tests/        # Unit, integration, and E2E tests
+│   └── prisma/           # Database schema and migrations
+├── frontend/
+│   └── src/
+│       ├── pages/        # All UI pages
+│       ├── components/   # Reusable UI components
+│       ├── hooks/        # useAuth, useBallot
+│       └── api/          # Axios API client
+├── shared/               # Shared TypeScript types
+├── docker-compose.yml    # PostgreSQL local setup
+└── .env.example          # Environment variable template
+```
 
 ---
 
-<details>
-<summary><strong>API Reference</strong></summary>
-<br>
+## API Reference
 
-| Method | Endpoint                       | Auth    | Description                        |
-| ------ | ------------------------------ | ------- | ---------------------------------- |
-| POST   | `/api/organizations`           | —       | Register organization              |
-| POST   | `/api/organizations/login`     | —       | Admin login                        |
-| POST   | `/api/organizations/logout`    | Session | Admin logout                       |
-| GET    | `/api/organizations/me`        | Session | Get current org                    |
-| PATCH  | `/api/organizations/me`        | Session | Update org name / email            |
-| PATCH  | `/api/organizations/password`  | Session | Change password                    |
-| GET    | `/api/ballots`                 | Session | List org ballots                   |
-| POST   | `/api/ballots`                 | Session | Create ballot                      |
-| GET    | `/api/ballots/:id`             | —       | Get ballot (public)                |
-| PATCH  | `/api/ballots/:id`             | Session | Edit ballot                        |
-| DELETE | `/api/ballots/:id`             | Session | Delete ballot                      |
-| POST   | `/api/eligibility`             | Session | Upload voter list                  |
-| POST   | `/api/tokens`                  | —       | Request voter token                |
-| POST   | `/api/tokens/reissue`          | —       | Reissue lost token (if not voted)  |
-| POST   | `/api/votes`                   | —       | Submit vote                        |
-| GET    | `/api/results/:ballotId`       | —       | Get published result               |
-| POST   | `/api/results/:ballotId/tally` | Session | Manually close and tally ballot    |
-| GET    | `/api/audit/:ballotId`         | —       | Get audit event counts             |
-| GET    | `/api/admin/rate-limit`        | Session | Get rate limit settings            |
-| PATCH  | `/api/admin/rate-limit`        | Session | Update rate limit preset           |
-| GET    | `/api/admin/tokens-issued`     | Session | Total tokens issued across ballots |
+### Organizations
 
-</details>
+| Method  | Endpoint                      | Auth    | Description             |
+| ------- | ----------------------------- | ------- | ----------------------- |
+| `POST`  | `/api/organizations`          | —       | Register organization   |
+| `POST`  | `/api/organizations/login`    | —       | Admin login             |
+| `POST`  | `/api/organizations/logout`   | Session | Admin logout            |
+| `GET`   | `/api/organizations/me`       | Session | Get current org         |
+| `PATCH` | `/api/organizations/me`       | Session | Update org name / email |
+| `PATCH` | `/api/organizations/password` | Session | Change password         |
 
----
+### Ballots
 
-<details>
-<summary><strong>Privacy Design</strong></summary>
-<br>
+| Method   | Endpoint           | Auth    | Description         |
+| -------- | ------------------ | ------- | ------------------- |
+| `GET`    | `/api/ballots`     | Session | List org ballots    |
+| `POST`   | `/api/ballots`     | Session | Create ballot       |
+| `GET`    | `/api/ballots/:id` | —       | Get ballot (public) |
+| `PATCH`  | `/api/ballots/:id` | Session | Edit ballot         |
+| `DELETE` | `/api/ballots/:id` | Session | Delete ballot       |
 
-- Voter identifiers are **SHA-256 hashed** before storage — originals are never recoverable
-- Voter tokens are **32-byte CSPRNG values** — only their hash is stored
-- There is **no database join** between the eligibility table and the token table — unlinkability is structural, not just policy
-- Vote payloads are **AES-256-GCM encrypted** — tallying decrypts only the option selection
-- Audit logs record **event counts only** — no identity, no token values
+### Voting
 
-</details>
+| Method | Endpoint              | Auth    | Description                           |
+| ------ | --------------------- | ------- | ------------------------------------- |
+| `POST` | `/api/eligibility`    | Session | Upload voter list                     |
+| `POST` | `/api/tokens`         | —       | Request voter token                   |
+| `POST` | `/api/tokens/reissue` | —       | Reissue lost token (if not yet voted) |
+| `POST` | `/api/votes`          | —       | Submit vote                           |
 
----
+### Results & Audit
 
-<details>
-<summary><strong>Stellar Integration</strong></summary>
-<br>
+| Method | Endpoint                       | Auth    | Description                     |
+| ------ | ------------------------------ | ------- | ------------------------------- |
+| `GET`  | `/api/results/:ballotId`       | —       | Get published result            |
+| `POST` | `/api/results/:ballotId/tally` | Session | Manually close and tally ballot |
+| `GET`  | `/api/audit/:ballotId`         | —       | Get audit event counts          |
 
-All votes and audit events are written to the Stellar blockchain as `manageData` operations on a dedicated AnonVote account. Each record gets a Stellar transaction ID stored in the database and surfaced on the public verification page — so anyone can independently confirm results without trusting AnonVote's servers.
+### Admin
 
-Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_SECRET_KEY` and setting `STELLAR_NETWORK=mainnet` in your `.env`.
-
-</details>
+| Method  | Endpoint                   | Auth    | Description                        |
+| ------- | -------------------------- | ------- | ---------------------------------- |
+| `GET`   | `/api/admin/rate-limit`    | Session | Get rate limit settings            |
+| `PATCH` | `/api/admin/rate-limit`    | Session | Update rate limit preset           |
+| `GET`   | `/api/admin/tokens-issued` | Session | Total tokens issued across ballots |
 
 ---
 
-<details>
-<summary><strong>Roadmap</strong></summary>
-<br>
+## Privacy Design
+
+AnonVote's privacy model is structural, not policy-based. The key properties:
+
+- **Voter identifiers are SHA-256 hashed** before storage — originals are never recoverable from the database
+- **Voter tokens are 32-byte CSPRNG values** — only their hash is stored server-side
+- **No database join exists** between the eligibility table and the token table — unlinkability is enforced at the schema level
+- **Vote payloads are AES-256-GCM encrypted** — the tally process decrypts only the option selection, nothing else
+- **Audit logs record event counts only** — no identity, no token values, ever
+
+This means that even with full database access, it is computationally infeasible to link a vote back to an individual voter.
+
+---
+
+## Stellar Integration
+
+All votes and audit events are written to Stellar as `manageData` operations on a dedicated AnonVote account. Each record's Stellar transaction ID is stored in the database and surfaced on the public verification page.
+
+This means anyone — not just AnonVote — can independently confirm that a result is legitimate by checking the Stellar ledger directly.
+
+**Testnet vs Mainnet**
+
+Stellar Testnet is used by default for development. To switch to Mainnet, update your `.env`:
+
+```env
+STELLAR_SECRET_KEY=your-mainnet-secret-key
+STELLAR_NETWORK=mainnet
+```
+
+---
+
+## Running Tests
+
+Tests require a running PostgreSQL instance.
+
+```bash
+# Backend (unit + integration + E2E)
+npm run test:backend
+
+# Frontend (Vitest + React Testing Library, 28 tests)
+npm run test:frontend
+```
+
+Coverage includes: crypto utilities, organization registration and login, token issuance, vote submission, audit counts, and a full end-to-end voting flow.
+
+---
+
+## Roadmap
 
 - [x] Organization registration and admin auth
 - [x] Ballot creation with eligibility list upload
@@ -276,46 +328,33 @@ Stellar Testnet is used for development. Switch to Mainnet by updating `STELLAR_
 - [x] Stellar blockchain recording
 - [x] Automatic tally and result publication
 - [x] Public verification page
-- [x] Weighted voting system
+- [x] Weighted voting
 - [x] Delegated voting
 - [x] Multi-round / ranked-choice voting
-- [x] Blind vote verification (voter self-verification without identity exposure)
-- [x] Soroban smart contracts (service stub — correct stellar-sdk v12 APIs, ready to wire)
+- [x] Blind vote verification (self-verification without identity exposure)
+- [x] Soroban smart contracts (stub — correct stellar-sdk v12 APIs, ready to wire)
 - [x] Frontend test suite (Vitest + React Testing Library, 28 tests)
-- [x] Accessibility (WCAG) — aria labels, roles, live regions across all components
-- [x] Performance optimization (lazy loading, code splitting per page)
-- [x] Stellar consensus timestamp — ledger close time stored and surfaced in audit log
-- [x] Token reissue flow — lost token recovery without double-voting
-- [x] Edit ballot — topic, deadline, eligibility list, vote-aware field locking
-- [x] Manual close & tally — admin can close ballot and publish results on demand
-- [x] Configurable rate limiting — admin-controlled presets in Settings
-- [x] Real-time notifications — ballot created, vote cast, results published
-- [x] Avatar upload — profile picture with navbar sync
-- [x] Mobile responsiveness improvements
-- [x] Email notifications (Resend — ballot created + results published)
-- [x] Landing page (dark, hero + how it works + FAQ + CTA)
-- [ ] Full Soroban on-chain logic (contract written — needs deployment, see contracts/README.md)
-
-</details>
+- [x] WCAG accessibility (aria labels, roles, live regions)
+- [x] Performance optimization (lazy loading, code splitting)
+- [x] Stellar consensus timestamps in audit log
+- [x] Token reissue flow
+- [x] Edit ballot (topic, deadline, eligibility list, vote-aware field locking)
+- [x] Manual close & tally
+- [x] Configurable rate limiting
+- [x] Real-time notifications
+- [x] Avatar upload with navbar sync
+- [x] Mobile responsiveness
+- [x] Email notifications via Resend
+- [x] Landing page (hero, how it works, FAQ, CTA)
 
 ---
 
-<details>
-<summary><strong>Running Tests</strong></summary>
-<br>
+## Contributing
 
-```bash
-# Backend tests (requires running PostgreSQL)
-npm run test:backend
-
-# Frontend tests
-npm run test:frontend
-```
-
-Test coverage includes: crypto utilities, organization registration/login, token issuance, vote submission, audit counts, and a full end-to-end flow.
-
-</details>
+Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
 
 ---
 
-**License:** MIT
+## License
+
+[MIT](LICENSE)
