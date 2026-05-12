@@ -93,7 +93,7 @@ router.post(
 
       res.cookie("session", token, {
         httpOnly: true,
-        sameSite: "strict",
+        sameSite: config.nodeEnv === "production" ? "none" : "strict",
         secure: config.nodeEnv === "production",
         maxAge: 8 * 60 * 60 * 1000,
       });
