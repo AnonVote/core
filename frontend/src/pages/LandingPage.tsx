@@ -85,17 +85,36 @@ export default function LandingPage() {
           WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        <span
+        <div
           style={{
-            fontFamily: "var(--font-display)",
-            fontWeight: "var(--weight-bold)",
-            fontSize: "var(--text-lg)",
-            letterSpacing: "var(--tracking-tight)",
-            color: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-3)",
           }}
         >
-          AnonVote
-        </span>
+          <img
+            src="/favicon.svg"
+            alt="AnonVote"
+            style={{
+              color: "#ffffff",
+              width: "24px",
+              height: "24px",
+              display: "block",
+              filter: "brightness(0) invert(1)",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: "var(--weight-bold)",
+              fontSize: "var(--text-lg)",
+              letterSpacing: "var(--tracking-tight)",
+              color: "#ffffff",
+            }}
+          >
+            AnonVote
+          </span>
+        </div>
         <div
           style={{
             display: "flex",
@@ -381,7 +400,7 @@ export default function LandingPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             gap: "var(--space-6)",
             width: "100%",
           }}
