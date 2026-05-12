@@ -96,9 +96,8 @@ export default function LandingPage() {
             src="/favicon.svg"
             alt="AnonVote"
             style={{
-              color: "#ffffff",
-              width: "24px",
-              height: "24px",
+              width: "20px",
+              height: "20px",
               display: "block",
               filter: "brightness(0) invert(1)",
             }}

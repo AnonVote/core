@@ -30,7 +30,7 @@
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   text-decoration: none;
   font-family: var(--font-display);
   font-size: var(--text-lg);
