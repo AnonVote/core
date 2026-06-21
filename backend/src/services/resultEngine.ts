@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
-import { decryptVote } from "../utils/crypto";
+import { decryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
+import { sorobanRecordResult } from "./sorobanService";
 import { config } from "../config";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
@@ -74,6 +75,12 @@ export async function tallyBallot(ballotId: string) {
   const auditEvent = await prisma.auditEvent.create({
     data: { ballotId, eventType: "RESULT_PUBLISHED" },
   });
+
+  // Record result on-chain — fire-and-forget
+  const resultHash = hashIdentifier(JSON.stringify(tally));
+  sorobanRecordResult(hashIdentifier(ballotId), resultHash).catch((err) =>
+    console.error("[Soroban] record_result failed:", err),
+  );
 
   // Write to Stellar — non-blocking, result is published regardless
   const stellarResult = await writeRecord({
