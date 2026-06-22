@@ -4,6 +4,13 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../prisma/client";
 import { config } from "../config";
 import { requireAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import {
+  createOrganizationSchema,
+  loginOrganizationSchema,
+  updateOrganizationSchema,
+  changePasswordSchema,
+} from "../validation/schemas";
 import { badRequest, unauthorized, notFound } from "../utils/errors";
 import {
   updateOrg,
@@ -14,48 +21,44 @@ import {
 const router = Router();
 
 // POST /api/organizations — Register a new organization
-router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { name, email, password } = req.body;
+router.post(
+  "/",
+  validate(createOrganizationSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      const missing = ["name", "email", "password"].filter((f) => !req.body[f]);
-      throw badRequest(`Missing required fields: ${missing.join(", ")}`);
+      const existing = await prisma.organization.findUnique({ where: { name } });
+      if (existing) {
+        throw badRequest(`Organization name "${name}" is already taken`);
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const org = await prisma.organization.create({
+        data: { name, email, passwordHash },
+      });
+
+      res.status(201).json({
+        data: {
+          id: org.id,
+          name: org.name,
+          email: org.email,
+          createdAt: org.createdAt,
+        },
+      });
+    } catch (err) {
+      next(err);
     }
-
-    const existing = await prisma.organization.findUnique({ where: { name } });
-    if (existing) {
-      throw badRequest(`Organization name "${name}" is already taken`);
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const org = await prisma.organization.create({
-      data: { name, email, passwordHash },
-    });
-
-    res.status(201).json({
-      data: {
-        id: org.id,
-        name: org.name,
-        email: org.email,
-        createdAt: org.createdAt,
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+  },
+);
 
 // POST /api/organizations/login — Admin login
 router.post(
   "/login",
+  validate(loginOrganizationSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, password } = req.body;
-
-      if (!name || !password) {
-        throw unauthorized("Invalid credentials");
-      }
 
       const org = await prisma.organization.findUnique({ where: { name } });
       if (!org) {
@@ -137,6 +140,7 @@ router.get("/me", requireAuth, (req: Request, res: Response) => {
 router.patch(
   "/me",
   requireAuth,
+  validate(updateOrganizationSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, email } = req.body;
@@ -152,18 +156,10 @@ router.patch(
 router.patch(
   "/password",
   requireAuth,
+  validate(changePasswordSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { currentPassword, newPassword } = req.body;
-
-      if (!currentPassword || !newPassword) {
-        throw badRequest("Both passwords required");
-      }
-
-      if (newPassword.length < 8) {
-        throw badRequest("Min 8 characters");
-      }
-
       await changeOrgPassword(
         req.organization!.id,
         currentPassword,

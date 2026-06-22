@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { submitVote } from "../services/privacyEngine";
 import { strictRateLimiter } from "../middleware/rateLimiter";
-import { badRequest } from "../utils/errors";
+import { validate } from "../middleware/validate";
+import { submitVoteSchema } from "../validation/schemas";
 
 const router = Router();
 
@@ -9,12 +10,10 @@ const router = Router();
 router.post(
   "/",
   strictRateLimiter,
+  validate(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ballotId, voterToken, optionId, weight, rank } = req.body;
-      if (!ballotId || !voterToken || !optionId) {
-        throw badRequest("ballotId, voterToken, and optionId are required");
-      }
       const result = await submitVote(
         ballotId,
         voterToken.trim(),
