@@ -102,15 +102,18 @@ model Vote {
 }
 
 model Result {
-  id              String   @id @default(uuid())
-  ballotId        String   @unique
-  ballot          Ballot   @relation(fields: [ballotId], references: [id])
+  id              String    @id @default(uuid())
+  ballotId        String    @unique
+  ballot          Ballot    @relation(fields: [ballotId], references: [id])
   tallyJson       String
   totalVotes      Int
   isConsistent    Boolean
   stellarTxId     String?
   stellarLedgerAt DateTime? // Stellar network consensus timestamp
-  publishedAt     DateTime @default(now())
+  sorobanTxId     String?   // Soroban contract record_result tx hash
+  finalised       Boolean   @default(false)
+  finalisedAt     DateTime?
+  publishedAt     DateTime  @default(now())
 }
 
 model AuditEvent {

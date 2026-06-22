@@ -74,7 +74,17 @@ export interface Result {
   totalVotes: number;
   isConsistent: boolean;
   stellarTxId?: string;
+  stellarLedgerAt?: string;
+  sorobanTxId?: string;
+  finalised: boolean;
+  finalisedAt?: string;
   publishedAt: string;
+  // Enriched fields returned by GET /api/results/:ballotId
+  options?: TallyEntry[];
+  participationRate?: number;
+  tokensIssued?: number;
+  explorerUrl?: string;
+  sorobanExplorerUrl?: string;
 }
 
 export interface AuditEvent {

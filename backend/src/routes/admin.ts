@@ -8,6 +8,8 @@ import {
   type RateLimitPreset,
 } from "../config/rateLimitConfig";
 import { badRequest } from "../utils/errors";
+import { adminAuditHandler } from "./audit";
+
 
 const router = Router();
 
@@ -73,5 +75,8 @@ router.patch(
     }
   },
 );
+
+// GET /api/admin/audit/:ballotId — Admin: full structured audit export (JSON or CSV)
+router.get("/audit/:ballotId", requireAuth, adminAuditHandler);
 
 export default router;
