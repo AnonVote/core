@@ -230,7 +230,7 @@ export async function readContract(
 // These wrap invokeContract/readContract with the specific AnonVote contract
 // methods. Set SOROBAN_CONTRACT_ID in .env to activate.
 
-const CONTRACT_ID = process.env.SOROBAN_CONTRACT_ID || "";
+const CONTRACT_ID = config.sorobanContractId;
 
 /**
  * Record a ballot creation on-chain.

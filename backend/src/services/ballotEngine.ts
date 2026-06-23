@@ -1,6 +1,8 @@
 import { prisma } from "../prisma/client";
+import { hashIdentifier } from "../utils/crypto";
 import { badRequest, notFound } from "../utils/errors";
 import { sendBallotCreatedEmail } from "./emailService";
+import { sorobanRecordBallot } from "./sorobanService";
 
 export async function createBallot(
   orgId: string,
@@ -34,6 +36,11 @@ export async function createBallot(
     },
     include: { options: true },
   });
+
+  // Record ballot creation on-chain — fire-and-forget
+  sorobanRecordBallot(hashIdentifier(ballot.id)).catch((err) =>
+    console.error("[Soroban] record_ballot failed:", err),
+  );
 
   // Send confirmation email to org admin — non-blocking
   prisma.organization

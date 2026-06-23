@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
-import { hashToken, encryptVote } from "../utils/crypto";
+import { hashToken, encryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
+import { sorobanRecordVote } from "./sorobanService";
 import { config } from "../config";
 import { badRequest } from "../utils/errors";
 import { getEffectiveVoter } from "./delegationManager";
@@ -87,6 +88,11 @@ export async function submitVote(
     ballotId,
     stellarTxId: "",
   };
+
+  // Record vote on-chain — fire-and-forget
+  sorobanRecordVote(hashIdentifier(ballotId)).catch((err) =>
+    console.error("[Soroban] record_vote failed:", err),
+  );
 
   // Fire-and-forget Stellar write — does not block the response
   writeRecord({

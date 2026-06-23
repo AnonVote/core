@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getBallots } from "../api/client";
+import { getBallots, getAdminAudit } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
 import BallotCard from "../components/BallotCard";
@@ -38,6 +38,26 @@ export default function DashboardPage() {
     const interval = setInterval(fetchBallots, 60_000);
     return () => clearInterval(interval);
   }, []);
+
+  const downloadAudit = async (
+    ballotId: string,
+    format: "json" | "csv",
+  ) => {
+    try {
+      const res = await getAdminAudit(ballotId, format);
+      const blob = new Blob([res.data as BlobPart], {
+        type: format === "csv" ? "text/csv" : "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-${ballotId}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Errors handled by interceptor
+    }
+  };
 
   if (authLoading) {
     return (
@@ -78,6 +98,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const closedBallots = ballots.filter((b) => b.status === "CLOSED");
 
   return (
     <div className="page-wrapper">
@@ -204,6 +226,63 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
+
+            {/* Audit Export Panel — closed ballots only */}
+            {closedBallots.length > 0 && (
+              <div style={{ marginTop: "var(--space-10)" }}>
+                <h3
+                  className="font-body font-semibold mb-3"
+                  style={{
+                    fontSize: "var(--text-xl)",
+                    color: "var(--ink-primary)",
+                  }}
+                >
+                  Audit Exports
+                </h3>
+                <div className="card p-4">
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                        <th style={{ textAlign: "left", padding: "var(--space-2) var(--space-3)", color: "var(--ink-muted)", fontWeight: "var(--weight-medium)" }}>Ballot</th>
+                        <th style={{ textAlign: "right", padding: "var(--space-2) var(--space-3)", color: "var(--ink-muted)", fontWeight: "var(--weight-medium)" }}>Export</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {closedBallots.map((b) => (
+                        <tr
+                          key={b.id}
+                          style={{ borderBottom: "1px solid var(--border-soft)" }}
+                        >
+                          <td style={{ padding: "var(--space-3)", color: "var(--ink-primary)" }}>
+                            {b.topic}
+                          </td>
+                          <td style={{ padding: "var(--space-3)", textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "var(--space-2)" }}>
+                              <button
+                                id={`export-json-${b.id}`}
+                                onClick={() => downloadAudit(b.id, "json")}
+                                className="btn-secondary"
+                                style={{ fontSize: "var(--text-xs)", padding: "4px 10px" }}
+                              >
+                                JSON
+                              </button>
+                              <button
+                                id={`export-csv-${b.id}`}
+                                onClick={() => downloadAudit(b.id, "csv")}
+                                className="btn-secondary"
+                                style={{ fontSize: "var(--text-xs)", padding: "4px 10px" }}
+                              >
+                                CSV
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
