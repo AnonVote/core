@@ -28,6 +28,14 @@ function validateConfig(): void {
     errors.forEach((e) => console.error(`  - ${e}`));
     process.exit(1);
   }
+
+  if (!process.env.SOROBAN_CONTRACT_ID) {
+    console.warn(
+      "[Config] WARNING: SOROBAN_CONTRACT_ID is not set. " +
+        "Blockchain audit trail is INACTIVE — all on-chain audit calls will be skipped. " +
+        "See contracts/README.md to deploy the contract and set SOROBAN_CONTRACT_ID.",
+    );
+  }
 }
 
 validateConfig();
@@ -44,4 +52,5 @@ export const config = {
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",
+  sorobanContractId: process.env.SOROBAN_CONTRACT_ID || "",
 };

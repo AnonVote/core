@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "../prisma/client";
-import { decryptVote } from "../utils/crypto";
+import { decryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
 import { sorobanRecordResult } from "./sorobanService";
 import { config } from "../config";

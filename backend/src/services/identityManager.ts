@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
+import { sorobanRecordToken } from "./sorobanService";
 import {
   badRequest,
   notFound,
@@ -129,6 +130,11 @@ export async function issueToken(
     stellarTxId: "",
     weight: result.weight,
   };
+
+  // Record token issuance on-chain — fire-and-forget
+  sorobanRecordToken(hashIdentifier(ballotId)).catch((err) =>
+    console.error("[Soroban] record_token failed:", err),
+  );
 
   // Fire-and-forget Stellar write — does not block the response
   writeRecord({
