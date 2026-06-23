@@ -112,9 +112,11 @@ describe("POST /api/votes", () => {
       data: { status: "CLOSED" },
     });
     const rawToken = generateToken();
-    await prisma.voterToken.create({
-      data: { tokenHash: hashToken(rawToken), ballotId },
-    });
+    await prisma.voterToken.create(
+      {
+        data: { tokenHash: hashToken(rawToken), ballotId },
+      },
+    );
     const res = await request(app)
       .post("/api/votes")
       .send({ ballotId, voterToken: rawToken, optionId });
@@ -125,3 +127,18 @@ describe("POST /api/votes", () => {
     });
   });
 });
+
+describe("GET /api/results/:ballotId — public access", () => {
+  it("returns 200 with no authentication when result exists", async () => {
+    // Tally the ballot first (no cookie/auth needed for this direct call)
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "CLOSED" } });
+    const { tallyBallot } = await import("../services/resultEngine");
+    await tallyBallot(ballotId, { skipSoroban: true });
+
+    // Request without any cookie or auth header
+    const res = await request(app).get(`/api/results/${ballotId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeDefined();
+  });
+});
+

@@ -8,6 +8,9 @@ import {
   deleteBallot,
 } from "../services/ballotEngine";
 import { badRequest } from "../utils/errors";
+import { hashToken } from "../utils/crypto";
+import { prisma } from "../prisma/client";
+
 
 const router = Router();
 
@@ -105,4 +108,34 @@ router.delete(
   },
 );
 
+// POST /api/ballots/:id/verify — Public: self-verification via raw token
+// Privacy boundary: returns ONLY { confirmed: boolean }. Nothing else.
+router.post(
+  "/:id/verify",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id: ballotId } = req.params;
+      const { token } = req.body;
+
+      if (!token || typeof token !== "string") {
+        throw badRequest("token is required");
+      }
+
+      const tokenHash = hashToken(token);
+
+      const match = await prisma.voterToken.findFirst({
+        where: { tokenHash, ballotId, used: true },
+        select: { id: true }, // select minimum — never expose hash or voter data
+      });
+
+      // Return ONLY the boolean. Do not include vote option, token hash,
+      // voter identifier, or any aggregate data not already on the public results page.
+      res.status(200).json({ confirmed: match !== null });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export default router;
+
