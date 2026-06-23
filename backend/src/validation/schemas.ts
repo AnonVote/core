@@ -19,8 +19,11 @@ function isIsoDate(value: unknown): string | null {
     return "deadline must be a valid ISO 8601 date string";
   }
   const d = new Date(value);
-  if (d <= new Date()) {
-    return "deadline must be in the future";
+  const now = new Date();
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+  if (d < oneHourFromNow) {
+    return "deadline must be at least 1 hour in the future";
   }
   return null;
 }
@@ -123,7 +126,7 @@ export const createBallotSchema: ValidationSchema = {
     required: true,
     type: "array",
     min: 2,
-    max: 100,
+    max: 10,
     label: "options",
     custom: isStringArray,
   },

@@ -34,7 +34,7 @@ beforeAll(async () => {
   const loginRes = await request(app)
     .post("/api/organizations/login")
     .send({ name: "Validation Test Org", password: "password123" });
-  cookie = loginRes.headers["set-cookie"];
+  cookie = loginRes.headers["set-cookie"] as any;
 
   // Create eligibility list with one eligible voter
   const list = await prisma.eligibilityList.create({ data: {} });

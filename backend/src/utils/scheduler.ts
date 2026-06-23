@@ -1,4 +1,8 @@
-import { getOpenExpiredBallots, closeBallot } from "../services/ballotEngine";
+import {
+  getOpenExpiredBallots,
+  closeBallot,
+  processPendingAnchors,
+} from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
 import { prisma } from "../prisma/client";
 
@@ -21,6 +25,15 @@ async function getNextDeadline(): Promise<Date | null> {
 }
 
 export async function startScheduler(): Promise<void> {
+  // Background worker for Stellar anchoring
+  setInterval(async () => {
+    try {
+      await processPendingAnchors();
+    } catch (err) {
+      console.error("[Scheduler] Anchor worker error:", err);
+    }
+  }, 60_000); // Check every minute
+
   async function processExpiredBallots(): Promise<void> {
     try {
       const expiredBallots = await getOpenExpiredBallots();

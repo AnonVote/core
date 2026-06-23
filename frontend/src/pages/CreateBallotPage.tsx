@@ -29,13 +29,24 @@ export default function CreateBallotPage() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!topic.trim()) e.topic = "Topic is required";
+    if (topic.length > 500) e.topic = "Topic must be under 500 characters";
+
     if (options.some((o) => !o.trim()))
       e.options = "All options must have text";
     if (options.filter((o) => o.trim()).length < 2)
       e.options = "At least two options are required";
-    if (!deadline) e.deadline = "Deadline is required";
-    else if (new Date(deadline) <= new Date())
-      e.deadline = "Deadline must be in the future";
+    if (options.length > 10) e.options = "Maximum 10 options allowed";
+
+    if (!deadline) {
+      e.deadline = "Deadline is required";
+    } else {
+      const d = new Date(deadline);
+      const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+      if (d < oneHourFromNow) {
+        e.deadline = "Deadline must be at least 1 hour in the future";
+      }
+    }
+
     if (!file) e.file = "Eligibility list file is required";
     else if (file.size > 10 * 1024 * 1024) e.file = "File must be under 10MB";
     return e;
@@ -69,15 +80,25 @@ export default function CreateBallotPage() {
       });
       navigate("/dashboard");
     } catch (err: any) {
-      setErrors({
-        general: err.response?.data?.message || "Failed to create ballot",
-      });
+      if (err.response?.data?.fields) {
+        const fieldErrors: Record<string, string> = {};
+        err.response.data.fields.forEach((f: any) => {
+          fieldErrors[f.field] = f.message;
+        });
+        setErrors(fieldErrors);
+      } else {
+        setErrors({
+          general: err.response?.data?.message || "Failed to create ballot",
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const minDeadline = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
+  const minDeadline = new Date(Date.now() + 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
 
   return (
     <div className="page-wrapper">
@@ -137,7 +158,29 @@ export default function CreateBallotPage() {
         >
           {/* Ballot Topic */}
           <div>
-            <label className="form-label">Ballot Topic</label>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "var(--space-2)",
+              }}
+            >
+              <label htmlFor="ballot-topic" className="form-label" style={{ marginBottom: 0 }}>
+                Ballot Topic
+              </label>
+              <span
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color:
+                    topic.length > 500
+                      ? "var(--semantic-error)"
+                      : "var(--ink-muted)",
+                }}
+              >
+                {topic.length}/500
+              </span>
+            </div>
             <div className="input-wrapper">
               <span className="input-icon">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,6 +193,7 @@ export default function CreateBallotPage() {
                 </svg>
               </span>
               <input
+                id="ballot-topic"
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
@@ -207,6 +251,8 @@ export default function CreateBallotPage() {
                   {options.length > 2 && (
                     <button
                       type="button"
+                      title="Remove option"
+                      aria-label={`Remove option ${i + 1}`}
                       onClick={() => removeOption(i)}
                       style={{
                         background: "none",
@@ -232,23 +278,25 @@ export default function CreateBallotPage() {
               ))}
             </div>
             {errors.options && <p className="field-error">{errors.options}</p>}
-            <button
-              type="button"
-              onClick={addOption}
-              style={{
-                marginTop: "var(--space-3)",
-                background: "none",
-                border: "none",
-                color: "var(--brand-primary)",
-                cursor: "pointer",
-                fontSize: "var(--text-sm)",
-                fontWeight: "var(--weight-medium)",
-                fontFamily: "var(--font-body)",
-                padding: 0,
-              }}
-            >
-              + Add option
-            </button>
+            {options.length < 10 && (
+              <button
+                type="button"
+                onClick={addOption}
+                style={{
+                  marginTop: "var(--space-3)",
+                  background: "none",
+                  border: "none",
+                  color: "var(--brand-primary)",
+                  cursor: "pointer",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: "var(--weight-medium)",
+                  fontFamily: "var(--font-body)",
+                  padding: 0,
+                }}
+              >
+                + Add option
+              </button>
+            )}
           </div>
 
           {/* Deadline — full input clickable, icon themed */}
