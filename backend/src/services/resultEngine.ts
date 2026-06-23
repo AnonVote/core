@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "../prisma/client";
 import { decryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
@@ -6,7 +7,10 @@ import { config } from "../config";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
 
-export async function tallyBallot(ballotId: string) {
+export async function tallyBallot(
+  ballotId: string,
+  opts: { skipSoroban?: boolean } = {},
+) {
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
     include: {
@@ -76,13 +80,7 @@ export async function tallyBallot(ballotId: string) {
     data: { ballotId, eventType: "RESULT_PUBLISHED" },
   });
 
-  // Record result on-chain — fire-and-forget
-  const resultHash = hashIdentifier(JSON.stringify(tally));
-  sorobanRecordResult(hashIdentifier(ballotId), resultHash).catch((err) =>
-    console.error("[Soroban] record_result failed:", err),
-  );
-
-  // Write to Stellar — non-blocking, result is published regardless
+  // Write to Stellar manageData layer — non-blocking, result is published regardless
   const stellarResult = await writeRecord({
     type: "RESULT_PUBLISHED",
     ballotId,
@@ -109,6 +107,42 @@ export async function tallyBallot(ballotId: string) {
     console.warn(
       `[Stellar] RESULT_PUBLISHED write failed for ballot ${ballotId} — result still published`,
     );
+  }
+
+  // Write to Soroban contract — non-blocking, result is published regardless
+  if (!opts.skipSoroban) {
+    const tallyJson = JSON.stringify(tally);
+    const resultHash = crypto
+      .createHash("sha256")
+      .update(tallyJson)
+      .digest("hex");
+    const ballotIdHash = crypto
+      .createHash("sha256")
+      .update(ballotId)
+      .digest("hex");
+
+    sorobanRecordResult(ballotIdHash, resultHash)
+      .then(async (sorobanTxId) => {
+        if (sorobanTxId) {
+          await prisma.result.update({
+            where: { id: result.id },
+            data: { sorobanTxId },
+          });
+          console.log(
+            `[Soroban] record_result anchored for ballot ${ballotId} — tx: ${sorobanTxId}`,
+          );
+        } else {
+          console.warn(
+            `[Soroban] record_result not anchored for ballot ${ballotId} — contract may not be deployed`,
+          );
+        }
+      })
+      .catch((err) => {
+        console.error(
+          `[Soroban] record_result error for ballot ${ballotId}:`,
+          err,
+        );
+      });
   }
 
   // Send results notification email to org admin — non-blocking

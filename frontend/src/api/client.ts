@@ -162,4 +162,18 @@ export const updateRateLimitSettings = (preset: string) =>
 export const getTotalTokensIssued = () =>
   api.get<ApiResponse<{ tokensIssued: number }>>("/admin/tokens-issued");
 
+// Post-ballot: finalise (admin, idempotent)
+export const finalise = (ballotId: string) =>
+  api.post<ApiResponse<Result>>(`/results/${ballotId}/finalise`);
+
+// Post-ballot: self-verification (public, returns boolean only)
+export const verifyToken = (ballotId: string, token: string) =>
+  api.post<{ confirmed: boolean }>(`/ballots/${ballotId}/verify`, { token });
+
+// Post-ballot: admin audit export
+export const getAdminAudit = (
+  ballotId: string,
+  format: "json" | "csv" = "json",
+) => api.get(`/admin/audit/${ballotId}?format=${format}`, { responseType: "blob" });
+
 export default api;
