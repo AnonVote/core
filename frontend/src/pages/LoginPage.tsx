@@ -16,6 +16,8 @@ import {
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const reason = query.get("reason");
   const successMsg = (location.state as any)?.success;
   const [form, setForm] = useState({ name: "", password: "" });
   const [error, setError] = useState("");
@@ -76,7 +78,7 @@ export default function LoginPage() {
 
           {successMsg && (
             <div
-              className="message message-success"
+              className="message message-success mb-6"
               role="status"
               aria-live="polite"
             >
@@ -84,6 +86,18 @@ export default function LoginPage() {
                 <CheckIcon width="16" height="16" />
               </span>
               <span>{successMsg}</span>
+            </div>
+          )}
+          {reason === "session_expired" && (
+            <div
+              className="message message-warning mb-6"
+              role="alert"
+              aria-live="polite"
+            >
+              <span className="message-icon" aria-hidden="true">
+                <InfoCircledIcon width="16" height="16" />
+              </span>
+              <span>Your session has expired. Please sign in again.</span>
             </div>
           )}
           {error && (

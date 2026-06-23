@@ -140,8 +140,16 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
             flexShrink: 0,
           }}
         >
-          <span className={isOpen ? "badge badge-open" : "badge badge-closed"}>
-            {isOpen ? "OPEN" : "CLOSED"}
+          <span
+            className={
+              ballot.status === "OPEN"
+                ? "badge badge-open"
+                : ballot.status === "DRAFT"
+                  ? "badge badge-draft"
+                  : "badge badge-closed"
+            }
+          >
+            {ballot.status}
           </span>
 
           {/* Three-dot overflow menu */}
@@ -278,6 +286,47 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Stellar Anchor Status */}
+      <div className="mb-4">
+        {ballot.anchorStatus === "SUCCESS" && ballot.stellarTxId ? (
+          <div
+            className="flex items-center gap-1 text-xs"
+            style={{ color: "var(--semantic-success)" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${ballot.stellarTxId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+              style={{ color: "inherit" }}
+            >
+              Anchored to Stellar
+            </a>
+          </div>
+        ) : ballot.anchorStatus === "PENDING" ? (
+          <div
+            className="flex items-center gap-1 text-xs"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            <div className="loading-dots-mini">
+              <span></span><span></span><span></span>
+            </div>
+            <span>Stellar anchor pending...</span>
+          </div>
+        ) : ballot.anchorStatus === "FAILED" ? (
+          <div
+            className="flex items-center gap-1 text-xs"
+            style={{ color: "var(--semantic-error)" }}
+          >
+            <ExclamationTriangleIcon width="12" height="12" />
+            <span>Stellar anchor failed</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Inconsistency Warning */}
