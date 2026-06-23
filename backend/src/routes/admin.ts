@@ -13,6 +13,28 @@ import { adminAuditHandler } from "./audit";
 
 const router = Router();
 
+// GET /api/admin/ballots — Returns all ballots for the authenticated admin
+router.get(
+  "/ballots",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ballots = await prisma.ballot.findMany({
+        where: { organizationId: req.organization!.id },
+        include: {
+          options: true,
+          _count: { select: { votes: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json({ data: ballots });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /api/admin/tokens-issued — Total tokens issued across all org ballots
 router.get(
   "/tokens-issued",

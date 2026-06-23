@@ -23,15 +23,22 @@ const PUBLIC_PATHS = [
   "/",
 ];
 
-// Redirect to login on 401 — but only from protected admin pages
+// Redirect to login on 401 or SESSION_EXPIRED — but only from protected admin pages
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (
+      err.response?.status === 401 ||
+      err.response?.data?.error === "SESSION_EXPIRED"
+    ) {
       const path = window.location.pathname;
       const isPublicPath = PUBLIC_PATHS.some((p) => path.includes(p));
       if (!isPublicPath) {
-        window.location.href = "/login";
+        const message =
+          err.response?.data?.error === "SESSION_EXPIRED"
+            ? "session_expired"
+            : "";
+        window.location.href = `/login${message ? `?reason=${message}` : ""}`;
       }
     }
     return Promise.reject(err);
@@ -143,6 +150,8 @@ export const getAudit = (ballotId: string) =>
   api.get<ApiResponse<AuditCounts>>(`/audit/${ballotId}`);
 
 // Admin
+export const getAdminBallots = () => api.get<ApiResponse<Ballot[]>>("/admin/ballots");
+
 export const getRateLimitSettings = () =>
   api.get<
     ApiResponse<{

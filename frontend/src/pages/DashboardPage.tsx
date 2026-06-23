@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getBallots, getAdminAudit } from "../api/client";
+import { getAdminBallots, getAdminAudit } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
 import BallotCard from "../components/BallotCard";
@@ -15,10 +15,12 @@ export default function DashboardPage() {
   const { isAuthenticated, loading: authLoading, orgName } = useAuth();
   const navigate = useNavigate();
   const [ballots, setBallots] = useState<Ballot[]>([]);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"ALL" | "DRAFT" | "OPEN" | "CLOSED">("ALL");
 
   const fetchBallots = async () => {
     try {
-      const res = await getBallots();
+      const res = await getAdminBallots();
       setBallots(res.data.data);
     } catch {
       // 401 handled by interceptor
@@ -98,6 +100,12 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const filteredBallots = ballots.filter((b) => {
+    const matchesSearch = b.topic.toLowerCase().includes(search.toLowerCase());
+    const matchesTab = activeTab === "ALL" || b.status === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
   const closedBallots = ballots.filter((b) => b.status === "CLOSED");
 
@@ -207,25 +215,70 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div>
-            <h3
-              className="font-body font-semibold mb-3"
-              style={{
-                fontSize: "var(--text-xl)",
-                color: "var(--ink-primary)",
-                paddingTop: "var(--space-8)",
-              }}
-            >
-              All Ballots
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ballots.map((b) => (
-                <BallotCard
-                  key={b.id}
-                  ballot={b}
-                  onBallotDeleted={fetchBallots}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+              <div
+                className="flex p-1 bg-surface-sunken rounded-lg"
+                style={{ background: "var(--surface-sunken)" }}
+              >
+                {(["ALL", "DRAFT", "OPEN", "CLOSED"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      activeTab === tab
+                        ? "bg-white shadow-sm text-brand-primary"
+                        : "text-ink-muted hover:text-ink-primary"
+                    }`}
+                    style={
+                      activeTab === tab
+                        ? {
+                            background: "var(--surface-base)",
+                            color: "var(--brand-primary)",
+                          }
+                        : {}
+                    }
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="input-wrapper" style={{ maxWidth: "300px", width: "100%" }}>
+                <span className="input-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search ballots..."
+                  className="input-field has-icon"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
-              ))}
+              </div>
             </div>
+
+            {filteredBallots.length === 0 ? (
+              <div className="text-center py-12 card bg-surface-sunken">
+                <p style={{ color: "var(--ink-muted)" }}>No ballots matching your filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredBallots.map((b) => (
+                  <BallotCard
+                    key={b.id}
+                    ballot={b}
+                    onBallotDeleted={fetchBallots}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Audit Export Panel — closed ballots only */}
             {closedBallots.length > 0 && (

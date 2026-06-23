@@ -29,10 +29,18 @@ export async function requireAuth(
     let payload: { sessionId: string };
     try {
       payload = jwt.verify(token, config.jwtSecret) as { sessionId: string };
-    } catch {
-      res
-        .status(401)
-        .json({ error: "Unauthorized", message: "Invalid or expired session" });
+    } catch (err: any) {
+      if (err.name === "TokenExpiredError") {
+        res.status(401).json({
+          error: "SESSION_EXPIRED",
+          message: "Your session has expired. Please login again.",
+        });
+      } else {
+        res.status(401).json({
+          error: "Unauthorized",
+          message: "Invalid session",
+        });
+      }
       return;
     }
 
@@ -41,13 +49,19 @@ export async function requireAuth(
       include: { organization: true },
     });
 
-    if (!session || session.expiresAt < new Date()) {
-      res
-        .status(401)
-        .json({
-          error: "Unauthorized",
-          message: "Session expired or not found",
-        });
+    if (!session) {
+      res.status(401).json({
+        error: "Unauthorized",
+        message: "Session not found",
+      });
+      return;
+    }
+
+    if (session.expiresAt < new Date()) {
+      res.status(401).json({
+        error: "SESSION_EXPIRED",
+        message: "Your session has expired. Please login again.",
+      });
       return;
     }
 

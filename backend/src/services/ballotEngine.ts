@@ -37,10 +37,27 @@ export async function createBallot(
     include: { options: true },
   });
 
-  // Record ballot creation on-chain — fire-and-forget
-  sorobanRecordBallot(hashIdentifier(ballot.id)).catch((err) =>
-    console.error("[Soroban] record_ballot failed:", err),
-  );
+  // Record ballot creation on-chain
+  try {
+    const txHash = await sorobanRecordBallot(hashIdentifier(ballot.id));
+    if (txHash) {
+      await prisma.ballot.update({
+        where: { id: ballot.id },
+        data: { stellarTxId: txHash, anchorStatus: "SUCCESS" },
+      });
+    } else {
+      await prisma.ballot.update({
+        where: { id: ballot.id },
+        data: { anchorStatus: "PENDING" },
+      });
+    }
+  } catch (err) {
+    console.error("[Soroban] record_ballot failed:", err);
+    await prisma.ballot.update({
+      where: { id: ballot.id },
+      data: { anchorStatus: "PENDING" },
+    });
+  }
 
   // Send confirmation email to org admin — non-blocking
   prisma.organization
@@ -200,6 +217,34 @@ export async function getOpenExpiredBallots() {
   return prisma.ballot.findMany({
     where: { status: "OPEN", deadline: { lt: new Date() } },
   });
+}
+
+/**
+ * Background worker to retry pending Stellar anchors.
+ */
+export async function processPendingAnchors() {
+  const pending = await prisma.ballot.findMany({
+    where: { anchorStatus: "PENDING" },
+  });
+
+  if (pending.length === 0) return;
+
+  console.log(`[Anchor] Processing ${pending.length} pending ballots...`);
+
+  for (const ballot of pending) {
+    try {
+      const txHash = await sorobanRecordBallot(hashIdentifier(ballot.id));
+      if (txHash) {
+        await prisma.ballot.update({
+          where: { id: ballot.id },
+          data: { stellarTxId: txHash, anchorStatus: "SUCCESS" },
+        });
+        console.log(`[Anchor] Ballot ${ballot.id} anchored: ${txHash}`);
+      }
+    } catch (err) {
+      console.error(`[Anchor] Retry failed for ballot ${ballot.id}:`, err);
+    }
+  }
 }
 
 export async function deleteBallot(ballotId: string, orgId: string) {

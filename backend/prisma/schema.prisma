@@ -44,11 +44,20 @@ model Ballot {
   votes             Vote[]
   result            Result?
   auditEvents       AuditEvent[]
+  stellarTxId       String?
+  anchorStatus      AnchorStatus    @default(PENDING)
 }
 
 enum BallotStatus {
+  DRAFT
   OPEN
   CLOSED
+}
+
+enum AnchorStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
 
 model Option {
