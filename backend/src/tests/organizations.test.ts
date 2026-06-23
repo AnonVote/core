@@ -41,7 +41,8 @@ describe("POST /api/organizations — Registration", () => {
       .post("/api/organizations")
       .send({ name: "Incomplete" });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/missing/i);
+    expect(res.body.error).toBe("ValidationError");
+    expect(res.body.message).toMatch(/required/i);
   });
 });
 

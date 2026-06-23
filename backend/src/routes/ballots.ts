@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { requireAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import { createBallotSchema, updateBallotSchema } from "../validation/schemas";
 import {
   createBallot,
   getBallotsByOrg,
@@ -18,6 +20,7 @@ const router = Router();
 router.post(
   "/",
   requireAuth,
+  validate(createBallotSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const {
@@ -27,11 +30,6 @@ router.post(
         deadline,
         allowWeightedVoting,
       } = req.body;
-      if (!topic || !options || !eligibilityListId || !deadline) {
-        throw badRequest(
-          "Missing required fields: topic, options, eligibilityListId, deadline",
-        );
-      }
       const ballot = await createBallot(
         req.organization!.id,
         topic,
@@ -75,6 +73,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 router.patch(
   "/:id",
   requireAuth,
+  validate(updateBallotSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { topic, deadline, eligibilityListId, options } = req.body;

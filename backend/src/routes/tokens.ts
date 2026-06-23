@@ -6,7 +6,8 @@ import {
 } from "../services/identityManager";
 import { strictRateLimiter } from "../middleware/rateLimiter";
 import { requireAuth } from "../middleware/auth";
-import { badRequest } from "../utils/errors";
+import { validate } from "../middleware/validate";
+import { issueTokenSchema, reissueTokenSchema } from "../validation/schemas";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ const router = Router();
 router.post(
   "/",
   strictRateLimiter,
+  validate(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ballotId, voterIdentifier } = req.body;
@@ -23,9 +25,6 @@ router.post(
         "identifier:",
         voterIdentifier,
       );
-      if (!ballotId || !voterIdentifier) {
-        throw badRequest("ballotId and voterIdentifier are required");
-      }
       const result = await issueToken(ballotId, voterIdentifier.trim());
       console.log("[Tokens] Token issued successfully for ballot:", ballotId);
       res
@@ -41,12 +40,10 @@ router.post(
 router.post(
   "/reissue",
   strictRateLimiter,
+  validate(reissueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ballotId, voterIdentifier } = req.body;
-      if (!ballotId || !voterIdentifier) {
-        throw badRequest("ballotId and voterIdentifier are required");
-      }
       const result = await reissueToken(ballotId, voterIdentifier.trim());
       res
         .status(200)

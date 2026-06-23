@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { delegateVote } from "../services/delegationManager";
 import { requireAuth } from "../middleware/auth";
-import { badRequest } from "../utils/errors";
+import { validate } from "../middleware/validate";
+import { delegateVoteSchema } from "../validation/schemas";
 
 const router = Router();
 
@@ -9,14 +10,10 @@ const router = Router();
 router.post(
   "/",
   requireAuth,
+  validate(delegateVoteSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ballotId, delegatorTokenHash, delegateTokenHash } = req.body;
-      if (!ballotId || !delegatorTokenHash || !delegateTokenHash) {
-        throw badRequest(
-          "ballotId, delegatorTokenHash, and delegateTokenHash are required",
-        );
-      }
       await delegateVote(ballotId, delegatorTokenHash, delegateTokenHash);
       res
         .status(200)
