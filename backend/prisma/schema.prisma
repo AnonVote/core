@@ -46,6 +46,7 @@ model Ballot {
   auditEvents       AuditEvent[]
   stellarTxId       String?
   anchorStatus      AnchorStatus    @default(PENDING)
+  tokenDeliveryRetries TokenDeliveryRetry[]
 }
 
 enum BallotStatus {
@@ -95,6 +96,7 @@ model VoterToken {
   usedAt        DateTime?
   delegatedFrom String?   // If set, this token was delegated to by another token
   delegatedTo   String?   // If set, this token delegates its vote to another token
+  deliveryRetry TokenDeliveryRetry?
 }
 
 model Vote {
@@ -135,8 +137,24 @@ model AuditEvent {
   createdAt       DateTime       @default(now())
 }
 
+model TokenDeliveryRetry {
+  id                 String          @id @default(uuid())
+  ballotId           String
+  voterTokenId       String          @unique
+  recipientEncrypted String
+  attempts           Int             @default(0)
+  nextAttemptAt      DateTime        @default(now())
+  lastError          String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  ballot            Ballot          @relation(fields: [ballotId], references: [id])
+  voterToken        VoterToken      @relation(fields: [voterTokenId], references: [id])
+}
+
 enum AuditEventType {
   TOKEN_ISSUED
+  TOKEN_DELIVERY_FAILED
   VOTE_CAST
   RESULT_PUBLISHED
   DUPLICATE_TOKEN_ATTEMPT
