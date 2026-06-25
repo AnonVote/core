@@ -300,6 +300,7 @@ Stellar Testnet is used by default for development. To switch to Mainnet, update
 ```env
 STELLAR_SECRET_KEY=your-mainnet-secret-key
 STELLAR_NETWORK=mainnet
+```
 
 **Soroban Contract ID**
 
@@ -308,7 +309,6 @@ AnonVote also requires a `SOROBAN_CONTRACT_ID` environment variable to interact 
 For local development, use the published Testnet contract ID.
 
 When deploying to Mainnet, replace it with the deployed Mainnet contract ID.
-```
 
 ---
 
