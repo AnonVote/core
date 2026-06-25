@@ -19,12 +19,6 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { ballotId, voterIdentifier } = req.body;
-      console.log(
-        "[Tokens] Request received — ballotId:",
-        ballotId,
-        "identifier:",
-        voterIdentifier,
-      );
       const result = await issueToken(ballotId, voterIdentifier.trim());
       console.log("[Tokens] Token issued successfully for ballot:", ballotId);
       res

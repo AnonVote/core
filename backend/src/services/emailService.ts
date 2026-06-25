@@ -195,3 +195,41 @@ export async function sendBallotClosedEmail(params: {
     console.error("[Email] Failed to send ballot closed email:", err);
   }
 }
+
+/**
+ * Send a voter token email containing the one-time token link.
+ */
+export async function sendVoterTokenEmail(params: {
+  to: string;
+  ballotId: string;
+  token: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.log("[Email] RESEND_API_KEY not set — skipping voter token email");
+    return;
+  }
+
+  const voteLink = `${config.frontendOrigin}/vote/${params.ballotId}/token?token=${params.token}`;
+
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;">
+  <h2 style="margin:0 0 8px">Your voter token</h2>
+  <p style="margin:0 0 16px">Use the button below to open the voting page. This token is one-time use only.</p>
+  <a href="${voteLink}" style="display:inline-block;background:#1c7ed6;color:white;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Vote now</a>
+  <p style="margin-top:12px;color:#6b7280;word-break:break-all;">Or paste this token into the voting page: <strong>${params.token}</strong></p>
+</div>`;
+
+  try {
+    await client.emails.send({
+      from: config.emailFrom,
+      to: params.to,
+      subject: `Your voting token for ballot ${params.ballotId}`,
+      html,
+    });
+    console.log(`[Email] Voter token email sent to ${params.to}`);
+  } catch (err) {
+    console.error("[Email] Failed to send voter token email:", err);
+    throw err;
+  }
+}

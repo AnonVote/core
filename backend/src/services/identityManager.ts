@@ -26,18 +26,7 @@ export async function issueToken(
 
   // Don't reveal whether ballot exists if identifier not eligible
   const identifierHash = hashIdentifier(voterIdentifier);
-  console.log("[issueToken] ballotId:", ballotId);
-  console.log(
-    "[issueToken] voterIdentifier (raw):",
-    JSON.stringify(voterIdentifier),
-  );
-  console.log("[issueToken] identifierHash:", identifierHash);
-  console.log(
-    "[issueToken] ballot found:",
-    !!ballot,
-    "status:",
-    ballot?.status,
-  );
+  console.log("[issueToken] ballotId:", ballotId, "identifierHash:", identifierHash);
 
   if (!ballot || ballot.status === "CLOSED") {
     // Generic error — don't reveal ballot existence
