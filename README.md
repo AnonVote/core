@@ -152,8 +152,8 @@ Anyone can visit `/results/:ballotId` and independently confirm the outcome via 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Just-Bamford/AnonVote.git
-cd AnonVote
+git clone https://github.com/AnonVote/core.git
+cd core
 ```
 
 ### 2. Configure environment variables
@@ -168,6 +168,7 @@ Open `.env` and fill in your values:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/anonvote
 JWT_SECRET=your-secret-here
 STELLAR_SECRET_KEY=your-stellar-secret-key
+SOROBAN_CONTRACT_ID=your-testnet-contract-id
 BALLOT_ENCRYPTION_KEY=your-32-byte-hex-key
 NODE_ENV=development
 ```
@@ -300,6 +301,14 @@ Stellar Testnet is used by default for development. To switch to Mainnet, update
 STELLAR_SECRET_KEY=your-mainnet-secret-key
 STELLAR_NETWORK=mainnet
 ```
+
+**Soroban Contract ID**
+
+AnonVote also requires a `SOROBAN_CONTRACT_ID` environment variable to interact with the deployed Soroban smart contract.
+
+For local development, use the published Testnet contract ID.
+
+When deploying to Mainnet, replace it with the deployed Mainnet contract ID.
 
 ---
 
