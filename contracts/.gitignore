@@ -1,0 +1,5 @@
+target/
+test_snapshots/
+node_modules/
+*.wasm
+.env
