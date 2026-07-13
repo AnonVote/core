@@ -4,6 +4,7 @@ import { getAdminBallots, getAdminAudit } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
 import BallotCard from "../components/BallotCard";
+import OrganizationOverview from "../components/OrganizationOverview";
 import type { Ballot } from "../types";
 import {
   ClipboardIcon,
@@ -16,7 +17,9 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [ballots, setBallots] = useState<Ballot[]>([]);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"ALL" | "DRAFT" | "OPEN" | "CLOSED">("ALL");
+  const [activeTab, setActiveTab] = useState<
+    "ALL" | "DRAFT" | "OPEN" | "CLOSED"
+  >("ALL");
 
   const fetchBallots = async () => {
     try {
@@ -41,10 +44,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const downloadAudit = async (
-    ballotId: string,
-    format: "json" | "csv",
-  ) => {
+  const downloadAudit = async (ballotId: string, format: "json" | "csv") => {
     try {
       const res = await getAdminAudit(ballotId, format);
       const blob = new Blob([res.data as BlobPart], {
@@ -139,6 +139,9 @@ export default function DashboardPage() {
             + Create Ballot
           </Link>
         </div>
+
+        {/* Organization Overview Card */}
+        <OrganizationOverview organizationName={orgName} />
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
@@ -243,7 +246,10 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              <div className="input-wrapper" style={{ maxWidth: "300px", width: "100%" }}>
+              <div
+                className="input-wrapper"
+                style={{ maxWidth: "300px", width: "100%" }}
+              >
                 <span className="input-icon">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -266,7 +272,9 @@ export default function DashboardPage() {
 
             {filteredBallots.length === 0 ? (
               <div className="text-center py-12 card bg-surface-sunken">
-                <p style={{ color: "var(--ink-muted)" }}>No ballots matching your filters.</p>
+                <p style={{ color: "var(--ink-muted)" }}>
+                  No ballots matching your filters.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -293,29 +301,75 @@ export default function DashboardPage() {
                   Audit Exports
                 </h3>
                 <div className="card p-4">
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "var(--text-sm)",
+                    }}
+                  >
                     <thead>
-                      <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
-                        <th style={{ textAlign: "left", padding: "var(--space-2) var(--space-3)", color: "var(--ink-muted)", fontWeight: "var(--weight-medium)" }}>Ballot</th>
-                        <th style={{ textAlign: "right", padding: "var(--space-2) var(--space-3)", color: "var(--ink-muted)", fontWeight: "var(--weight-medium)" }}>Export</th>
+                      <tr
+                        style={{ borderBottom: "1px solid var(--border-soft)" }}
+                      >
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "var(--space-2) var(--space-3)",
+                            color: "var(--ink-muted)",
+                            fontWeight: "var(--weight-medium)",
+                          }}
+                        >
+                          Ballot
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "right",
+                            padding: "var(--space-2) var(--space-3)",
+                            color: "var(--ink-muted)",
+                            fontWeight: "var(--weight-medium)",
+                          }}
+                        >
+                          Export
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {closedBallots.map((b) => (
                         <tr
                           key={b.id}
-                          style={{ borderBottom: "1px solid var(--border-soft)" }}
+                          style={{
+                            borderBottom: "1px solid var(--border-soft)",
+                          }}
                         >
-                          <td style={{ padding: "var(--space-3)", color: "var(--ink-primary)" }}>
+                          <td
+                            style={{
+                              padding: "var(--space-3)",
+                              color: "var(--ink-primary)",
+                            }}
+                          >
                             {b.topic}
                           </td>
-                          <td style={{ padding: "var(--space-3)", textAlign: "right" }}>
-                            <div style={{ display: "inline-flex", gap: "var(--space-2)" }}>
+                          <td
+                            style={{
+                              padding: "var(--space-3)",
+                              textAlign: "right",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "inline-flex",
+                                gap: "var(--space-2)",
+                              }}
+                            >
                               <button
                                 id={`export-json-${b.id}`}
                                 onClick={() => downloadAudit(b.id, "json")}
                                 className="btn-secondary"
-                                style={{ fontSize: "var(--text-xs)", padding: "4px 10px" }}
+                                style={{
+                                  fontSize: "var(--text-xs)",
+                                  padding: "4px 10px",
+                                }}
                               >
                                 JSON
                               </button>
@@ -323,7 +377,10 @@ export default function DashboardPage() {
                                 id={`export-csv-${b.id}`}
                                 onClick={() => downloadAudit(b.id, "csv")}
                                 className="btn-secondary"
-                                style={{ fontSize: "var(--text-xs)", padding: "4px 10px" }}
+                                style={{
+                                  fontSize: "var(--text-xs)",
+                                  padding: "4px 10px",
+                                }}
                               >
                                 CSV
                               </button>
