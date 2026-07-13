@@ -177,7 +177,7 @@ export default function OrganizationOverview({
                   <ExternalLinkIcon width="14" height="14" />
                 </a>
                 <a
-                  href="https://github.com/AnonVote/protocol"
+                  href="https://github.com/AnonVote/docs"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="link-dark"
@@ -188,7 +188,7 @@ export default function OrganizationOverview({
                     gap: "var(--space-1)",
                   }}
                 >
-                  Protocol & Whitepaper
+                  Docs & Whitepaper
                   <ExternalLinkIcon width="14" height="14" />
                 </a>
               </div>
