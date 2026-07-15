@@ -358,9 +358,38 @@ Coverage includes: crypto utilities, organization registration and login, token 
 
 ---
 
+## Milestones
+
+AnonVote development is organized into three milestones. Each issue is tagged with which milestone it belongs to.
+
+### Milestone 1 — Foundation
+
+Everything works end-to-end on testnet. A real admin can create a ballot, upload voters, issue tokens, collect votes, tally, and verify the result on Stellar. No manual database steps.
+
+**Status:** In progress
+**Focus:** Core voting flow, Soroban integration, vote encryption, public verification
+
+### Milestone 2 — Hardening
+
+The system is production-safe. Per-ballot encryption keys, rate limiting, error handling, retry queues, no raw identifiers anywhere, Soroban fully wired not stubbed.
+
+**Status:** Planned
+**Focus:** Security hardening, production readiness, reliability, scalability
+
+### Milestone 3 — Ecosystem
+
+@anonvote/crypto published on npm, docs repo complete, contracts deployed on mainnet, third party developers can build on top of AnonVote using the JS SDK.
+
+**Status:** Planned
+**Focus:** SDK release, third-party integrations, documentation
+
+---
+
 ## Contributing
 
 Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
+
+Issues are labeled with their corresponding milestone so you can see what stage of development they belong to.
 
 ---
 
