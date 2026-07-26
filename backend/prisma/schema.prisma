@@ -122,6 +122,7 @@ model Result {
   stellarTxId     String?
   stellarLedgerAt DateTime? // Stellar network consensus timestamp
   sorobanTxId     String?   // Soroban contract record_result tx hash
+  verifiedOnChain Boolean?  // Result of post-finalisation Soroban is_consistent() check (null = not yet checked)
   finalised       Boolean   @default(false)
   finalisedAt     DateTime?
   publishedAt     DateTime  @default(now())
