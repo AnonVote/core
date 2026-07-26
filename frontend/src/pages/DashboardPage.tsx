@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { getAdminBallots, getAdminAudit } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -42,7 +42,7 @@ export default function DashboardPage() {
     if (!authLoading) fetchBallots();
   }, [authLoading, isAuthenticated]);
 
-  // Auto-refresh every 60s — moved BEFORE conditional return
+  // Auto-refresh every 60s â€” moved BEFORE conditional return
   useEffect(() => {
     const interval = setInterval(fetchBallots, 60_000);
     return () => clearInterval(interval);
@@ -53,7 +53,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!focusBallotId || ballots.length === 0) return;
     // Make sure the current filters can't hide the ballot we're about to
-    // focus — if they were active, this effect re-runs once state settles
+    // focus â€” if they were active, this effect re-runs once state settles
     // (activeTab/search are in the dependency array below).
     if (activeTab !== "ALL") {
       setActiveTab("ALL");
@@ -172,7 +172,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Organization Overview Card */}
-        <OrganizationOverview organizationName={orgName} />
+        <OrganizationOverview organizationName={orgName ?? undefined} />
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
@@ -244,7 +244,7 @@ export default function DashboardPage() {
               No ballots yet.
             </p>
             <Link to="/ballots/new" className="link-dark">
-              Create your first ballot →
+              Create your first ballot â†’
             </Link>
           </div>
         ) : (
@@ -329,7 +329,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Audit Export Panel — closed ballots only */}
+            {/* Audit Export Panel â€” closed ballots only */}
             {closedBallots.length > 0 && (
               <div style={{ marginTop: "var(--space-10)" }}>
                 <h3
