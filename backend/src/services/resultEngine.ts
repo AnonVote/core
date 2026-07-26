@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { prisma } from "../prisma/client";
 import { decryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
-import { sorobanRecordResult } from "./sorobanService";
+import { sorobanRecordResult, verifyBallotConsistency } from "./sorobanService";
 import { config } from "../config";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
@@ -143,6 +143,37 @@ export async function tallyBallot(
           err,
         );
       });
+  }
+
+  // Post-finalisation on-chain consistency check (issue #68) — transparency
+  // only, never blocks or fails the tally. Skipped alongside the other
+  // Soroban calls when opts.skipSoroban is set (e.g. in tests).
+  if (!opts.skipSoroban) {
+    let verifiedOnChain: boolean | null = null;
+    try {
+      verifiedOnChain = await verifyBallotConsistency(ballotId);
+    } catch (err) {
+      // verifyBallotConsistency already catches its own errors internally and
+      // resolves to false; this guards against an unexpected throw anyway.
+      console.error(
+        `[Soroban] Unexpected error running verifyBallotConsistency for ballot ${ballotId}:`,
+        err,
+      );
+      verifiedOnChain = false;
+    }
+
+    if (verifiedOnChain === false) {
+      console.warn(
+        `[ResultEngine] On-chain verification failed for ballot ${ballotId} — ` +
+          "the published tally is unaffected; see the Soroban log lines above " +
+          "for the detailed chain-vs-database report. Manual review recommended.",
+      );
+    }
+
+    await prisma.result.update({
+      where: { id: result.id },
+      data: { verifiedOnChain },
+    });
   }
 
   // Send results notification email to org admin — non-blocking
