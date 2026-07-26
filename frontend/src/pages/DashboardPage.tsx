@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { getAdminBallots, getAdminAudit } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
@@ -15,11 +15,15 @@ import {
 export default function DashboardPage() {
   const { isAuthenticated, loading: authLoading, orgName } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [ballots, setBallots] = useState<Ballot[]>([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<
     "ALL" | "DRAFT" | "OPEN" | "CLOSED"
   >("ALL");
+  const [focusBallotId, setFocusBallotId] = useState<string | null>(
+    (location.state as { focusBallotId?: string } | null)?.focusBallotId ?? null,
+  );
 
   const fetchBallots = async () => {
     try {
@@ -43,6 +47,33 @@ export default function DashboardPage() {
     const interval = setInterval(fetchBallots, 60_000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-focus the newly created ballot: scroll it into view and briefly
+  // highlight it, then clear so a later refresh/refresh doesn't re-trigger.
+  useEffect(() => {
+    if (!focusBallotId || ballots.length === 0) return;
+    // Make sure the current filters can't hide the ballot we're about to
+    // focus — if they were active, this effect re-runs once state settles
+    // (activeTab/search are in the dependency array below).
+    if (activeTab !== "ALL") {
+      setActiveTab("ALL");
+      return;
+    }
+    if (search !== "") {
+      setSearch("");
+      return;
+    }
+
+    const el = document.getElementById(`ballot-${focusBallotId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    // Clear the router state so a page refresh won't re-scroll/highlight,
+    // and drop the highlight after a moment.
+    window.history.replaceState({}, "");
+    const timeout = setTimeout(() => setFocusBallotId(null), 2500);
+    return () => clearTimeout(timeout);
+  }, [focusBallotId, ballots, activeTab, search]);
 
   const downloadAudit = async (ballotId: string, format: "json" | "csv") => {
     try {
@@ -279,11 +310,21 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredBallots.map((b) => (
-                  <BallotCard
+                  <div
                     key={b.id}
-                    ballot={b}
-                    onBallotDeleted={fetchBallots}
-                  />
+                    id={`ballot-${b.id}`}
+                    style={
+                      focusBallotId === b.id
+                        ? {
+                            borderRadius: "var(--radius-lg, 12px)",
+                            boxShadow: "0 0 0 3px var(--brand-primary)",
+                            transition: "box-shadow 300ms ease",
+                          }
+                        : undefined
+                    }
+                  >
+                    <BallotCard ballot={b} onBallotDeleted={fetchBallots} />
+                  </div>
                 ))}
               </div>
             )}

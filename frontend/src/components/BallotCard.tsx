@@ -341,20 +341,14 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
         </div>
       )}
 
-      {/* Stats Grid — 4 cols desktop, 2 cols mobile */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+      {/* Stats Grid — 3 cols desktop, 2 cols mobile (Tokens moved to progress bar below) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
         {[
           {
             label: "Eligible",
             value: ballot.eligibleVoters ?? "—",
             mono: false,
             accent: false,
-          },
-          {
-            label: "Tokens",
-            value: ballot.tokensIssued ?? "—",
-            mono: true,
-            accent: true,
           },
           {
             label: "Votes",
@@ -402,6 +396,79 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Token Issuance Progress — read-only; tokens are voter-initiated (self-service),
+          so this only visualizes issuance so far, it does not trigger issuance. */}
+      <div className="mb-5">
+        {(() => {
+          const issued = ballot.tokensIssued ?? 0;
+          const eligible = ballot.eligibleVoters ?? 0;
+          const pct = eligible > 0 ? Math.min(100, Math.round((issued / eligible) * 100)) : 0;
+          return (
+            <div
+              style={{
+                background: "var(--surface-base)",
+                borderRadius: "var(--radius-md)",
+                padding: "var(--space-3)",
+              }}
+            >
+              <div
+                className="flex items-center justify-between mb-2"
+                style={{ fontSize: "var(--text-xs)" }}
+              >
+                <span style={{ color: "var(--ink-muted)" }}>
+                  Tokens Issued
+                </span>
+                <span
+                  style={{
+                    color: "var(--brand-primary)",
+                    fontWeight: "var(--weight-semibold)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {issued}
+                  {eligible > 0 ? ` / ${eligible}` : ""}
+                  {eligible > 0 ? ` (${pct}%)` : ""}
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label={`Token issuance progress for ${ballot.topic}`}
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                style={{
+                  width: "100%",
+                  height: "6px",
+                  borderRadius: "var(--radius-full, 9999px)",
+                  background: "var(--surface-sunken)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${pct}%`,
+                    height: "100%",
+                    background: "var(--brand-primary)",
+                    borderRadius: "var(--radius-full, 9999px)",
+                    transition: "width var(--transition-base, 300ms ease)",
+                  }}
+                />
+              </div>
+              <p
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--ink-muted)",
+                  marginTop: "var(--space-1)",
+                }}
+              >
+                Voters request their own token — this can't be triggered from
+                here by design (keeps voter identity separate from the admin).
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Action Buttons — clear hierarchy */}
