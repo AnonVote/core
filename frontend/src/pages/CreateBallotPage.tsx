@@ -64,7 +64,7 @@ export default function CreateBallotPage() {
     try {
       const eligRes = await uploadEligibilityList(file!);
       const { eligibilityListId } = eligRes.data.data;
-      await createBallot({
+      const createRes = await createBallot({
         topic: topic.trim(),
         options: options.map((o) => o.trim()).filter(Boolean),
         eligibilityListId,
@@ -78,7 +78,9 @@ export default function CreateBallotPage() {
         title: "Ballot created",
         message: `"${topic.trim()}" is now live and accepting votes`,
       });
-      navigate("/dashboard");
+      navigate("/dashboard", {
+        state: { focusBallotId: createRes.data.data.id },
+      });
     } catch (err: any) {
       if (err.response?.data?.fields) {
         const fieldErrors: Record<string, string> = {};
