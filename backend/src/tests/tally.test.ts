@@ -11,10 +11,14 @@ let optionBId: string;
 let eligibilityListId: string;
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -62,7 +66,7 @@ async function castVote(optionId: string, weight = 1) {
     process.env.BALLOT_ENCRYPTION_KEY ?? "test-key-32bytes!padding123456",
   );
   return prisma.vote.create({
-    data: { ballotId, optionId, encryptedPayload: payload, weight },
+    data: { ballotId, encryptedOption: payload, weight },
   });
 }
 

@@ -43,7 +43,7 @@ export async function createBallot(
     if (txHash) {
       await prisma.ballot.update({
         where: { id: ballot.id },
-        data: { stellarTxId: txHash, anchorStatus: "SUCCESS" },
+        data: { stellarTxId: txHash, anchorStatus: "ANCHORED" },
       });
     } else {
       await prisma.ballot.update({
@@ -237,7 +237,7 @@ export async function processPendingAnchors() {
       if (txHash) {
         await prisma.ballot.update({
           where: { id: ballot.id },
-          data: { stellarTxId: txHash, anchorStatus: "SUCCESS" },
+          data: { stellarTxId: txHash, anchorStatus: "ANCHORED" },
         });
         console.log(`[Anchor] Ballot ${ballot.id} anchored: ${txHash}`);
       }

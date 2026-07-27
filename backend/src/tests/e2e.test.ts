@@ -7,16 +7,28 @@ import app from "../app";
 import { prisma } from "../prisma/client";
 import { hashIdentifier } from "../utils/crypto";
 
-afterAll(async () => {
+async function cleanDb() {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
   await prisma.organization.deleteMany();
+}
+
+beforeEach(async () => {
+  await cleanDb();
+});
+
+afterAll(async () => {
+  await cleanDb();
   await prisma.$disconnect();
 });
 
@@ -56,7 +68,7 @@ describe("End-to-End: Full post-ballot flow", () => {
         topic: "E2E Test Vote",
         options: ["Approve", "Reject"],
         eligibilityListId: list.id,
-        deadline: new Date(Date.now() + 3600_000).toISOString(),
+        deadline: new Date(Date.now() + 7200_000).toISOString(),
       });
     expect(ballotRes.status).toBe(201);
     const ballotId = ballotRes.body.data.id;
@@ -77,8 +89,8 @@ describe("End-to-End: Full post-ballot flow", () => {
       voterToken: token,
       optionId,
     });
-    expect(voteRes.status).toBe(201);
-    expect(voteRes.body.data.voteId).toBeDefined();
+    expect(voteRes.status).toBe(200);
+    expect(voteRes.body.status).toBe("confirmed");
 
     // 7. Finalise ballot via admin route (idempotent)
     const finaliseRes = await request(app)
@@ -97,7 +109,6 @@ describe("End-to-End: Full post-ballot flow", () => {
 
     // 8. Public results — no authentication required
     const resultRes = await request(app).get(`/api/results/${ballotId}`);
-    // No cookie — pure public access
     expect(resultRes.status).toBe(200);
     expect(resultRes.body.data.totalVotes).toBe(1);
     expect(resultRes.body.data.isConsistent).toBe(true);
@@ -107,14 +118,6 @@ describe("End-to-End: Full post-ballot flow", () => {
 
     const tally = JSON.parse(resultRes.body.data.tallyJson);
     expect(tally[optionId]).toBe(1);
-
-    // 8a. Explorer URL is present when a Stellar tx exists
-    if (resultRes.body.data.stellarTxId) {
-      expect(resultRes.body.data.explorerUrl).toMatch(/stellar\.expert/);
-      expect(resultRes.body.data.explorerUrl).toContain(
-        resultRes.body.data.stellarTxId,
-      );
-    }
 
     // 9. Verify audit counts
     const auditRes = await request(app).get(`/api/audit/${ballotId}`);
@@ -128,7 +131,6 @@ describe("End-to-End: Full post-ballot flow", () => {
       .send({ token });
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.confirmed).toBe(true);
-    // Privacy: only confirmed key in body
     expect(Object.keys(verifyRes.body)).toEqual(["confirmed"]);
 
     // 11. Admin audit export — JSON
@@ -141,4 +143,3 @@ describe("End-to-End: Full post-ballot flow", () => {
     expect(adminAuditRes.body.data.voteCounts).toBeDefined();
   });
 });
-

@@ -9,10 +9,13 @@ let eligibilityListId: string;
 let validToken: string;
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -43,7 +46,7 @@ beforeAll(async () => {
       topic: "Vote Test Ballot",
       options: ["Option A", "Option B"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3600_000).toISOString(),
+      deadline: new Date(Date.now() + 7200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
@@ -62,17 +65,17 @@ describe("POST /api/votes", () => {
     const res = await request(app)
       .post("/api/votes")
       .send({ ballotId, voterToken: validToken, optionId });
-    expect(res.status).toBe(201);
-    expect(res.body.data.message).toMatch(/submitted/i);
-    expect(res.body.data.voteId).toBeDefined();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("confirmed");
+    expect(res.body.anchor_status).toBeDefined();
   });
 
   it("rejects a used token", async () => {
     const res = await request(app)
       .post("/api/votes")
       .send({ ballotId, voterToken: validToken, optionId });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/already been used/i);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("TOKEN_ALREADY_USED");
   });
 
   it("rejects an invalid token", async () => {
@@ -80,18 +83,11 @@ describe("POST /api/votes", () => {
     const res = await request(app)
       .post("/api/votes")
       .send({ ballotId, voterToken: fakeToken, optionId });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("INVALID_TOKEN");
   });
 
   it("rejects an invalid option", async () => {
-    // Issue a fresh token
-    const list2 = await prisma.eligibilityList.create({ data: {} });
-    await prisma.eligibilityEntry.create({
-      data: {
-        eligibilityListId: list2.id,
-        identifierHash: hashIdentifier("opt@test.com"),
-      },
-    });
     const rawToken = generateToken();
     await prisma.voterToken.create({
       data: { tokenHash: hashToken(rawToken), ballotId },
@@ -112,15 +108,14 @@ describe("POST /api/votes", () => {
       data: { status: "CLOSED" },
     });
     const rawToken = generateToken();
-    await prisma.voterToken.create(
-      {
-        data: { tokenHash: hashToken(rawToken), ballotId },
-      },
-    );
+    await prisma.voterToken.create({
+      data: { tokenHash: hashToken(rawToken), ballotId },
+    });
     const res = await request(app)
       .post("/api/votes")
       .send({ ballotId, voterToken: rawToken, optionId });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("BALLOT_CLOSED");
     await prisma.ballot.update({
       where: { id: ballotId },
       data: { status: "OPEN" },
@@ -130,15 +125,12 @@ describe("POST /api/votes", () => {
 
 describe("GET /api/results/:ballotId — public access", () => {
   it("returns 200 with no authentication when result exists", async () => {
-    // Tally the ballot first (no cookie/auth needed for this direct call)
     await prisma.ballot.update({ where: { id: ballotId }, data: { status: "CLOSED" } });
     const { tallyBallot } = await import("../services/resultEngine");
     await tallyBallot(ballotId, { skipSoroban: true });
 
-    // Request without any cookie or auth header
     const res = await request(app).get(`/api/results/${ballotId}`);
     expect(res.status).toBe(200);
     expect(res.body.data).toBeDefined();
   });
 });
-

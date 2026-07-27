@@ -14,10 +14,14 @@ let optionId: string;
 let eligibilityListId: string;
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -43,7 +47,7 @@ beforeAll(async () => {
       topic: "Finalise Test Ballot",
       options: ["Yes", "No"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      deadline: new Date(Date.now() + 7_200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
@@ -54,7 +58,7 @@ beforeAll(async () => {
     optionId,
     process.env.BALLOT_ENCRYPTION_KEY ?? "test-key-32bytes!padding123456",
   );
-  await prisma.vote.create({ data: { ballotId, optionId, encryptedPayload: payload, weight: 1 } });
+  await prisma.vote.create({ data: { ballotId, encryptedOption: payload, weight: 1 } });
   await prisma.voterToken.create({
     data: { tokenHash: hashToken(generateToken()), ballotId, used: true },
   });

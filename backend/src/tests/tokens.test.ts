@@ -8,10 +8,14 @@ let eligibilityListId: string;
 const VOTER_ID = "voter@test.com";
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -42,7 +46,7 @@ beforeAll(async () => {
       topic: "Test Ballot",
       options: ["Yes", "No"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3600_000).toISOString(),
+      deadline: new Date(Date.now() + 7200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
 });
@@ -62,7 +66,7 @@ describe("POST /api/tokens", () => {
     const res = await request(app)
       .post("/api/tokens")
       .send({ ballotId, voterIdentifier: VOTER_ID });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/already been issued/i);
   });
 

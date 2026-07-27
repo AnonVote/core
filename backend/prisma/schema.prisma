@@ -47,6 +47,7 @@ model Ballot {
   stellarTxId       String?
   anchorStatus      AnchorStatus    @default(PENDING)
   tokenDeliveryRetries TokenDeliveryRetry[]
+  ballotKey         BallotKey?
 }
 
 enum BallotStatus {
@@ -57,16 +58,15 @@ enum BallotStatus {
 
 enum AnchorStatus {
   PENDING
-  SUCCESS
+  ANCHORED
   FAILED
 }
 
 model Option {
   id       String @id @default(uuid())
   ballotId String
-  ballot   Ballot @relation(fields: [ballotId], references: [id])
+  ballot   Ballot @relation(fields: [ballotId], references: [id], onDelete: Cascade)
   text     String
-  votes    Vote[]
 }
 
 model EligibilityList {
@@ -99,17 +99,38 @@ model VoterToken {
   deliveryRetry TokenDeliveryRetry?
 }
 
+model BallotKey {
+  id        String   @id @default(uuid())
+  ballotId  String   @unique
+  ballot    Ballot   @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  key       String
+  createdAt DateTime @default(now())
+
+  @@map("ballot_keys")
+}
+
 model Vote {
-  id               String   @id @default(uuid())
-  ballotId         String
-  ballot           Ballot   @relation(fields: [ballotId], references: [id])
-  optionId         String
-  option           Option   @relation(fields: [optionId], references: [id])
-  encryptedPayload String
-  weight           Int      @default(1)
-  rank             Int?     // For ranked-choice: 1 = first choice, 2 = second, etc.
-  stellarTxId      String?
-  submittedAt      DateTime @default(now())
+  id              String             @id @default(uuid())
+  ballotId        String
+  ballot          Ballot             @relation(fields: [ballotId], references: [id])
+  encryptedOption String             @map("encrypted_option")
+  weight          Int                @default(1)
+  rank            Int?               // For ranked-choice: 1 = first choice, 2 = second, etc.
+  stellarTxId     String?            @map("stellar_tx_id")
+  anchorStatus    AnchorStatus       @default(PENDING) @map("anchor_status")
+  submittedAt     DateTime           @default(now())
+  retryQueue      StellarRetryQueue?
+}
+
+model StellarRetryQueue {
+  id         String   @id @default(uuid())
+  voteId     String   @unique @map("vote_id")
+  vote       Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  retryCount Int      @default(0) @map("retry_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("stellar_retry_queue")
 }
 
 model Result {
