@@ -2,6 +2,7 @@ import request from "supertest";
 import app from "../app";
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
+import * as sorobanService from "../services/sorobanService";
 
 let ballotId: string;
 let optionId: string;
@@ -16,6 +17,7 @@ beforeAll(async () => {
   await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
   await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -120,6 +122,62 @@ describe("POST /api/votes", () => {
       where: { id: ballotId },
       data: { status: "OPEN" },
     });
+  });
+
+  it("race condition — two concurrent requests with the same token produce exactly one vote and one TOKEN_ALREADY_USED", async () => {
+    // Ensure ballot is open
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "OPEN" } });
+
+    // Stub Soroban so anchoring doesn't interfere
+    jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValue("0xtxrace");
+
+    const raceToken = generateToken();
+    await prisma.voterToken.create({
+      data: { tokenHash: hashToken(raceToken), ballotId },
+    });
+
+    // Fire two requests simultaneously with the same token
+    const [res1, res2] = await Promise.all([
+      request(app).post("/api/votes").send({ ballotId, voterToken: raceToken, optionId }),
+      request(app).post("/api/votes").send({ ballotId, voterToken: raceToken, optionId }),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    const errors = [res1.body.error, res2.body.error].filter(Boolean);
+
+    // Exactly one success and one conflict
+    expect(statuses).toEqual([200, 409]);
+    expect(errors).toEqual(["TOKEN_ALREADY_USED"]);
+
+    // Exactly one vote record in the database
+    const votes = await prisma.vote.findMany({ where: { ballotId } });
+    expect(votes.length).toBe(1);
+
+    jest.restoreAllMocks();
+  });
+
+  it("plaintext check — raw option ID is never written to the votes table", async () => {
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "OPEN" } });
+
+    jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValue("0xtxplain");
+
+    const plainToken = generateToken();
+    await prisma.voterToken.create({
+      data: { tokenHash: hashToken(plainToken), ballotId },
+    });
+
+    await request(app)
+      .post("/api/votes")
+      .send({ ballotId, voterToken: plainToken, optionId });
+
+    // Query the raw vote rows — encryptedOption must not equal or contain the plain optionId
+    const votes = await prisma.vote.findMany({ where: { ballotId } });
+    for (const vote of votes) {
+      expect(vote.encryptedOption).not.toBe(optionId);
+      expect(vote.encryptedOption).not.toContain(optionId);
+    }
+
+    jest.restoreAllMocks();
   });
 });
 
