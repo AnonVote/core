@@ -128,15 +128,22 @@ export const reissueToken = (data: {
 
 // Votes
 export const submitVote = (data: {
-  ballotId: string;
-  voterToken: string;
-  optionId: string;
+  ballot_id?: string;
+  ballotId?: string;
+  token?: string;
+  voterToken?: string;
+  option_id?: string;
+  optionId?: string;
   weight?: number;
+  rank?: number;
 }) =>
-  api.post<ApiResponse<{ message: string; voteId: string; ballotId: string }>>(
-    "/votes",
-    data,
-  );
+  api.post<{
+    status: string;
+    stellar_tx_id: string | null;
+    anchor_status: string;
+    explorer_url?: string;
+    voteId?: string;
+  }>("/votes", data);
 
 // Results
 export const getResult = (ballotId: string) =>

@@ -17,10 +17,14 @@ let usedToken: string;   // A token that has voted
 let unusedToken: string; // A token that has NOT voted
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -48,7 +52,7 @@ beforeAll(async () => {
       topic: "Verify Test Ballot",
       options: ["Approve", "Reject"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      deadline: new Date(Date.now() + 7_200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;

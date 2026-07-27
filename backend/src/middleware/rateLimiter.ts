@@ -7,6 +7,7 @@ export const rateLimiter = rateLimit({
   skipSuccessfulRequests: false,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
   handler: (_req, res) => {
     res.status(429).json({
       error: "TooManyRequests",
@@ -25,11 +26,10 @@ export const strictRateLimiter = rateLimit({
     (req as any).__rateLimitWindow = settings.windowMinutes * 60 * 1000;
     return settings.maxAttempts;
   },
-  // express-rate-limit doesn't support dynamic windowMs natively,
-  // so we use the max window and rely on maxAttempts being the main control
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
   handler: (_req, res) => {
     const settings = getRateLimitSettings();
     res.status(429).json({

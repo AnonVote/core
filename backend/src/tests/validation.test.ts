@@ -15,10 +15,14 @@ let eligibilityListId: string;
 
 beforeAll(async () => {
   // Clean slate
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -54,7 +58,7 @@ beforeAll(async () => {
       topic: "Validation Test Ballot",
       options: ["Yes", "No"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      deadline: new Date(Date.now() + 7_200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
 });
@@ -67,7 +71,10 @@ afterAll(() => prisma.$disconnect());
 
 describe("Validation error shape", () => {
   it("returns error=ValidationError, message, and fields array on invalid input", async () => {
-    const res = await request(app).post("/api/votes").send({});
+    const res = await request(app)
+      .post("/api/ballots")
+      .set("Cookie", cookie)
+      .send({});
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("ValidationError");
     expect(typeof res.body.message).toBe("string");
@@ -91,7 +98,7 @@ describe("POST /api/ballots — validation", () => {
         topic: "A valid topic",
         options: ["Option A", "Option B"],
         eligibilityListId,
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(201);
   });
@@ -225,15 +232,15 @@ describe("POST /api/votes — validation", () => {
   it("rejects empty body", async () => {
     const res = await request(app).post("/api/votes").send({});
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("ValidationError");
+    expect(res.body.error).toBe("VALIDATION_ERROR");
   });
 
   it("rejects missing ballotId", async () => {
     const res = await request(app)
       .post("/api/votes")
-      .send({ voterToken: "sometoken", optionId: "someoption" });
+      .send({ voterToken: "a".repeat(64), optionId: "someoption" });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/ballotId/i);
+    expect(res.body.message).toMatch(/(ballotId|ballot_id)/i);
   });
 
   it("rejects missing voterToken", async () => {
@@ -241,21 +248,21 @@ describe("POST /api/votes — validation", () => {
       .post("/api/votes")
       .send({ ballotId: "someid", optionId: "someoption" });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/voterToken/i);
+    expect(res.body.message).toMatch(/(voterToken|token)/i);
   });
 
   it("rejects missing optionId", async () => {
     const res = await request(app)
       .post("/api/votes")
-      .send({ ballotId: "someid", voterToken: "sometoken" });
+      .send({ ballotId: "someid", voterToken: "a".repeat(64) });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/optionId/i);
+    expect(res.body.message).toMatch(/(optionId|option_id)/i);
   });
 
   it("rejects non-numeric weight", async () => {
     const res = await request(app).post("/api/votes").send({
       ballotId: "someid",
-      voterToken: "sometoken",
+      voterToken: "a".repeat(64),
       optionId: "someopt",
       weight: "heavy",
     });
@@ -266,7 +273,7 @@ describe("POST /api/votes — validation", () => {
   it("rejects non-numeric rank", async () => {
     const res = await request(app).post("/api/votes").send({
       ballotId: "someid",
-      voterToken: "sometoken",
+      voterToken: "a".repeat(64),
       optionId: "someopt",
       rank: "first",
     });

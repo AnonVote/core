@@ -28,12 +28,12 @@ export async function tallyBallot(
     tally[o.id] = 0;
   });
 
+  const keyRecord = await prisma.ballotKey.findUnique({ where: { ballotId } });
+  const ballotKey = keyRecord ? keyRecord.key : config.ballotEncryptionKey;
+
   for (const vote of ballot.votes) {
     try {
-      const optionId = decryptVote(
-        vote.encryptedPayload,
-        config.ballotEncryptionKey,
-      );
+      const optionId = decryptVote(vote.encryptedOption, ballotKey);
       if (tally[optionId] !== undefined) {
         tally[optionId] += vote.weight;
       }

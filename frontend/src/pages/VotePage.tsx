@@ -1,278 +1,252 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
-import { getBallot, submitVote } from "../api/client";
+import React, { useEffect, useState } from "react";
+import { useParams, useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import OptionSelector from "../components/OptionSelector";
-import type { Ballot } from "../types";
-import {
-  CheckIcon,
-  InfoCircledIcon,
-  KeyboardIcon,
-} from "@radix-ui/react-icons";
+import VoteConfirmation from "../components/VoteConfirmation";
+import VoteError, { VoteErrorCode } from "../components/VoteError";
+import { getBallot, submitVote } from "../api/client";
+import type { Ballot, Option } from "../types";
 
 export default function VotePage() {
   const { ballotId } = useParams<{ ballotId: string }>();
   const location = useLocation();
+
   const [ballot, setBallot] = useState<Ballot | null>(null);
-  const [ballotError, setBallotError] = useState("");
-  // Pre-fill token if navigated from token page
   const [token, setToken] = useState<string>(
-    (location.state as any)?.token || "",
+    (location.state as any)?.token || ""
   );
-  const [selectedOption, setSelectedOption] = useState("");
-  const [rankedOptions, setRankedOptions] = useState<string[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [voteWeight, setVoteWeight] = useState<number>(1);
-  const [verificationHash, setVerificationHash] = useState("");
+  const [selectedOptionId, setSelectedOptionId] = useState<string>("");
+  const [tokenInlineError, setTokenInlineError] = useState<string>("");
+
+  const [loading, setLoading] = useState<boolean>(false);
+  const [submissionResult, setSubmissionResult] = useState<{
+    stellar_tx_id?: string | null;
+    anchor_status?: string;
+    explorer_url?: string;
+  } | null>(null);
+
+  const [errorCode, setErrorCode] = useState<VoteErrorCode | null>(null);
+  const [fetchError, setFetchError] = useState<string>("");
 
   useEffect(() => {
     if (!ballotId) return;
     getBallot(ballotId)
       .then((res) => {
         const b = res.data.data;
-        if (b.status !== "OPEN")
-          setBallotError("This ballot is not currently accepting votes.");
-        else setBallot(b);
+        if (b.status !== "OPEN") {
+          setErrorCode("BALLOT_CLOSED");
+        } else {
+          setBallot(b);
+        }
       })
-      .catch(() => setBallotError("This ballot is not available."));
+      .catch(() => {
+        setFetchError("This ballot is not available or could not be loaded.");
+      });
   }, [ballotId]);
 
-  // Handle ranked-choice selection
-  const toggleRankedOption = (optionId: string) => {
-    if (rankedOptions.includes(optionId)) {
-      setRankedOptions(rankedOptions.filter((id) => id !== optionId));
-    } else {
-      if (ballot?.maxRankings && rankedOptions.length >= ballot.maxRankings) {
-        setError(`You can only rank up to ${ballot.maxRankings} options.`);
-        return;
-      }
-      setRankedOptions([...rankedOptions, optionId]);
+  const validateTokenFormat = (value: string): boolean => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setTokenInlineError("Token is required.");
+      return false;
+    }
+    const hex64Regex = /^[0-9a-fA-F]{64}$/;
+    if (!hex64Regex.test(trimmed)) {
+      setTokenInlineError("Invalid token format. Token must be a 64-character hexadecimal string.");
+      return false;
+    }
+    setTokenInlineError("");
+    return true;
+  };
+
+  const handleTokenBlur = () => {
+    if (token) {
+      validateTokenFormat(token);
     }
   };
 
-  const canSubmit =
-    token.trim().length > 0 &&
-    (selectedOption !== "" || rankedOptions.length > 0);
+  const isOptionSelected = Boolean(selectedOptionId);
+  const isTokenValid = Boolean(token.trim()) && !tokenInlineError;
+  const isSubmitDisabled = !isOptionSelected || !isTokenValid || loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
-    setError("");
+    if (!validateTokenFormat(token) || !selectedOptionId || !ballotId) {
+      return;
+    }
+
     setLoading(true);
+    setErrorCode(null);
+
     try {
-      // For ranked-choice, submit the first choice with all ranks
-      const voteData: any = {
-        ballotId: ballotId!,
+      const res = await submitVote({
+        ballot_id: ballotId,
+        ballotId,
+        token: token.trim(),
         voterToken: token.trim(),
-        optionId: rankedOptions.length > 0 ? rankedOptions[0] : selectedOption,
-        weight: voteWeight,
-      };
+        option_id: selectedOptionId,
+        optionId: selectedOptionId,
+      });
 
-      if (rankedOptions.length > 0) {
-        voteData.rank = rankedOptions.indexOf(voteData.optionId) + 1;
-        voteData.rankedOptions = rankedOptions;
-      }
-
-      const result = await submitVote(voteData);
-      setSuccess(true);
-      setVerificationHash(`${result.data.data.voteId}:${ballotId}`);
+      const data = res.data;
+      setSubmissionResult({
+        stellar_tx_id: data.stellar_tx_id,
+        anchor_status: data.anchor_status || "PENDING",
+        explorer_url: data.explorer_url,
+      });
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to submit vote. Please try again.",
-      );
+      const status = err.response?.status;
+      const respError = err.response?.data?.error;
+
+      if (status === 401 || respError === "INVALID_TOKEN") {
+        setErrorCode("INVALID_TOKEN");
+      } else if (status === 409 || respError === "TOKEN_ALREADY_USED") {
+        setErrorCode("TOKEN_ALREADY_USED");
+      } else if (status === 403 || respError === "BALLOT_CLOSED") {
+        setErrorCode("BALLOT_CLOSED");
+      } else {
+        setErrorCode("NETWORK_ERROR");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
       <Navbar />
-      <div
-        style={{
-          maxWidth: "720px",
-          margin: "0 auto",
-          padding: "var(--space-10) 0",
-          width: "100%",
-        }}
-      >
-        {success ? (
-          <div className="card p-8 text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto">
-              <CheckIcon
-                className="w-8 h-8 text-green-600 dark:text-green-400"
-                width="32"
-                height="32"
-              />
-            </div>
-            <h2 className="text-2xl font-space-grotesk font-bold text-green-600 dark:text-green-400">
-              Vote Submitted
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300">
-              Your anonymous vote has been recorded on the Stellar blockchain.
-            </p>
-            {verificationHash && (
-              <div className="card p-4 bg-green-50 dark:bg-green-900/20">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                  Verification Hash
-                </p>
-                <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
-                  {verificationHash}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Use this hash to verify your vote was recorded without
-                  exposing your identity
-                </p>
-              </div>
-            )}
-            <Link to={`/results/${ballotId}`} className="block btn-primary">
-              View Results
-            </Link>
-          </div>
-        ) : ballotError ? (
-          <div className="card p-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400">{ballotError}</p>
+
+      <main className="max-w-2xl mx-auto px-4 py-10 space-y-8">
+        {submissionResult ? (
+          <VoteConfirmation
+            stellar_tx_id={submissionResult.stellar_tx_id}
+            anchor_status={submissionResult.anchor_status}
+            explorer_url={submissionResult.explorer_url}
+            ballotId={ballotId}
+          />
+        ) : errorCode ? (
+          <VoteError
+            errorCode={errorCode}
+            ballotId={ballotId}
+            onRetry={() => setErrorCode(null)}
+          />
+        ) : fetchError ? (
+          <div className="card p-8 text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl">
+            <p className="text-red-600 dark:text-red-400 font-medium">{fetchError}</p>
           </div>
         ) : !ballot ? (
-          <div className="card p-8 animate-pulse h-64" />
+          <div className="card p-8 animate-pulse h-64 bg-white dark:bg-gray-900 rounded-2xl" />
         ) : (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-space-grotesk font-bold mb-2">
-                Cast Your Vote
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300">
-                Your vote is anonymous and encrypted.
+          <div className="space-y-8">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Cast Your Vote</h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Your vote is encrypted before being stored. No link to your identity exists.
               </p>
             </div>
 
-            <div className="card p-4">
-              <p className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1 font-mono">
-                Ballot
-              </p>
-              <p className="text-gray-900 dark:text-white font-semibold">
+            <div className="card p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-2">
+              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Ballot Topic
+              </span>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {ballot.topic}
-              </p>
+              </h2>
             </div>
-
-            {error && (
-              <div
-                className="message message-error"
-                role="alert"
-                aria-live="assertive"
-              >
-                <span className="message-icon" aria-hidden="true">
-                  <InfoCircledIcon width="16" height="16" />
-                </span>
-                <span>{error}</span>
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Your Voting Token
+              {/* Token Field */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="voter-token-input"
+                  className="block text-sm font-semibold text-gray-800 dark:text-gray-200"
+                >
+                  Eligibility Token
                 </label>
-                <div className="input-wrapper">
-                  <span className="input-icon">
-                    <KeyboardIcon />
-                  </span>
-                  <input
-                    type="text"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    className="input-field has-icon font-mono text-sm"
-                    placeholder="Paste your token here"
-                    aria-required="true"
-                    aria-label="Voting token"
-                    aria-invalid={!!error}
-                    onBlur={() => {
-                      // Set default weight for now
-                      setVoteWeight(1);
-                    }}
-                  />
-                  {voteWeight > 1 && (
-                    <span className="input-icon-right">
-                      <span className="text-xs font-medium text-[var(--brand-primary)]">
-                        Weight: {voteWeight}
-                      </span>
-                    </span>
-                  )}
+                <input
+                  id="voter-token-input"
+                  type="text"
+                  value={token}
+                  onChange={(e) => {
+                    setToken(e.target.value);
+                    if (tokenInlineError) setTokenInlineError("");
+                  }}
+                  onBlur={handleTokenBlur}
+                  placeholder="Paste your token here"
+                  className={`w-full px-4 py-3 font-mono text-sm rounded-xl border bg-white dark:bg-gray-900 transition-colors focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
+                    tokenInlineError
+                      ? "border-red-500 text-red-900 dark:text-red-200"
+                      : "border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                  }`}
+                  aria-invalid={Boolean(tokenInlineError)}
+                />
+                {tokenInlineError && (
+                  <p
+                    className="text-xs font-medium text-red-600 dark:text-red-400 pt-1"
+                    data-testid="token-inline-error"
+                  >
+                    {tokenInlineError}
+                  </p>
+                )}
+              </div>
+
+              {/* Option Selector Cards */}
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Select Ballot Option
+                </label>
+                <div className="grid gap-3">
+                  {ballot.options.map((opt: Option) => {
+                    const isSelected = selectedOptionId === opt.id;
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => setSelectedOptionId(opt.id)}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                          isSelected
+                            ? "border-indigo-600 dark:border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 ring-2 ring-indigo-500"
+                            : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-400 dark:hover:border-gray-700"
+                        }`}
+                        role="button"
+                        aria-pressed={isSelected}
+                      >
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                          {opt.text}
+                        </span>
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            isSelected
+                              ? "border-indigo-600 bg-indigo-600 text-white"
+                              : "border-gray-300 dark:border-gray-700"
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 12 12">
+                              <circle cx="6" cy="6" r="3" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  {ballot.allowRankedChoice
-                    ? "Rank Your Options"
-                    : "Select an Option"}
-                </label>
-                {ballot.allowRankedChoice ? (
-                  <div className="space-y-2">
-                    {ballot.options.map((option) => {
-                      const rank = rankedOptions.indexOf(option.id) + 1;
-                      const isSelected = rankedOptions.includes(option.id);
-                      return (
-                        <div
-                          key={option.id}
-                          onClick={() => toggleRankedOption(option.id)}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-[var(--brand-primary-pale)] border-[var(--brand-primary)]"
-                              : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-[var(--brand-primary)]"
-                          } border rounded-lg`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-900 dark:text-white">
-                              {option.text}
-                            </span>
-                            {rank > 0 && (
-                              <span className="text-sm font-bold text-[var(--brand-primary)]">
-                                #{rank}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {rankedOptions.length > 0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        You've ranked {rankedOptions.length} of{" "}
-                        {ballot.maxRankings || ballot.options.length} options
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <OptionSelector
-                    options={ballot.options}
-                    selected={selectedOption}
-                    onChange={setSelectedOption}
-                  />
-                )}
-              </div>
-
+              {/* Submit Button */}
               <button
                 type="submit"
-                disabled={!canSubmit || loading}
-                className="w-full btn-primary"
+                disabled={isSubmitDisabled}
+                className={`w-full py-3.5 px-6 font-semibold rounded-xl text-white shadow-md transition-all ${
+                  isSubmitDisabled
+                    ? "bg-gray-400 dark:bg-gray-700 cursor-not-allowed opacity-60"
+                    : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99]"
+                }`}
               >
-                {loading ? (
-                  <span className="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </span>
-                ) : (
-                  "Cast Vote — This cannot be undone"
-                )}
+                {loading ? "Submitting Vote..." : "Submit Confidential Vote"}
               </button>
             </form>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
