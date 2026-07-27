@@ -8,6 +8,7 @@ import { getEffectiveVoter } from "./delegationManager";
 export interface VoteSubmissionResponse {
   status: "confirmed";
   stellar_tx_id: string | null;
+  soroban_tx_id: string | null;
   anchor_status: "ANCHORED" | "PENDING";
   explorer_url?: string;
   voteId?: string;
@@ -138,6 +139,7 @@ export async function submitVote(
 
   // Stellar/Soroban anchoring after transaction commits
   let stellarTxId: string | null = null;
+  let sorobanTxId: string | null = null;
   let anchorStatus: "ANCHORED" | "PENDING" = "PENDING";
   const ballotIdHash = hashIdentifier(ballotId);
 
@@ -145,12 +147,14 @@ export async function submitVote(
     const txHash = await sorobanRecordVote(ballotIdHash);
     if (txHash) {
       stellarTxId = txHash;
+      sorobanTxId = txHash;
       anchorStatus = "ANCHORED";
 
       await prisma.vote.update({
         where: { id: voteResult.id },
         data: {
           stellarTxId: txHash,
+          sorobanTxId: txHash,
           anchorStatus: "ANCHORED",
         },
       }).catch((err) => console.error("[Soroban] Failed to update vote status on anchor success:", err));
@@ -159,16 +163,24 @@ export async function submitVote(
     }
   } catch (err) {
     console.error("[Soroban] Error recording vote on-chain:", err);
+    // A thrown error means the contract invocation itself failed (not just skipped)
+    // Mark the vote as failed and surface TRANSACTION_FAILED to the caller
     await handleStellarAnchorFailure(voteResult.id);
+    throw new AppError(
+      "Contract invocation failed during vote submission",
+      500,
+      "TRANSACTION_FAILED",
+    );
   }
 
-  const explorer_url = stellarTxId
-    ? `https://stellar.expert/explorer/testnet/tx/${stellarTxId}`
+  const explorer_url = sorobanTxId
+    ? `https://stellar.expert/explorer/testnet/tx/${sorobanTxId}`
     : undefined;
 
   return {
     status: "confirmed",
     stellar_tx_id: stellarTxId,
+    soroban_tx_id: sorobanTxId,
     anchor_status: anchorStatus,
     ...(explorer_url ? { explorer_url } : {}),
     voteId: voteResult.id,

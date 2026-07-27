@@ -117,6 +117,7 @@ model Vote {
   weight          Int                @default(1)
   rank            Int?               // For ranked-choice: 1 = first choice, 2 = second, etc.
   stellarTxId     String?            @map("stellar_tx_id")
+  sorobanTxId     String?            @map("soroban_tx_id")
   anchorStatus    AnchorStatus       @default(PENDING) @map("anchor_status")
   submittedAt     DateTime           @default(now())
   retryQueue      StellarRetryQueue?
