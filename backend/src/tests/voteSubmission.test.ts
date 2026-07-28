@@ -85,6 +85,7 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     expect(res.body.status).toBe("confirmed");
     expect(res.body.anchor_status).toBe("ANCHORED");
     expect(res.body.stellar_tx_id).toBe("0xstellar123abc");
+    expect(res.body.soroban_tx_id).toBe("0xstellar123abc");
     expect(res.body.explorer_url).toContain("0xstellar123abc");
 
     // Check DB
@@ -92,6 +93,7 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     expect(votes.length).toBe(1);
     expect(votes[0].encryptedOption).toBeDefined();
     expect(votes[0].stellarTxId).toBe("0xstellar123abc");
+    expect(votes[0].sorobanTxId).toBe("0xstellar123abc");
     expect(votes[0].anchorStatus).toBe("ANCHORED");
 
     // Token marked used with timestamp
@@ -178,6 +180,7 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     expect(res.body.status).toBe("confirmed");
     expect(res.body.anchor_status).toBe("PENDING");
     expect(res.body.stellar_tx_id).toBeNull();
+    expect(res.body.soroban_tx_id).toBeNull();
 
     // Check database vote row
     const votes = await prisma.vote.findMany({ where: { ballotId } });
@@ -190,5 +193,23 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     });
     expect(retryEntries.length).toBe(1);
     expect(retryEntries[0].retryCount).toBe(0);
+  });
+
+  it("returns 500 TRANSACTION_FAILED when contract invocation throws", async () => {
+    jest.spyOn(sorobanService, "sorobanRecordVote").mockRejectedValueOnce(
+      new Error("RPC connection refused"),
+    );
+
+    const res = await request(app)
+      .post("/api/votes")
+      .send({ ballot_id: ballotId, token: validToken, option_id: optionId });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("TRANSACTION_FAILED");
+
+    // Vote should still be saved with FAILED anchor status
+    const votes = await prisma.vote.findMany({ where: { ballotId } });
+    expect(votes.length).toBe(1);
+    expect(votes[0].anchorStatus).toBe("FAILED");
   });
 });

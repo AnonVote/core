@@ -32,6 +32,7 @@ const SOROBAN_RPC_TESTNET = "https://soroban-testnet.stellar.org";
 const SOROBAN_RPC_MAINNET = "https://rpc.stellar.org";
 
 function getRpcUrl(): string {
+  if (config.sorobanServerUrl) return config.sorobanServerUrl;
   return config.stellarNetwork === "mainnet"
     ? SOROBAN_RPC_MAINNET
     : SOROBAN_RPC_TESTNET;
