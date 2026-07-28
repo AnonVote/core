@@ -16,6 +16,7 @@ const VotePage = lazy(() => import("./pages/VotePage"));
 const ResultsPage = lazy(() => import("./pages/ResultsPage"));
 const AuditPage = lazy(() => import("./pages/AuditPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ClaimTokenPage = lazy(() => import("./pages/ClaimTokenPage"));
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,12 @@ export default function App() {
               path="/vote/:ballotId/token"
               element={<TokenRequestPage />}
             />
+            <Route
+              path="/ballot/:ballotId/claim-token"
+              element={<ClaimTokenPage />}
+            />
             <Route path="/vote/:ballotId" element={<VotePage />} />
+            <Route path="/ballot/:ballotId/vote" element={<VotePage />} />
             <Route path="/results/:ballotId" element={<ResultsPage />} />
             <Route path="/audit/:ballotId" element={<AuditPage />} />
           </Routes>

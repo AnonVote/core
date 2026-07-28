@@ -16,6 +16,7 @@ const api = axios.create({
 // Public voter routes — never redirect to login from these
 const PUBLIC_PATHS = [
   "/vote/",
+  "/ballot/",
   "/results/",
   "/audit/",
   "/login",

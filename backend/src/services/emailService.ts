@@ -63,6 +63,47 @@ function ballotCreatedHtml(
 </html>`;
 }
 
+function voterInviteHtml(
+  topic: string,
+  deadline: string,
+  claimLink: string,
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;margin:0;padding:32px 16px;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#7c3aed,#a78bfa);padding:32px;text-align:center;">
+      <h1 style="color:white;margin:0;font-size:24px;font-weight:700;">AnonVote</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">You've been invited to vote</p>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="color:#1d1d1f;font-size:20px;margin:0 0 8px;">Your vote is needed</h2>
+      <p style="color:#4a4a4f;font-size:14px;margin:0 0 24px;">You are eligible to participate in the following ballot.</p>
+
+      <div style="background:#f5f5f7;border-radius:10px;padding:20px;margin-bottom:24px;">
+        <p style="color:#7a7a80;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 4px;font-family:monospace;">Ballot Topic</p>
+        <p style="color:#1d1d1f;font-size:16px;font-weight:600;margin:0 0 16px;">${topic}</p>
+        <p style="color:#7a7a80;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 4px;font-family:monospace;">Voting Closes</p>
+        <p style="color:#1d1d1f;font-size:14px;margin:0;">${deadline}</p>
+      </div>
+
+      <p style="color:#4a4a4f;font-size:14px;margin:0 0 16px;">Click below to claim your anonymous voting token and cast your vote:</p>
+      <a href="${claimLink}" style="display:block;background:#7c3aed;color:white;text-decoration:none;padding:14px 24px;border-radius:10px;text-align:center;font-weight:700;font-size:14px;margin-bottom:24px;">
+        Claim My Voting Token →
+      </a>
+      <p style="color:#7a7a80;font-size:12px;margin:0 0 16px;">Your vote is completely anonymous — your identity is never linked to your ballot choice.</p>
+      <p style="color:#7a7a80;font-size:12px;word-break:break-all;margin:0;">${claimLink}</p>
+    </div>
+    <div style="padding:16px 32px;border-top:1px solid #e0e0e5;text-align:center;">
+      <p style="color:#7a7a80;font-size:12px;margin:0;">AnonVote · Private voting for organizations</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function ballotClosedHtml(
   orgName: string,
   topic: string,
@@ -159,6 +200,45 @@ export async function sendBallotCreatedEmail(params: {
 }
 
 /**
+ * Send a ballot invitation to a voter with their token claim link.
+ * This is called when an eligibility list is uploaded and contains email addresses.
+ */
+export async function sendVoterBallotEmail(params: {
+  to: string;
+  topic: string;
+  deadline: Date;
+  ballotId: string;
+}): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.log("[Email] RESEND_API_KEY not set — skipping voter invite email");
+    return;
+  }
+
+  const claimLink = `${config.frontendOrigin}/ballot/${params.ballotId}/claim-token?email=${encodeURIComponent(params.to)}`;
+  const deadline = params.deadline.toLocaleString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  try {
+    await client.emails.send({
+      from: config.emailFrom,
+      to: params.to,
+      subject: `You're invited to vote: "${params.topic}"`,
+      html: voterInviteHtml(params.topic, deadline, claimLink),
+    });
+    console.log(`[Email] Voter invite email sent to ${params.to}`);
+  } catch (err) {
+    console.error("[Email] Failed to send voter invite email:", err);
+  }
+}
+
+/**
  * Send a results notification to the organization admin when a ballot closes.
  */
 export async function sendBallotClosedEmail(params: {
@@ -194,4 +274,18 @@ export async function sendBallotClosedEmail(params: {
   } catch (err) {
     console.error("[Email] Failed to send ballot closed email:", err);
   }
+}
+
+/**
+ * Alias matching the acceptance-criteria function name.
+ * Delegates to sendBallotClosedEmail.
+ */
+export async function sendResultsPublishedEmail(params: {
+  to: string;
+  orgName: string;
+  topic: string;
+  totalVotes: number;
+  ballotId: string;
+}): Promise<void> {
+  return sendBallotClosedEmail(params);
 }

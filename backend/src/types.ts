@@ -7,7 +7,8 @@ export type AuditEventType =
   | "VOTE_CAST"
   | "RESULT_PUBLISHED"
   | "DUPLICATE_TOKEN_ATTEMPT"
-  | "DUPLICATE_VOTE_ATTEMPT";
+  | "DUPLICATE_VOTE_ATTEMPT"
+  | "RATE_LIMIT_EXCEEDED";
 
 export interface Organization {
   id: string;
