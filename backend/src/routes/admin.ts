@@ -16,7 +16,16 @@ import multer from "multer";
 import { hashIdentifier, generateToken, hashToken, encryptString } from "../utils/crypto";
 import { sendVoterTokenEmail } from "../services/emailService";
 import { config } from "../config";
+import { sorobanRotateAdminKey } from "../services/sorobanService";
 
+function isValidStellarPublicKey(key: string): boolean {
+  return typeof key === "string" && /^G[A-Z2-7]{55}$/.test(key);
+}
+
+function maskKey(key: string): string {
+  if (!key || key.length < 8) return "****";
+  return `${key.slice(0, 4)}...${key.slice(-4)}`;
+}
 
 const router = Router();
 
@@ -278,6 +287,52 @@ router.patch(
 
 // GET /api/admin/audit/:ballotId — Admin: full structured audit export (JSON or CSV)
 router.get("/audit/:ballotId", requireAuth, adminAuditHandler);
+
+// POST /api/admin/rotate-key — Rotate admin public key
+router.post(
+  "/rotate-key",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { newAdminPublicKey, currentAdminPublicKey } = req.body;
+      const targetNewKey = newAdminPublicKey || req.body.newAdminKey;
+
+      if (!targetNewKey) {
+        throw badRequest("newAdminPublicKey is required");
+      }
+
+      if (!isValidStellarPublicKey(targetNewKey)) {
+        throw badRequest("INVALID_KEY: Invalid Stellar public key format");
+      }
+
+      if (currentAdminPublicKey && !isValidStellarPublicKey(currentAdminPublicKey)) {
+        throw badRequest("INVALID_KEY: Invalid current Stellar public key format");
+      }
+
+      if (currentAdminPublicKey && currentAdminPublicKey === targetNewKey) {
+        throw badRequest("INVALID_KEY: New key cannot be the same as the current key");
+      }
+
+      const callerKey = currentAdminPublicKey || "CURRENT_ADMIN";
+      const sorobanResult = await sorobanRotateAdminKey(callerKey, targetNewKey);
+
+      console.log(
+        `[Admin Key Rotation] Event: Admin key rotated. Caller: ${maskKey(callerKey)}, ` +
+          `New Key: ${maskKey(targetNewKey)}, Soroban TxHash: ${sorobanResult.txHash || "N/A"}`
+      );
+
+      res.status(200).json({
+        data: {
+          message: "Admin key rotated successfully",
+          newAdminKeyMasked: maskKey(targetNewKey),
+          sorobanTxId: sorobanResult.txHash || null,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;
 
