@@ -394,3 +394,21 @@ export async function verifyBallotConsistency(
 
   return verified;
 }
+
+/**
+ * Rotate admin key on-chain.
+ * Call from POST /api/admin/rotate-key.
+ */
+export async function sorobanRotateAdminKey(
+  callerPublicKey: string,
+  newAdminPublicKey: string,
+): Promise<SorobanInvokeResult> {
+  if (!CONTRACT_ID) {
+    return { txHash: "", success: false };
+  }
+  return invokeContract(CONTRACT_ID, "rotate_admin_key", [
+    { value: callerPublicKey, type: "string" },
+    { value: newAdminPublicKey, type: "string" },
+  ]);
+}
+
