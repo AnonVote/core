@@ -70,6 +70,18 @@ export interface Vote {
   submittedAt: string;
 }
 
+export interface ResultMetadata {
+  ballot_id: string;
+  ballot_title: string;
+  total_votes: number;
+  tally_timestamp: string;
+  stellar_transaction_id: string | null;
+  soroban_transaction_id: string | null;
+  is_consistent: boolean;
+  consistency_source: "contract" | "database";
+  encryption_note: string;
+}
+
 export interface Result {
   id: string;
   ballotId: string;
@@ -88,6 +100,7 @@ export interface Result {
   tokensIssued?: number;
   explorerUrl?: string;
   sorobanExplorerUrl?: string;
+  metadata?: ResultMetadata;
 }
 
 export interface AuditEvent {

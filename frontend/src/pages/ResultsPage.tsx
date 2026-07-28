@@ -166,6 +166,94 @@ function CopyLinkButton() {
   );
 }
 
+// ── Consistency Badge ─────────────────────────────────────────────────────────
+function ConsistencyBadge({
+  isConsistent,
+  source,
+}: {
+  isConsistent: boolean;
+  source: "contract" | "database";
+}) {
+  const label = isConsistent ? "Verified consistent" : "Inconsistency detected";
+  const sourceLabel =
+    source === "contract" ? "on-chain contract check" : "database check";
+
+  return (
+    <span
+      title={`Based on ${sourceLabel}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        fontSize: "var(--text-xs)",
+        fontWeight: "var(--weight-semibold)",
+        padding: "4px 10px",
+        borderRadius: "9999px",
+        color: isConsistent ? "var(--color-success, #15803d)" : "var(--color-warning, #b45309)",
+        background: isConsistent ? "rgba(21,128,61,0.1)" : "rgba(180,83,9,0.1)",
+      }}
+    >
+      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {isConsistent ? (
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        ) : (
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        )}
+      </svg>
+      {label}
+    </span>
+  );
+}
+
+// ── Encryption Note (collapsible) ─────────────────────────────────────────────
+function EncryptionNote({ note }: { note: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ marginTop: "var(--space-4)" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="link-dark"
+        style={{
+          fontSize: "var(--text-sm)",
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "var(--space-1)",
+        }}
+        aria-expanded={open}
+      >
+        <svg
+          width="12"
+          height="12"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s ease" }}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        How is this result verified? (encryption & audit model)
+      </button>
+      {open && (
+        <p
+          style={{
+            marginTop: "var(--space-2)",
+            fontSize: "var(--text-sm)",
+            color: "var(--ink-muted)",
+            lineHeight: 1.6,
+          }}
+        >
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Blockchain Anchor Card ────────────────────────────────────────────────────
 function AnchorCard({ label, txId, explorerUrl }: { label: string; txId: string; explorerUrl: string }) {
   return (
@@ -301,7 +389,7 @@ export default function ResultsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
 
             {/* Inconsistency Warning */}
-            {!result.isConsistent && (
+            {!(result.metadata?.is_consistent ?? result.isConsistent) && (
               <div className="message message-warning">
                 <span className="message-icon">
                   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,12 +404,29 @@ export default function ResultsPage() {
 
             {/* Vote Breakdown */}
             <div className="card p-6">
-              <h2
-                className="font-space-grotesk font-semibold mb-4"
-                style={{ fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "var(--space-2)",
+                  marginBottom: "var(--space-4)",
+                }}
               >
-                Vote Breakdown
-              </h2>
+                <h2
+                  className="font-space-grotesk font-semibold"
+                  style={{ fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}
+                >
+                  Vote Breakdown
+                </h2>
+                {result.metadata && (
+                  <ConsistencyBadge
+                    isConsistent={result.metadata.is_consistent}
+                    source={result.metadata.consistency_source}
+                  />
+                )}
+              </div>
               <ResultChart
                 entries={
                   result.options ??
@@ -350,6 +455,14 @@ export default function ResultsPage() {
                   {result.totalVotes}
                 </span>
               </div>
+              {(result.metadata?.tally_timestamp ?? result.publishedAt) && (
+                <p style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                  Tallied {new Date(result.metadata?.tally_timestamp ?? result.publishedAt).toLocaleString()}
+                </p>
+              )}
+              {result.metadata?.encryption_note && (
+                <EncryptionNote note={result.metadata.encryption_note} />
+              )}
             </div>
 
             {/* Participation */}
