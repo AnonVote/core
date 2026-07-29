@@ -13,10 +13,16 @@ import { createBallot } from "../services/ballotEngine";
 import { badRequest } from "../utils/errors";
 import { adminAuditHandler } from "./audit";
 import multer from "multer";
-import { hashIdentifier, generateToken, hashToken, encryptString } from "../utils/crypto";
+import {
+  hashIdentifier,
+  generateToken,
+  hashToken,
+  encryptString,
+} from "../utils/crypto";
 import { sendVoterTokenEmail } from "../services/emailService";
 import { config } from "../config";
 import { sorobanRotateAdminKey } from "../services/sorobanService";
+import { rotateBallotEncryptionKey } from "../services/ballotKeyService";
 
 function isValidStellarPublicKey(key: string): boolean {
   return typeof key === "string" && /^G[A-Z2-7]{55}$/.test(key);
@@ -185,17 +191,26 @@ router.post(
             issuanceResults.push({ hash: h, emailed: true });
           } catch (emailErr: any) {
             // Enqueue retry record with encrypted recipient
-            const recipientEncrypted = encryptString(recipient, config.ballotEncryptionKey);
-            await prisma.tokenDeliveryRetry.create({
-              data: {
-                ballotId: ballot.id,
-                voterTokenId: txResult.tokenId,
-                recipientEncrypted,
-                attempts: 0,
-                nextAttemptAt: new Date(Date.now() + 60 * 1000),
-                lastError: String(emailErr?.message ?? emailErr),
-              },
-            });
+            if (config.dataEncryptionKey) {
+              const recipientEncrypted = encryptString(
+                recipient,
+                config.dataEncryptionKey,
+              );
+              await prisma.tokenDeliveryRetry.create({
+                data: {
+                  ballotId: ballot.id,
+                  voterTokenId: txResult.tokenId,
+                  recipientEncrypted,
+                  attempts: 0,
+                  nextAttemptAt: new Date(Date.now() + 60 * 1000),
+                  lastError: String(emailErr?.message ?? emailErr),
+                },
+              });
+            } else {
+              console.warn(
+                "[Email] No data encryption key configured; skipping delivery retry persistence",
+              );
+            }
             issuanceResults.push({ hash: h, emailed: false, error: String(emailErr?.message ?? emailErr) });
           }
         } catch (err: any) {
@@ -334,7 +349,29 @@ router.post(
   },
 );
 
-export default router;
+// POST /api/admin/ballots/:ballotId/rotate-key — Rotate a ballot encryption key
+router.post(
+  "/ballots/:ballotId/rotate-key",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { ballotId } = req.params;
+      const result = await rotateBallotEncryptionKey(
+        ballotId,
+        req.organization!.id,
+      );
+      res.status(200).json({
+        data: {
+          ballotId: result.ballotId,
+          rotatedAt: result.rotatedAt,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 
 // POST /api/admin/ballots — Create ballot as admin
 router.post(
@@ -366,3 +403,5 @@ router.post(
     }
   },
 );
+
+export default router;

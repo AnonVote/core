@@ -17,10 +17,11 @@ function validateConfig(): void {
     errors.push("STELLAR_SECRET_KEY is required");
   }
 
-  if (!process.env.BALLOT_ENCRYPTION_KEY) {
-    errors.push("BALLOT_ENCRYPTION_KEY is required");
-  } else if (process.env.BALLOT_ENCRYPTION_KEY.length !== 64) {
-    errors.push("BALLOT_ENCRYPTION_KEY must be 64 characters (32 bytes hex)");
+  const dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY || "";
+  if (dataEncryptionKey && dataEncryptionKey.length !== 64) {
+    errors.push(
+      "DATA_ENCRYPTION_KEY must be 64 characters (32 bytes hex)",
+    );
   }
 
   if (process.env.SOROBAN_SERVER_URL) {
@@ -56,7 +57,7 @@ export const config = {
   jwtExpiresIn: "8h",
   stellarSecretKey: process.env.STELLAR_SECRET_KEY || "",
   stellarNetwork: process.env.STELLAR_NETWORK || "testnet",
-  ballotEncryptionKey: process.env.BALLOT_ENCRYPTION_KEY || "",
+  dataEncryptionKey: process.env.DATA_ENCRYPTION_KEY || "",
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",

@@ -1,9 +1,9 @@
 import { prisma } from "../prisma/client";
 import { hashToken, encryptVote, hashIdentifier } from "../utils/crypto";
 import { sorobanRecordVote } from "./sorobanService";
-import { config } from "../config";
 import { AppError } from "../utils/errors";
 import { getEffectiveVoter } from "./delegationManager";
+import { getBallotEncryptionKey } from "./ballotKeyService";
 
 export interface VoteSubmissionResponse {
   status: "confirmed";
@@ -97,11 +97,8 @@ export async function submitVote(
       throw new AppError("Invalid option for this ballot.", 400, "INVALID_OPTION");
     }
 
-    // Retrieve per-ballot encryption key from ballot_keys table if available
-    const keyRecord = await tx.ballotKey.findUnique({
-      where: { ballotId },
-    });
-    const ballotKey = keyRecord ? keyRecord.key : config.ballotEncryptionKey;
+    // Retrieve the ballot-specific encryption key stored in the database.
+    const ballotKey = await getBallotEncryptionKey(ballotId, tx);
 
     // Encrypt raw option ID
     const encryptedOption = encryptVote(optionId, ballotKey);

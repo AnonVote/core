@@ -12,6 +12,7 @@ let cookie: string;
 let ballotId: string;
 let optionId: string;
 let eligibilityListId: string;
+let ballotKey: string;
 
 beforeAll(async () => {
   await prisma.stellarRetryQueue.deleteMany();
@@ -51,13 +52,14 @@ beforeAll(async () => {
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
+  const keyRecord = await prisma.ballotKey.findUnique({
+    where: { ballotId },
+  });
+  ballotKey = keyRecord!.key;
 
   // Cast a vote
   const { encryptVote } = await import("../utils/crypto");
-  const payload = encryptVote(
-    optionId,
-    process.env.BALLOT_ENCRYPTION_KEY ?? "test-key-32bytes!padding123456",
-  );
+  const payload = encryptVote(optionId, ballotKey);
   await prisma.vote.create({ data: { ballotId, encryptedOption: payload, weight: 1 } });
   await prisma.voterToken.create({
     data: { tokenHash: hashToken(generateToken()), ballotId, used: true },

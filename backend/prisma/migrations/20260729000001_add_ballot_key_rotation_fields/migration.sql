@@ -1,0 +1,3 @@
+ALTER TABLE "ballot_keys"
+ADD COLUMN IF NOT EXISTS "previousKey" TEXT,
+ADD COLUMN IF NOT EXISTS "rotatedAt" TIMESTAMP(3);

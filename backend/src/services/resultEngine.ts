@@ -1,11 +1,11 @@
 import crypto from "crypto";
 import { prisma } from "../prisma/client";
-import { decryptVote, hashIdentifier } from "../utils/crypto";
+import { decryptVoteWithKeys, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
 import { sorobanRecordResult, verifyBallotConsistency } from "./sorobanService";
-import { config } from "../config";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
+import { getBallotEncryptionKeyRecord } from "./ballotKeyService";
 
 export async function tallyBallot(
   ballotId: string,
@@ -28,12 +28,14 @@ export async function tallyBallot(
     tally[o.id] = 0;
   });
 
-  const keyRecord = await prisma.ballotKey.findUnique({ where: { ballotId } });
-  const ballotKey = keyRecord ? keyRecord.key : config.ballotEncryptionKey;
+  const keyRecord = await getBallotEncryptionKeyRecord(ballotId);
 
   for (const vote of ballot.votes) {
     try {
-      const optionId = decryptVote(vote.encryptedOption, ballotKey);
+      const optionId = decryptVoteWithKeys(vote.encryptedOption, [
+        keyRecord.key,
+        keyRecord.previousKey,
+      ]);
       if (tally[optionId] !== undefined) {
         tally[optionId] += vote.weight;
       }

@@ -169,11 +169,11 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/anonvote
 JWT_SECRET=your-secret-here
 STELLAR_SECRET_KEY=your-stellar-secret-key
 SOROBAN_CONTRACT_ID=your-testnet-contract-id
-BALLOT_ENCRYPTION_KEY=your-32-byte-hex-key
+DATA_ENCRYPTION_KEY=your-32-byte-hex-key
 NODE_ENV=development
 ```
 
-> **Tip:** Generate a secure encryption key with `openssl rand -hex 32`
+> **Tip:** Generate a secure app encryption key with `openssl rand -hex 32`
 
 ### 3. Start the database
 
