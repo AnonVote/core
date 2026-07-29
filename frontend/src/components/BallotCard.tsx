@@ -29,7 +29,7 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { addNotification } = useNotifications();
-  const isOpen = ballot.status === "OPEN";
+  const isOpen = ballot.status === "ACTIVE";
   const deadline = new Date(ballot.deadline);
   const tokenLink = `${window.location.origin}/vote/${ballot.id}/token`;
 
@@ -142,7 +142,7 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
         >
           <span
             className={
-              ballot.status === "OPEN"
+              ballot.status === "ACTIVE"
                 ? "badge badge-open"
                 : ballot.status === "DRAFT"
                   ? "badge badge-draft"
@@ -290,7 +290,7 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
 
       {/* Stellar Anchor Status */}
       <div className="mb-4">
-        {ballot.anchorStatus === "SUCCESS" && ballot.stellarTxId ? (
+        {ballot.anchorStatus === "ANCHORED" && ballot.stellarTxId ? (
           <div
             className="flex items-center gap-1 text-xs"
             style={{ color: "var(--semantic-success)" }}

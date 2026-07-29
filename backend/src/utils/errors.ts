@@ -33,3 +33,11 @@ export function alreadyVoted(message: string): AppError {
 export function tokenAlreadyIssued(message: string): AppError {
   return new AppError(message, 409, "TokenAlreadyIssued");
 }
+
+export function ballotNotEditable(message: string = "Ballot is not editable in its current state"): AppError {
+  return new AppError(message, 409, "BALLOT_NOT_EDITABLE");
+}
+
+export function ballotNotActive(message: string = "Ballot is not active and cannot accept votes"): AppError {
+  return new AppError(message, 403, "BALLOT_NOT_ACTIVE");
+}

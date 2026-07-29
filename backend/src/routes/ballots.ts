@@ -8,8 +8,9 @@ import {
   getBallotById,
   updateBallot,
   deleteBallot,
+  retryBallotAnchor,
 } from "../services/ballotEngine";
-import { badRequest } from "../utils/errors";
+import { badRequest, ballotNotEditable } from "../utils/errors";
 import { hashToken } from "../utils/crypto";
 import { prisma } from "../prisma/client";
 
@@ -29,6 +30,8 @@ router.post(
         eligibilityListId,
         deadline,
         allowWeightedVoting,
+        startTime,
+        autoFinalise,
       } = req.body;
       const ballot = await createBallot(
         req.organization!.id,
@@ -37,6 +40,8 @@ router.post(
         eligibilityListId,
         new Date(deadline),
         allowWeightedVoting,
+        startTime ? new Date(startTime) : undefined,
+        autoFinalise,
       );
       res.status(201).json({ data: ballot });
     } catch (err) {
@@ -45,14 +50,27 @@ router.post(
   },
 );
 
-// GET /api/ballots — List org ballots
+// GET /api/ballots — List org ballots with optional status filter and pagination
 router.get(
   "/",
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const ballots = await getBallotsByOrg(req.organization!.id);
-      res.status(200).json({ data: ballots });
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : undefined;
+
+      const result = await getBallotsByOrg(req.organization!.id, {
+        status,
+        page,
+        limit,
+      });
+      res.status(200).json({
+        data: result.data,
+        total_count: result.total_count,
+        page: result.page,
+        limit: result.limit,
+      });
     } catch (err) {
       next(err);
     }
@@ -102,6 +120,20 @@ router.delete(
       res.status(200).json({ message: "Ballot deleted successfully" });
     } catch (err) {
       console.error("[DELETE] Error:", err);
+      next(err);
+    }
+  },
+);
+
+// POST /api/ballots/:id/retry-anchor — Admin: retry Stellar anchor for a failed ballot
+router.post(
+  "/:id/retry-anchor",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ballot = await retryBallotAnchor(req.params.id, req.organization!.id);
+      res.status(200).json({ data: ballot });
+    } catch (err) {
       next(err);
     }
   },
