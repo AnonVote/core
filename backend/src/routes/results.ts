@@ -100,8 +100,8 @@ router.post(
         return res.status(200).json({ data: existing, idempotent: true });
       }
 
-      // Auto-close ballot if still OPEN
-      if (ballot.status === "OPEN") {
+      // Auto-close ballot if still ACTIVE
+      if (ballot.status === "ACTIVE") {
         await prisma.ballot.update({
           where: { id: ballotId },
           data: { status: "CLOSED" },
@@ -142,8 +142,8 @@ router.post(
       if (ballot.organizationId !== req.organization!.id)
         throw badRequest("You can only tally your own ballots");
 
-      // Close ballot if still open
-      if (ballot.status === "OPEN") {
+      // Close ballot if still ACTIVE
+      if (ballot.status === "ACTIVE") {
         await prisma.ballot.update({
           where: { id: ballotId },
           data: { status: "CLOSED" },

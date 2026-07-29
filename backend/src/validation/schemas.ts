@@ -30,10 +30,19 @@ function isIsoDate(value: unknown): string | null {
 
 function isStringArray(value: unknown): string | null {
   if (!Array.isArray(value)) return null; // array type check handles this
+  const seen = new Set<string>();
   for (const item of value) {
     if (typeof item !== "string" || item.trim().length === 0) {
       return "options must be an array of non-empty strings";
     }
+    if (item.trim().length > 100) {
+      return "each option must be at most 100 characters";
+    }
+    const normalized = item.trim().toLowerCase();
+    if (seen.has(normalized)) {
+      return "duplicate options are not allowed";
+    }
+    seen.add(normalized);
   }
   return null;
 }
@@ -119,7 +128,7 @@ export const createBallotSchema: ValidationSchema = {
     required: true,
     type: "string",
     min: 1,
-    max: 500,
+    max: 200,
     label: "topic",
   },
   options: {
@@ -142,6 +151,11 @@ export const createBallotSchema: ValidationSchema = {
     label: "deadline",
     custom: isIsoDate,
   },
+  startTime: {
+    type: "string",
+    label: "startTime",
+    custom: (v) => (v !== undefined ? isIsoDate(v) : null),
+  },
   allowWeightedVoting: {
     type: "boolean",
     label: "allowWeightedVoting",
@@ -156,13 +170,17 @@ export const createBallotSchema: ValidationSchema = {
     max: 100,
     label: "maxRankings",
   },
+  autoFinalise: {
+    type: "boolean",
+    label: "autoFinalise",
+  },
 };
 
 export const updateBallotSchema: ValidationSchema = {
   topic: {
     type: "string",
     min: 1,
-    max: 500,
+    max: 200,
     label: "topic",
   },
   deadline: {
@@ -178,7 +196,7 @@ export const updateBallotSchema: ValidationSchema = {
   options: {
     type: "array",
     min: 2,
-    max: 100,
+    max: 10,
     label: "options",
     custom: (v) => (v !== undefined ? isStringArray(v) : null),
   },

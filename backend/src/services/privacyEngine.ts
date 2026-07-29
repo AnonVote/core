@@ -86,7 +86,8 @@ export async function submitVote(
     }
 
     const now = new Date();
-    if (ballot.status === "CLOSED" || (ballot.deadline && new Date(ballot.deadline) < now)) {
+    // State machine: only ACTIVE ballots accept votes
+    if (ballot.status !== "ACTIVE" || (ballot.deadline && new Date(ballot.deadline) < now)) {
       throw new AppError("This ballot has closed and is no longer accepting votes.", 403, "BALLOT_CLOSED");
     }
 
