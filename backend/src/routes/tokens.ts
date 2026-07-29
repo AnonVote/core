@@ -5,6 +5,7 @@ import {
   resetBallotTokens,
 } from "../services/identityManager";
 import { strictRateLimiter } from "../middleware/rateLimiter";
+import { reissueRateLimiter } from "../middleware/reissueRateLimiter";
 import { requireAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { issueTokenSchema, reissueTokenSchema } from "../validation/schemas";
@@ -33,9 +34,10 @@ router.post(
 // POST /api/tokens/reissue — Re-issue a token for a voter who lost theirs
 router.post(
   "/reissue",
-  strictRateLimiter,
   validate(reissueTokenSchema),
+  reissueRateLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
+
     try {
       const { ballotId, voterIdentifier } = req.body;
       const result = await reissueToken(ballotId, voterIdentifier.trim());

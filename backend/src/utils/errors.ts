@@ -33,3 +33,10 @@ export function alreadyVoted(message: string): AppError {
 export function tokenAlreadyIssued(message: string): AppError {
   return new AppError(message, 409, "TokenAlreadyIssued");
 }
+
+export function reissueLimitExceeded(
+  message: string = "Maximum reissue limit reached (3 requests per 24 hours).",
+): AppError {
+  return new AppError(message, 429, "REISSUE_LIMIT_EXCEEDED");
+}
+
