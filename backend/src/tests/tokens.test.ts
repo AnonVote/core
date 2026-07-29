@@ -8,6 +8,7 @@ let eligibilityListId: string;
 const VOTER_ID = "voter@test.com";
 
 beforeAll(async () => {
+  await prisma.reissueRateLimit.deleteMany();
   await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
@@ -96,3 +97,80 @@ describe("POST /api/tokens", () => {
     });
   });
 });
+
+describe("POST /api/tokens/reissue", () => {
+  it("handles race condition: two concurrent reissue requests result in exactly one new token and one invalidated old token", async () => {
+    const raceVoter = "race_voter@test.com";
+    await prisma.eligibilityEntry.create({
+      data: { eligibilityListId, identifierHash: hashIdentifier(raceVoter) },
+    });
+
+    // Issue initial token
+    const initialRes = await request(app)
+      .post("/api/tokens")
+      .send({ ballotId, voterIdentifier: raceVoter });
+    expect(initialRes.status).toBe(200);
+
+    // Fire 2 concurrent reissue requests
+    const [res1, res2] = await Promise.all([
+      request(app)
+        .post("/api/tokens/reissue")
+        .send({ ballotId, voterIdentifier: raceVoter }),
+      request(app)
+        .post("/api/tokens/reissue")
+        .send({ ballotId, voterIdentifier: raceVoter }),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    expect(statuses).toEqual([200, 400]);
+
+    // Check DB state for voter tokens
+    const unusedTokens = await prisma.voterToken.findMany({
+      where: { ballotId, used: false },
+    });
+    const usedTokens = await prisma.voterToken.findMany({
+      where: { ballotId, used: true },
+    });
+
+    // Exactly 1 new active token and 1 invalidated old token
+    expect(unusedTokens.length).toBe(1);
+    expect(usedTokens.length).toBe(1);
+  });
+
+  it("blocks a fourth reissue request within 24 hours with REISSUE_LIMIT_EXCEEDED (429)", async () => {
+    const rateLimitVoter = "ratelimit_voter@test.com";
+    await prisma.eligibilityEntry.create({
+      data: { eligibilityListId, identifierHash: hashIdentifier(rateLimitVoter) },
+    });
+
+    // Issue initial token
+    await request(app)
+      .post("/api/tokens")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+
+    // Request 1st, 2nd, 3rd reissues
+    const r1 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r1.status).toBe(200);
+
+    const r2 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r2.status).toBe(200);
+
+    const r3 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r3.status).toBe(200);
+
+    // 4th reissue attempt should be rate-limited
+    const r4 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+
+    expect(r4.status).toBe(429);
+    expect(r4.body.error).toBe("REISSUE_LIMIT_EXCEEDED");
+  });
+});
+
