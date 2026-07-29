@@ -110,6 +110,8 @@ model BallotKey {
   ballotId  String   @unique
   ballot    Ballot   @relation(fields: [ballotId], references: [id], onDelete: Cascade)
   key       String
+  previousKey String?
+  rotatedAt DateTime?
   createdAt DateTime @default(now())
 
   @@map("ballot_keys")

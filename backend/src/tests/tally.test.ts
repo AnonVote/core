@@ -10,6 +10,7 @@ let ballotId: string;
 let optionAId: string;
 let optionBId: string;
 let eligibilityListId: string;
+let ballotKey: string;
 
 beforeAll(async () => {
   await prisma.stellarRetryQueue.deleteMany();
@@ -55,6 +56,10 @@ beforeAll(async () => {
   ballotId = ballot.id;
   optionAId = ballot.options.find((o) => o.text === "Option A")!.id;
   optionBId = ballot.options.find((o) => o.text === "Option B")!.id;
+  const keyRecord = await prisma.ballotKey.findUnique({
+    where: { ballotId },
+  });
+  ballotKey = keyRecord!.key;
 });
 
 afterAll(() => prisma.$disconnect());
@@ -62,10 +67,7 @@ afterAll(() => prisma.$disconnect());
 /** Helper: cast a vote directly against the DB using a raw payload */
 async function castVote(optionId: string, weight = 1) {
   const { encryptVote } = await import("../utils/crypto");
-  const payload = encryptVote(
-    optionId,
-    process.env.BALLOT_ENCRYPTION_KEY ?? "test-key-32bytes!padding123456",
-  );
+  const payload = encryptVote(optionId, ballotKey);
   return prisma.vote.create({
     data: { ballotId, encryptedOption: payload, weight },
   });

@@ -73,6 +73,33 @@ export function decryptVote(payload: string, ballotKey: string): string {
 }
 
 /**
+ * Decrypt a vote payload using the first key that succeeds.
+ * Used for ballot key rotation, where the previous key remains valid for
+ * decrypting votes cast before the rotation.
+ */
+export function decryptVoteWithKeys(
+  payload: string,
+  ballotKeys: Array<string | null | undefined>,
+): string {
+  let lastError: unknown;
+
+  for (const ballotKey of ballotKeys) {
+    if (!ballotKey) continue;
+    try {
+      return decryptVote(payload, ballotKey);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error("Unable to decrypt vote payload with available keys");
+}
+
+/**
  * Encrypt an arbitrary string (used for recipient encryption in retries).
  * Returns base64 string in format iv:authTag:ciphertext
  */
