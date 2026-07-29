@@ -1,8 +1,3 @@
-import app from "./app";
-import { config } from "./config";
-import { startScheduler } from "./utils/scheduler";
+import { startServer } from "./server";
 
-app.listen(config.port, () => {
-  console.log(`AnonVote backend running on port ${config.port}`);
-  startScheduler();
-});
+startServer();

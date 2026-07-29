@@ -1,26 +1,39 @@
 /**
- * End-to-end test: register org → create ballot → request token → submit vote → verify result
+ * End-to-end test: register org → create ballot → request token → submit vote
+ *                  → finalise (admin) → public results (no auth) → verify token
  */
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../prisma/client";
 import { hashIdentifier } from "../utils/crypto";
 
-afterAll(async () => {
+async function cleanDb() {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
   await prisma.organization.deleteMany();
+}
+
+beforeEach(async () => {
+  await cleanDb();
+});
+
+afterAll(async () => {
+  await cleanDb();
   await prisma.$disconnect();
 });
 
-describe("End-to-End: Full voting flow", () => {
-  it("completes the full voting lifecycle", async () => {
+describe("End-to-End: Full post-ballot flow", () => {
+  it("completes the full voting lifecycle including finalisation and verification", async () => {
     // 1. Register organization
     const regRes = await request(app).post("/api/organizations").send({
       name: "E2E Test Org",
@@ -55,7 +68,7 @@ describe("End-to-End: Full voting flow", () => {
         topic: "E2E Test Vote",
         options: ["Approve", "Reject"],
         eligibilityListId: list.id,
-        deadline: new Date(Date.now() + 3600_000).toISOString(),
+        deadline: new Date(Date.now() + 7200_000).toISOString(),
       });
     expect(ballotRes.status).toBe(201);
     const ballotId = ballotRes.body.data.id;
@@ -76,22 +89,32 @@ describe("End-to-End: Full voting flow", () => {
       voterToken: token,
       optionId,
     });
-    expect(voteRes.status).toBe(201);
-    expect(voteRes.body.data.voteId).toBeDefined();
+    expect(voteRes.status).toBe(200);
+    expect(voteRes.body.status).toBe("confirmed");
 
-    // 7. Close ballot and tally manually
-    await prisma.ballot.update({
-      where: { id: ballotId },
-      data: { status: "CLOSED" },
-    });
-    const { tallyBallot } = await import("../services/resultEngine");
-    await tallyBallot(ballotId);
+    // 7. Finalise ballot via admin route (idempotent)
+    const finaliseRes = await request(app)
+      .post(`/api/results/${ballotId}/finalise`)
+      .set("Cookie", cookie);
+    expect(finaliseRes.status).toBe(200);
+    expect(finaliseRes.body.data.finalised).toBe(true);
+    expect(finaliseRes.body.idempotent).toBe(false);
 
-    // 8. Verify result
+    // 7a. Second call must be idempotent
+    const finaliseRes2 = await request(app)
+      .post(`/api/results/${ballotId}/finalise`)
+      .set("Cookie", cookie);
+    expect(finaliseRes2.status).toBe(200);
+    expect(finaliseRes2.body.idempotent).toBe(true);
+
+    // 8. Public results — no authentication required
     const resultRes = await request(app).get(`/api/results/${ballotId}`);
     expect(resultRes.status).toBe(200);
     expect(resultRes.body.data.totalVotes).toBe(1);
     expect(resultRes.body.data.isConsistent).toBe(true);
+    expect(resultRes.body.data.options).toBeDefined();
+    expect(Array.isArray(resultRes.body.data.options)).toBe(true);
+    expect(resultRes.body.data.participationRate).toBeDefined();
 
     const tally = JSON.parse(resultRes.body.data.tallyJson);
     expect(tally[optionId]).toBe(1);
@@ -101,5 +124,22 @@ describe("End-to-End: Full voting flow", () => {
     expect(auditRes.status).toBe(200);
     expect(auditRes.body.data.tokensIssued).toBe(1);
     expect(auditRes.body.data.votesCast).toBe(1);
+
+    // 10. Self-verification: token that voted → confirmed: true
+    const verifyRes = await request(app)
+      .post(`/api/ballots/${ballotId}/verify`)
+      .send({ token });
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.confirmed).toBe(true);
+    expect(Object.keys(verifyRes.body)).toEqual(["confirmed"]);
+
+    // 11. Admin audit export — JSON
+    const adminAuditRes = await request(app)
+      .get(`/api/admin/audit/${ballotId}?format=json`)
+      .set("Cookie", cookie);
+    expect(adminAuditRes.status).toBe(200);
+    expect(adminAuditRes.body.data.summary).toBeDefined();
+    expect(adminAuditRes.body.data.eventLog).toBeDefined();
+    expect(adminAuditRes.body.data.voteCounts).toBeDefined();
   });
 });

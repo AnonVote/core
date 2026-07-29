@@ -29,6 +29,10 @@ export interface StellarWriteResult {
  * Returns txHash + ledger consensus timestamp, or empty string on failure.
  */
 export async function writeRecord(data: object): Promise<StellarWriteResult> {
+  if (process.env.NODE_ENV === "test") {
+    return { txHash: "0xmocked_stellar_tx_hash", ledgerTimestamp: new Date() };
+  }
+
   if (!config.stellarSecretKey) {
     console.warn(
       "[Stellar] No secret key configured, skipping blockchain write",

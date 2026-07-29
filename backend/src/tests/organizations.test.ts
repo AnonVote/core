@@ -2,14 +2,28 @@ import request from "supertest";
 import app from "../app";
 import { prisma } from "../prisma/client";
 
-beforeEach(async () => {
+async function cleanDb() {
+  await prisma.stellarRetryQueue.deleteMany();
+  await prisma.auditEvent.deleteMany();
+  await prisma.voterToken.deleteMany();
+  await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
+  await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
+  await prisma.ballot.deleteMany();
+  await prisma.eligibilityEntry.deleteMany();
+  await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
   await prisma.organization.deleteMany();
+}
+
+beforeEach(async () => {
+  await cleanDb();
 });
 
 afterAll(async () => {
-  await prisma.session.deleteMany();
-  await prisma.organization.deleteMany();
+  await cleanDb();
   await prisma.$disconnect();
 });
 
@@ -41,7 +55,8 @@ describe("POST /api/organizations — Registration", () => {
       .post("/api/organizations")
       .send({ name: "Incomplete" });
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/missing/i);
+    expect(res.body.error).toBe("ValidationError");
+    expect(res.body.message).toMatch(/required/i);
   });
 });
 

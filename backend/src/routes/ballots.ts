@@ -1,13 +1,19 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { requireAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import { createBallotSchema, updateBallotSchema } from "../validation/schemas";
 import {
   createBallot,
   getBallotsByOrg,
   getBallotById,
   updateBallot,
   deleteBallot,
+  retryBallotAnchor,
 } from "../services/ballotEngine";
-import { badRequest } from "../utils/errors";
+import { badRequest, ballotNotEditable } from "../utils/errors";
+import { hashToken } from "../utils/crypto";
+import { prisma } from "../prisma/client";
+
 
 const router = Router();
 
@@ -15,6 +21,7 @@ const router = Router();
 router.post(
   "/",
   requireAuth,
+  validate(createBallotSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const {
@@ -23,12 +30,9 @@ router.post(
         eligibilityListId,
         deadline,
         allowWeightedVoting,
+        startTime,
+        autoFinalise,
       } = req.body;
-      if (!topic || !options || !eligibilityListId || !deadline) {
-        throw badRequest(
-          "Missing required fields: topic, options, eligibilityListId, deadline",
-        );
-      }
       const ballot = await createBallot(
         req.organization!.id,
         topic,
@@ -36,6 +40,8 @@ router.post(
         eligibilityListId,
         new Date(deadline),
         allowWeightedVoting,
+        startTime ? new Date(startTime) : undefined,
+        autoFinalise,
       );
       res.status(201).json({ data: ballot });
     } catch (err) {
@@ -44,14 +50,27 @@ router.post(
   },
 );
 
-// GET /api/ballots — List org ballots
+// GET /api/ballots — List org ballots with optional status filter and pagination
 router.get(
   "/",
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const ballots = await getBallotsByOrg(req.organization!.id);
-      res.status(200).json({ data: ballots });
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : undefined;
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : undefined;
+
+      const result = await getBallotsByOrg(req.organization!.id, {
+        status,
+        page,
+        limit,
+      });
+      res.status(200).json({
+        data: result.data,
+        total_count: result.total_count,
+        page: result.page,
+        limit: result.limit,
+      });
     } catch (err) {
       next(err);
     }
@@ -72,6 +91,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 router.patch(
   "/:id",
   requireAuth,
+  validate(updateBallotSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { topic, deadline, eligibilityListId, options } = req.body;
@@ -105,4 +125,48 @@ router.delete(
   },
 );
 
+// POST /api/ballots/:id/retry-anchor — Admin: retry Stellar anchor for a failed ballot
+router.post(
+  "/:id/retry-anchor",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ballot = await retryBallotAnchor(req.params.id, req.organization!.id);
+      res.status(200).json({ data: ballot });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/ballots/:id/verify — Public: self-verification via raw token
+// Privacy boundary: returns ONLY { confirmed: boolean }. Nothing else.
+router.post(
+  "/:id/verify",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id: ballotId } = req.params;
+      const { token } = req.body;
+
+      if (!token || typeof token !== "string") {
+        throw badRequest("token is required");
+      }
+
+      const tokenHash = hashToken(token);
+
+      const match = await prisma.voterToken.findFirst({
+        where: { tokenHash, ballotId, used: true },
+        select: { id: true }, // select minimum — never expose hash or voter data
+      });
+
+      // Return ONLY the boolean. Do not include vote option, token hash,
+      // voter identifier, or any aggregate data not already on the public results page.
+      res.status(200).json({ confirmed: match !== null });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export default router;
+

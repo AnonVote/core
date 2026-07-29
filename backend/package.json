@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@anonvote/crypto": "^1.0.0",
     "@prisma/client": "^5.10.2",
     "bcrypt": "5.1.1",
     "cookie-parser": "1.4.6",

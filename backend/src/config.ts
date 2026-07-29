@@ -23,10 +23,26 @@ function validateConfig(): void {
     errors.push("BALLOT_ENCRYPTION_KEY must be 64 characters (32 bytes hex)");
   }
 
+  if (process.env.SOROBAN_SERVER_URL) {
+    try {
+      new URL(process.env.SOROBAN_SERVER_URL);
+    } catch {
+      errors.push("SOROBAN_SERVER_URL must be a valid URL");
+    }
+  }
+
   if (errors.length > 0) {
     console.error("[Config] Missing or invalid environment variables:");
     errors.forEach((e) => console.error(`  - ${e}`));
     process.exit(1);
+  }
+
+  if (!process.env.SOROBAN_CONTRACT_ID) {
+    console.warn(
+      "[Config] WARNING: SOROBAN_CONTRACT_ID is not set. " +
+        "Blockchain audit trail is INACTIVE — all on-chain audit calls will be skipped. " +
+        "See contracts/README.md to deploy the contract and set SOROBAN_CONTRACT_ID.",
+    );
   }
 }
 
@@ -44,4 +60,6 @@ export const config = {
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",
+  sorobanContractId: process.env.SOROBAN_CONTRACT_ID || "",
+  sorobanServerUrl: process.env.SOROBAN_SERVER_URL || "",
 };

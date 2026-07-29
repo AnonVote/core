@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
+import { sorobanRecordToken } from "./sorobanService";
 import {
   badRequest,
   notFound,
@@ -25,18 +26,7 @@ export async function issueToken(
 
   // Don't reveal whether ballot exists if identifier not eligible
   const identifierHash = hashIdentifier(voterIdentifier);
-  console.log("[issueToken] ballotId:", ballotId);
-  console.log(
-    "[issueToken] voterIdentifier (raw):",
-    JSON.stringify(voterIdentifier),
-  );
-  console.log("[issueToken] identifierHash:", identifierHash);
-  console.log(
-    "[issueToken] ballot found:",
-    !!ballot,
-    "status:",
-    ballot?.status,
-  );
+  console.log("[issueToken] ballotId:", ballotId, "identifierHash:", identifierHash);
 
   if (!ballot || ballot.status === "CLOSED") {
     // Generic error — don't reveal ballot existence
@@ -130,10 +120,15 @@ export async function issueToken(
     weight: result.weight,
   };
 
+  // Record token issuance on-chain — fire-and-forget
+  sorobanRecordToken(hashIdentifier(ballotId)).catch((err) =>
+    console.error("[Soroban] record_token failed:", err),
+  );
+
   // Fire-and-forget Stellar write — does not block the response
   writeRecord({
     type: "TOKEN_ISSUED",
-    ballotId,
+    ballotId: hashIdentifier(ballotId),
     auditEventId: result.auditEventId,
   })
     .then((stellarResult) => {
@@ -201,46 +196,69 @@ export async function reissueToken(
     return issueToken(ballotId, voterIdentifier);
   }
 
-  // Find all tokens for this ballot that haven't been used
-  // We can't link a token to an identifier (by design), so we check
-  // if ANY unused token exists for this ballot. If the voter's token
-  // was used, all tokens for this ballot that are used = their vote was cast.
-  // We use a per-entry reissue flag to track this safely.
-  const unusedTokens = await prisma.voterToken.findMany({
-    where: { ballotId, used: false },
-  });
-
-  // Count used tokens = votes cast
-  const usedTokenCount = await prisma.voterToken.count({
-    where: { ballotId, used: true },
-  });
-
-  // Count how many entries have tokenIssued = true
-  const issuedCount = await prisma.eligibilityEntry.count({
-    where: {
-      eligibilityListId: ballot.eligibilityListId,
-      tokenIssued: true,
-    },
-  });
-
-  // If used tokens >= issued entries, this voter's token was already used
-  if (usedTokenCount >= issuedCount) {
-    throw badRequest(
-      "Your vote has already been cast with your previous token. You cannot request a new token.",
-    );
-  }
-
-  // Safe to reissue — revoke one unused token and issue a fresh one
+  const reqTime = new Date();
   const rawToken = generateToken();
   const newTokenHash = hashToken(rawToken);
 
-  await prisma.$transaction(async (tx) => {
-    // Delete one unused token (the voter's lost token)
-    if (unusedTokens.length > 0) {
-      await tx.voterToken.delete({ where: { id: unusedTokens[0].id } });
+  const result = await prisma.$transaction(async (tx) => {
+    // Lock eligibility entry to prevent concurrent race condition for same voter
+    await tx.$queryRaw`
+      SELECT * FROM "EligibilityEntry"
+      WHERE "id" = ${entry.id}
+      FOR UPDATE
+    `;
+
+    // Count votes cast for this ballot
+    const castVoteCount = await tx.vote.count({
+      where: { ballotId },
+    });
+
+    // Count entries with tokenIssued = true
+    const issuedCount = await tx.eligibilityEntry.count({
+      where: {
+        eligibilityListId: ballot.eligibilityListId,
+        tokenIssued: true,
+      },
+    });
+
+    if (castVoteCount >= issuedCount) {
+      throw badRequest(
+        "Your vote has already been cast with your previous token. You cannot request a new token.",
+      );
     }
 
-    // Issue new token
+    // Lock and query unused tokens for this ballot created before/at reqTime
+    const unusedTokensBeforeReq: any[] = await tx.$queryRaw`
+      SELECT * FROM "VoterToken"
+      WHERE "ballotId" = ${ballotId} AND "used" = false AND "issuedAt" <= ${reqTime}
+      ORDER BY "issuedAt" ASC
+      FOR UPDATE
+    `;
+
+    const unusedTokens = unusedTokensBeforeReq.length > 0
+      ? unusedTokensBeforeReq
+      : await tx.$queryRaw<any[]>`
+          SELECT * FROM "VoterToken"
+          WHERE "ballotId" = ${ballotId} AND "used" = false
+          ORDER BY "issuedAt" ASC
+          FOR UPDATE
+        `;
+
+    if (!unusedTokens || unusedTokens.length === 0) {
+      throw badRequest(
+        "No active token found to reissue.",
+      );
+    }
+
+    const oldToken = unusedTokens[0];
+
+    // Atomically mark old token as used BEFORE creating new token
+    await tx.voterToken.update({
+      where: { id: oldToken.id },
+      data: { used: true, usedAt: new Date() },
+    });
+
+    // Create new token
     await tx.voterToken.create({
       data: { tokenHash: newTokenHash, ballotId },
     });
@@ -249,11 +267,13 @@ export async function reissueToken(
     await tx.auditEvent.create({
       data: { ballotId, eventType: "TOKEN_ISSUED" },
     });
+
+    return { token: rawToken, weight: (entry as any).weight ?? 1 };
   });
 
   console.log(`[reissueToken] Reissued token for ballot ${ballotId}`);
 
-  return { token: rawToken, weight: (entry as any).weight ?? 1 };
+  return result;
 }
 
 /**

@@ -1,11 +1,16 @@
+import crypto from "crypto";
 import { prisma } from "../prisma/client";
-import { decryptVote } from "../utils/crypto";
+import { decryptVote, hashIdentifier } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
+import { sorobanRecordResult, verifyBallotConsistency } from "./sorobanService";
 import { config } from "../config";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
 
-export async function tallyBallot(ballotId: string) {
+export async function tallyBallot(
+  ballotId: string,
+  opts: { skipSoroban?: boolean } = {},
+) {
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
     include: {
@@ -23,12 +28,12 @@ export async function tallyBallot(ballotId: string) {
     tally[o.id] = 0;
   });
 
+  const keyRecord = await prisma.ballotKey.findUnique({ where: { ballotId } });
+  const ballotKey = keyRecord ? keyRecord.key : config.ballotEncryptionKey;
+
   for (const vote of ballot.votes) {
     try {
-      const optionId = decryptVote(
-        vote.encryptedPayload,
-        config.ballotEncryptionKey,
-      );
+      const optionId = decryptVote(vote.encryptedOption, ballotKey);
       if (tally[optionId] !== undefined) {
         tally[optionId] += vote.weight;
       }
@@ -75,10 +80,10 @@ export async function tallyBallot(ballotId: string) {
     data: { ballotId, eventType: "RESULT_PUBLISHED" },
   });
 
-  // Write to Stellar — non-blocking, result is published regardless
+  // Write to Stellar manageData layer — non-blocking, result is published regardless
   const stellarResult = await writeRecord({
     type: "RESULT_PUBLISHED",
-    ballotId,
+    ballotId: hashIdentifier(ballotId),
     totalVotes: totalWeightedVotes,
     isConsistent,
   });
@@ -102,6 +107,73 @@ export async function tallyBallot(ballotId: string) {
     console.warn(
       `[Stellar] RESULT_PUBLISHED write failed for ballot ${ballotId} — result still published`,
     );
+  }
+
+  // Write to Soroban contract — non-blocking, result is published regardless
+  if (!opts.skipSoroban) {
+    const tallyJson = JSON.stringify(tally);
+    const resultHash = crypto
+      .createHash("sha256")
+      .update(tallyJson)
+      .digest("hex");
+    const ballotIdHash = crypto
+      .createHash("sha256")
+      .update(ballotId)
+      .digest("hex");
+
+    sorobanRecordResult(ballotIdHash, resultHash)
+      .then(async (sorobanTxId) => {
+        if (sorobanTxId) {
+          await prisma.result.update({
+            where: { id: result.id },
+            data: { sorobanTxId },
+          });
+          console.log(
+            `[Soroban] record_result anchored for ballot ${ballotId} — tx: ${sorobanTxId}`,
+          );
+        } else {
+          console.warn(
+            `[Soroban] record_result not anchored for ballot ${ballotId} — contract may not be deployed`,
+          );
+        }
+      })
+      .catch((err) => {
+        console.error(
+          `[Soroban] record_result error for ballot ${ballotId}:`,
+          err,
+        );
+      });
+  }
+
+  // Post-finalisation on-chain consistency check (issue #68) — transparency
+  // only, never blocks or fails the tally. Skipped alongside the other
+  // Soroban calls when opts.skipSoroban is set (e.g. in tests).
+  if (!opts.skipSoroban) {
+    let verifiedOnChain: boolean | null = null;
+    try {
+      verifiedOnChain = await verifyBallotConsistency(ballotId);
+    } catch (err) {
+      // verifyBallotConsistency already catches its own errors internally and
+      // resolves to false; this guards against an unexpected throw anyway.
+      console.error(
+        `[Soroban] Unexpected error running verifyBallotConsistency for ballot ${ballotId}:`,
+        err,
+      );
+      verifiedOnChain = false;
+    }
+
+    if (verifiedOnChain === false) {
+      console.warn(
+        `[ResultEngine] On-chain verification failed for ballot ${ballotId} — ` +
+          "the published tally is unaffected; see the Soroban log lines above " +
+          "for the detailed chain-vs-database report. Manual review recommended.",
+      );
+    }
+
+    await prisma.result.update({
+      where: { id: result.id },
+      data: { verifiedOnChain },
+    });
   }
 
   // Send results notification email to org admin — non-blocking

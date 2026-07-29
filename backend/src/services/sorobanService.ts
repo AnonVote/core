@@ -24,12 +24,15 @@
  */
 
 import * as StellarSdk from "stellar-sdk";
+import crypto from "crypto";
 import { config } from "../config";
+import { prisma } from "../prisma/client";
 
 const SOROBAN_RPC_TESTNET = "https://soroban-testnet.stellar.org";
 const SOROBAN_RPC_MAINNET = "https://rpc.stellar.org";
 
 function getRpcUrl(): string {
+  if (config.sorobanServerUrl) return config.sorobanServerUrl;
   return config.stellarNetwork === "mainnet"
     ? SOROBAN_RPC_MAINNET
     : SOROBAN_RPC_TESTNET;
@@ -230,7 +233,7 @@ export async function readContract(
 // These wrap invokeContract/readContract with the specific AnonVote contract
 // methods. Set SOROBAN_CONTRACT_ID in .env to activate.
 
-const CONTRACT_ID = process.env.SOROBAN_CONTRACT_ID || "";
+const CONTRACT_ID = config.sorobanContractId;
 
 /**
  * Record a ballot creation on-chain.
@@ -315,3 +318,98 @@ export async function sorobanGetAuditCounts(ballotIdHash: string): Promise<{
     isConsistent: (consistent as boolean) ?? false,
   };
 }
+
+/**
+ * Verify that a ballot's on-chain audit counters (Soroban `is_consistent`,
+ * `get_tokens_issued`, `get_votes_cast`) agree with the database.
+ *
+ * NOTE: `record_token`/`record_vote` are invoked once per token issued / vote
+ * cast regardless of vote *weight*, so the on-chain counters are raw counts —
+ * they must be compared against raw DB row counts, not the weighted vote sum
+ * used elsewhere for tallying. Comparing against the weighted sum would
+ * false-positive-fail on any ballot using weighted voting.
+ *
+ * This is a post-finalisation transparency check, not a safety gate: it never
+ * throws. On any failure (contract not configured, unreachable, or a genuine
+ * mismatch) it logs details and resolves to `false`; the caller decides what,
+ * if anything, to do with that.
+ *
+ * @param ballotId - The database ballot ID (will be hashed the same way as
+ *                   when it was originally recorded on-chain).
+ * @param opts.fetchAuditCounts - Injectable in tests to avoid a live RPC call;
+ *                   defaults to `sorobanGetAuditCounts`.
+ */
+export async function verifyBallotConsistency(
+  ballotId: string,
+  opts: { fetchAuditCounts?: typeof sorobanGetAuditCounts } = {},
+): Promise<boolean> {
+  const fetchAuditCounts = opts.fetchAuditCounts ?? sorobanGetAuditCounts;
+  const ballotIdHash = crypto
+    .createHash("sha256")
+    .update(ballotId)
+    .digest("hex");
+
+  const [dbTokensIssued, dbVotesCast] = await Promise.all([
+    prisma.voterToken.count({ where: { ballotId } }),
+    prisma.vote.count({ where: { ballotId } }),
+  ]);
+
+  let audit: Awaited<ReturnType<typeof sorobanGetAuditCounts>>;
+  try {
+    audit = await fetchAuditCounts(ballotIdHash);
+  } catch (err) {
+    console.error(
+      `[Soroban] verifyBallotConsistency error for ballot ${ballotId} ` +
+        `(hash ${ballotIdHash}) — db(tokensIssued=${dbTokensIssued}, votesCast=${dbVotesCast}):`,
+      err,
+    );
+    return false;
+  }
+
+  if (!audit) {
+    console.warn(
+      `[Soroban] verifyBallotConsistency skipped for ballot ${ballotId} ` +
+        `(hash ${ballotIdHash}) — contract not configured or unreachable. ` +
+        `db(tokensIssued=${dbTokensIssued}, votesCast=${dbVotesCast})`,
+    );
+    return false;
+  }
+
+  const matchesDb =
+    audit.tokensIssued === dbTokensIssued && audit.votesCast === dbVotesCast;
+  const verified = audit.isConsistent && matchesDb;
+
+  const summary =
+    `chain(tokensIssued=${audit.tokensIssued}, votesCast=${audit.votesCast}, ` +
+    `isConsistent=${audit.isConsistent}) db(tokensIssued=${dbTokensIssued}, votesCast=${dbVotesCast})`;
+
+  if (verified) {
+    console.log(
+      `[Soroban] verifyBallotConsistency PASSED for ballot ${ballotId} (hash ${ballotIdHash}) — ${summary}`,
+    );
+  } else {
+    console.warn(
+      `[Soroban] verifyBallotConsistency FAILED for ballot ${ballotId} (hash ${ballotIdHash}) — ${summary}`,
+    );
+  }
+
+  return verified;
+}
+
+/**
+ * Rotate admin key on-chain.
+ * Call from POST /api/admin/rotate-key.
+ */
+export async function sorobanRotateAdminKey(
+  callerPublicKey: string,
+  newAdminPublicKey: string,
+): Promise<SorobanInvokeResult> {
+  if (!CONTRACT_ID) {
+    return { txHash: "", success: false };
+  }
+  return invokeContract(CONTRACT_ID, "rotate_admin_key", [
+    { value: callerPublicKey, type: "string" },
+    { value: newAdminPublicKey, type: "string" },
+  ]);
+}
+
