@@ -199,6 +199,19 @@ enum AuditEventType {
   RESULT_PUBLISHED
   DUPLICATE_TOKEN_ATTEMPT
   DUPLICATE_VOTE_ATTEMPT
+  RATE_LIMIT_EXCEEDED
+}
+
+/// Persisted rate-limit counters — survives server restarts.
+/// key format: "ip:<ip>", "ballot:<ballotId>", "token:<tokenHash>"
+model RateLimitEntry {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([expiresAt])
 }
 
 model ReissueRateLimit {

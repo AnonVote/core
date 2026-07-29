@@ -7,6 +7,7 @@ import {
 } from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
 import { prisma } from "../prisma/client";
+import { purgeExpiredRateLimitEntries } from "../services/voteRateLimiter";
 
 async function getNextActiveDeadline(): Promise<Date | null> {
   const ballot = await prisma.ballot.findFirst({
@@ -106,5 +107,18 @@ export async function startScheduler(): Promise<void> {
   }
 
   console.log("[Scheduler] Started — waiting for ballots to schedule checks");
+  processExpiredBallots();
+
+  // Purge expired rate-limit entries every 10 minutes to keep the table lean
+  setInterval(async () => {
+    try {
+      const purged = await purgeExpiredRateLimitEntries();
+      if (purged > 0) {
+        console.log(`[Scheduler] Purged ${purged} expired rate-limit entries`);
+      }
+    } catch (err) {
+      console.error("[Scheduler] Rate-limit purge error:", err);
+    }
+  }, 10 * 60 * 1000);
   processBallotStateTransitions();
 }

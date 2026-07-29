@@ -4,6 +4,7 @@ import { prisma } from "../prisma/client";
 import { requireAuth } from "../middleware/auth";
 import { hashIdentifier } from "../utils/crypto";
 import { badRequest } from "../utils/errors";
+import { sendVoterBallotEmail } from "../services/emailService";
 
 const router = Router();
 const upload = multer({
@@ -118,6 +119,36 @@ router.post(
         });
         return list;
       });
+
+      // Send voter invite emails if a ballotId is provided and identifiers look like emails.
+      // Fire-and-forget — email failure never blocks the response.
+      const { ballotId } = req.body;
+      if (ballotId) {
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailIdentifiers = sanitizedLines.filter((l) =>
+          EMAIL_RE.test(l),
+        );
+
+        if (emailIdentifiers.length > 0) {
+          prisma.ballot
+            .findUnique({
+              where: { id: ballotId },
+              select: { topic: true, deadline: true },
+            })
+            .then((ballot) => {
+              if (!ballot) return;
+              for (const email of emailIdentifiers) {
+                sendVoterBallotEmail({
+                  to: email,
+                  topic: ballot.topic,
+                  deadline: ballot.deadline,
+                  ballotId,
+                }).catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      }
 
       res.status(201).json({
         data: {
