@@ -1,9 +1,18 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier } from "../utils/crypto";
-import { badRequest, notFound } from "../utils/errors";
+import { randomBytes } from "crypto";
+import { badRequest, notFound, ballotNotEditable } from "../utils/errors";
 import { sendBallotCreatedEmail } from "./emailService";
 import { sorobanRecordBallot } from "./sorobanService";
+import { writeRecord } from "./stellarService";
 
+/**
+ * Create a new ballot with per-ballot encryption key and Stellar anchoring.
+ *
+ * The ballot_key is stored in a separate ballot_keys table and never returned
+ * in any API response. If the Stellar anchor write fails, the ballot is still
+ * created with anchor_status: FAILED and a retry queue row is inserted.
+ */
 export async function createBallot(
   orgId: string,
   topic: string,
@@ -11,51 +20,110 @@ export async function createBallot(
   eligibilityListId: string,
   deadline: Date,
   allowWeightedVoting = false,
+  startTime?: Date,
+  autoFinalise = false,
 ) {
+  // Validate topic
   if (!topic?.trim()) throw badRequest("Ballot topic is required");
+  if (topic.trim().length > 200)
+    throw badRequest("Ballot topic must be at most 200 characters");
+
+  // Validate options
   if (!options || options.length < 2)
     throw badRequest("At least two options are required");
-  if (deadline <= new Date())
-    throw badRequest("Deadline must be in the future");
+  if (options.length > 10)
+    throw badRequest("Maximum 10 options allowed");
+  for (const opt of options) {
+    if (!opt?.trim()) throw badRequest("All options must be non-empty");
+    if (opt.trim().length > 100)
+      throw badRequest("Each option must be at most 100 characters");
+  }
+  // Check for duplicates (case-insensitive)
+  const seen = new Set<string>();
+  for (const opt of options) {
+    const normalized = opt.trim().toLowerCase();
+    if (seen.has(normalized)) {
+      throw badRequest("Duplicate options are not allowed");
+    }
+    seen.add(normalized);
+  }
+
+  // Validate deadline — must be at least 1 hour in the future
+  const now = new Date();
+  const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+  if (deadline <= oneHourFromNow)
+    throw badRequest("Deadline must be at least 1 hour in the future");
 
   const eligibilityList = await prisma.eligibilityList.findUnique({
     where: { id: eligibilityListId },
   });
   if (!eligibilityList) throw badRequest("Eligibility list not found");
 
+  // Generate per-ballot AES-256 encryption key
+  const ballotKey = randomBytes(32).toString("hex");
+
+  // Create ballot with status DRAFT
   const ballot = await prisma.ballot.create({
     data: {
       organizationId: orgId,
       topic: topic.trim(),
       deadline,
+      startTime: startTime ?? null,
       eligibilityListId,
       allowWeightedVoting,
+      autoFinalise,
+      status: "DRAFT",
+      optionCount: options.length,
       options: {
         create: options.map((text) => ({ text: text.trim() })),
+      },
+      ballotKey: {
+        create: { key: ballotKey },
       },
     },
     include: { options: true },
   });
 
-  // Record ballot creation on-chain
+  // Attempt Stellar anchor — use manageData write with hashIdentifier(ballotId)
+  // If it fails, set anchor_status: FAILED and insert retry queue row.
+  // Do NOT fail ballot creation.
   try {
-    const txHash = await sorobanRecordBallot(hashIdentifier(ballot.id));
-    if (txHash) {
+    const ballotIdHash = hashIdentifier(ballot.id);
+    const stellarResult = await writeRecord({
+      type: "BALLOT_CREATED",
+      ballotIdHash,
+    });
+
+    if (stellarResult.txHash) {
       await prisma.ballot.update({
         where: { id: ballot.id },
-        data: { stellarTxId: txHash, anchorStatus: "ANCHORED" },
+        data: {
+          stellarTxId: stellarResult.txHash,
+          anchorStatus: "ANCHORED",
+        },
       });
     } else {
+      // Stellar write returned empty — treat as failure
       await prisma.ballot.update({
         where: { id: ballot.id },
-        data: { anchorStatus: "PENDING" },
+        data: { anchorStatus: "FAILED" },
+      });
+      await prisma.ballotAnchorRetry.upsert({
+        where: { ballotId: ballot.id },
+        create: { ballotId: ballot.id, retryCount: 0 },
+        update: {},
       });
     }
   } catch (err) {
-    console.error("[Soroban] record_ballot failed:", err);
+    console.error("[Stellar] Ballot anchor failed at creation:", err);
     await prisma.ballot.update({
       where: { id: ballot.id },
-      data: { anchorStatus: "PENDING" },
+      data: { anchorStatus: "FAILED" },
+    });
+    await prisma.ballotAnchorRetry.upsert({
+      where: { ballotId: ballot.id },
+      create: { ballotId: ballot.id, retryCount: 0 },
+      update: {},
     });
   }
 
@@ -88,19 +156,57 @@ export async function createBallot(
       console.error("[Email] Failed to fetch org for email:", err),
     );
 
-  return ballot;
+  // Return ballot without ballot_key — never expose the key
+  return {
+    id: ballot.id,
+    topic: ballot.topic,
+    status: ballot.status,
+    deadline: ballot.deadline,
+    startTime: ballot.startTime,
+    anchorStatus: ballot.anchorStatus,
+    stellarTxId: ballot.stellarTxId,
+    options: ballot.options,
+    optionCount: ballot.optionCount,
+  };
 }
 
-export async function getBallotsByOrg(orgId: string) {
-  const ballots = await prisma.ballot.findMany({
-    where: { organizationId: orgId },
-    include: {
-      options: true,
-      eligibilityList: { include: { _count: { select: { entries: true } } } },
-      _count: { select: { votes: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+/**
+ * Get ballots for an organization with optional status filter and pagination.
+ */
+export async function getBallotsByOrg(
+  orgId: string,
+  opts: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
+  const page = opts.page ?? 1;
+  const limit = Math.min(opts.limit ?? 50, 100);
+  const skip = (page - 1) * limit;
+
+  const where: any = {
+    organizationId: orgId,
+    deletedAt: null,
+  };
+  if (opts.status) {
+    where.status = opts.status;
+  }
+
+  const [ballots, totalCount] = await Promise.all([
+    prisma.ballot.findMany({
+      where,
+      include: {
+        options: true,
+        eligibilityList: { include: { _count: { select: { entries: true } } } },
+        _count: { select: { votes: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.ballot.count({ where }),
+  ]);
 
   // Get tokens issued count per ballot from audit events
   const ballotIds = ballots.map((b) => b.id);
@@ -116,28 +222,44 @@ export async function getBallotsByOrg(orgId: string) {
     tokenCounts.map((t) => [t.ballotId, t._count.id]),
   );
 
-  return ballots.map((b) => ({
-    id: b.id,
-    topic: b.topic,
-    status: b.status,
-    deadline: b.deadline,
-    createdAt: b.createdAt,
-    options: b.options,
-    eligibleVoters: b.eligibilityList._count.entries,
-    tokensIssued: tokenCountMap[b.id] ?? 0,
-    votesCast: b._count.votes,
-  }));
+  return {
+    data: ballots.map((b) => ({
+      id: b.id,
+      topic: b.topic,
+      status: b.status,
+      deadline: b.deadline,
+      startTime: b.startTime,
+      createdAt: b.createdAt,
+      options: b.options,
+      optionCount: b.optionCount,
+      eligibleVoters: b.eligibilityList._count.entries,
+      tokensIssued: tokenCountMap[b.id] ?? 0,
+      votesCast: b._count.votes,
+      anchorStatus: b.anchorStatus,
+      stellarTxId: b.stellarTxId,
+    })),
+    total_count: totalCount,
+    page,
+    limit,
+  };
 }
 
+/**
+ * Get a single ballot by ID (public).
+ * Never includes ballot_key.
+ */
 export async function getBallotById(id: string) {
   const ballot = await prisma.ballot.findUnique({
-    where: { id },
+    where: { id, deletedAt: null },
     include: { options: true },
   });
   if (!ballot) throw notFound("Ballot not found");
   return ballot;
 }
 
+/**
+ * Update a ballot — only allowed when status === DRAFT.
+ */
 export async function updateBallot(
   ballotId: string,
   orgId: string,
@@ -149,15 +271,18 @@ export async function updateBallot(
   },
 ) {
   const ballot = await prisma.ballot.findUnique({
-    where: { id: ballotId },
+    where: { id: ballotId, deletedAt: null },
     include: { _count: { select: { votes: true } } },
   });
 
   if (!ballot) throw notFound("Ballot not found");
   if (ballot.organizationId !== orgId)
     throw badRequest("You can only edit your own ballots");
-  if (ballot.status === "CLOSED")
-    throw badRequest("Closed ballots cannot be edited");
+
+  // State machine: only DRAFT ballots can be edited
+  if (ballot.status !== "DRAFT") {
+    throw ballotNotEditable();
+  }
 
   const hasVotes = ballot._count.votes > 0;
 
@@ -169,10 +294,16 @@ export async function updateBallot(
 
   if (data.topic !== undefined && !data.topic.trim())
     throw badRequest("Ballot topic cannot be empty");
+  if (data.topic && data.topic.trim().length > 200)
+    throw badRequest("Ballot topic must be at most 200 characters");
   if (data.deadline !== undefined && data.deadline <= new Date())
     throw badRequest("Deadline must be in the future");
-  if (data.options !== undefined && data.options.length < 2)
-    throw badRequest("At least two options are required");
+  if (data.options !== undefined) {
+    if (data.options.length < 2)
+      throw badRequest("At least two options are required");
+    if (data.options.length > 10)
+      throw badRequest("Maximum 10 options allowed");
+  }
 
   if (data.eligibilityListId) {
     const list = await prisma.eligibilityList.findUnique({
@@ -187,6 +318,11 @@ export async function updateBallot(
       await tx.option.deleteMany({ where: { ballotId } });
       await tx.option.createMany({
         data: data.options.map((text) => ({ ballotId, text: text.trim() })),
+      });
+      // Update denormalized option count
+      await tx.ballot.update({
+        where: { id: ballotId },
+        data: { optionCount: data.options.length },
       });
     }
 
@@ -206,17 +342,145 @@ export async function updateBallot(
   });
 }
 
+/**
+ * Close a ballot — transition ACTIVE → CLOSED.
+ */
 export async function closeBallot(ballotId: string) {
+  const ballot = await prisma.ballot.findUnique({
+    where: { id: ballotId, deletedAt: null },
+  });
+  if (!ballot) throw notFound("Ballot not found");
+
+  // Only ACTIVE ballots can be closed
+  if (ballot.status !== "ACTIVE") return;
+
   await prisma.ballot.update({
     where: { id: ballotId },
     data: { status: "CLOSED" },
   });
 }
 
-export async function getOpenExpiredBallots() {
-  return prisma.ballot.findMany({
-    where: { status: "OPEN", deadline: { lt: new Date() } },
+/**
+ * Finalise a ballot — transition CLOSED → FINALISED.
+ */
+export async function finaliseBallot(ballotId: string) {
+  const ballot = await prisma.ballot.findUnique({
+    where: { id: ballotId, deletedAt: null },
   });
+  if (!ballot) throw notFound("Ballot not found");
+
+  if (ballot.status !== "CLOSED") return;
+
+  await prisma.ballot.update({
+    where: { id: ballotId },
+    data: { status: "FINALISED" },
+  });
+}
+
+/**
+ * Get ballots that should transition from DRAFT → ACTIVE (start_time passed).
+ */
+export async function getDraftBallotsToActivate() {
+  const now = new Date();
+  return prisma.ballot.findMany({
+    where: {
+      status: "DRAFT",
+      deletedAt: null,
+      OR: [
+        { startTime: { lte: now } },
+        { startTime: null },
+      ],
+    },
+  });
+}
+
+/**
+ * Get ballots that should transition from ACTIVE → CLOSED (deadline passed).
+ */
+export async function getActiveExpiredBallots() {
+  return prisma.ballot.findMany({
+    where: {
+      status: "ACTIVE",
+      deadline: { lt: new Date() },
+      deletedAt: null,
+    },
+  });
+}
+
+/**
+ * Retry Stellar anchor for a ballot that previously failed.
+ */
+export async function retryBallotAnchor(ballotId: string, orgId: string) {
+  const ballot = await prisma.ballot.findUnique({
+    where: { id: ballotId, deletedAt: null },
+  });
+
+  if (!ballot) throw notFound("Ballot not found");
+  if (ballot.organizationId !== orgId)
+    throw badRequest("You can only retry anchor for your own ballots");
+
+  if (ballot.anchorStatus === "ANCHORED") {
+    return {
+      id: ballot.id,
+      anchorStatus: ballot.anchorStatus,
+      stellarTxId: ballot.stellarTxId,
+    };
+  }
+
+  try {
+    const ballotIdHash = hashIdentifier(ballot.id);
+    const stellarResult = await writeRecord({
+      type: "BALLOT_CREATED",
+      ballotIdHash,
+    });
+
+    if (stellarResult.txHash) {
+      await prisma.ballot.update({
+        where: { id: ballotId },
+        data: {
+          stellarTxId: stellarResult.txHash,
+          anchorStatus: "ANCHORED",
+        },
+      });
+      // Remove from retry queue
+      await prisma.ballotAnchorRetry.deleteMany({
+        where: { ballotId },
+      }).catch(() => {});
+      return {
+        id: ballotId,
+        anchorStatus: "ANCHORED" as const,
+        stellarTxId: stellarResult.txHash,
+      };
+    } else {
+      // Increment retry count
+      await prisma.ballotAnchorRetry.upsert({
+        where: { ballotId },
+        create: { ballotId, retryCount: 1 },
+        update: { retryCount: { increment: 1 } },
+      });
+      return {
+        id: ballotId,
+        anchorStatus: "FAILED" as const,
+        stellarTxId: null,
+      };
+    }
+  } catch (err) {
+    console.error(`[Stellar] Retry anchor failed for ballot ${ballotId}:`, err);
+    await prisma.ballotAnchorRetry.upsert({
+      where: { ballotId },
+      create: { ballotId, retryCount: 1 },
+      update: { retryCount: { increment: 1 } },
+    });
+    await prisma.ballot.update({
+      where: { id: ballotId },
+      data: { anchorStatus: "FAILED" },
+    });
+    return {
+      id: ballotId,
+      anchorStatus: "FAILED" as const,
+      stellarTxId: null,
+    };
+  }
 }
 
 /**
@@ -233,13 +497,20 @@ export async function processPendingAnchors() {
 
   for (const ballot of pending) {
     try {
-      const txHash = await sorobanRecordBallot(hashIdentifier(ballot.id));
-      if (txHash) {
+      const ballotIdHash = hashIdentifier(ballot.id);
+      const stellarResult = await writeRecord({
+        type: "BALLOT_CREATED",
+        ballotIdHash,
+      });
+      if (stellarResult.txHash) {
         await prisma.ballot.update({
           where: { id: ballot.id },
-          data: { stellarTxId: txHash, anchorStatus: "ANCHORED" },
+          data: {
+            stellarTxId: stellarResult.txHash,
+            anchorStatus: "ANCHORED",
+          },
         });
-        console.log(`[Anchor] Ballot ${ballot.id} anchored: ${txHash}`);
+        console.log(`[Anchor] Ballot ${ballot.id} anchored: ${stellarResult.txHash}`);
       }
     } catch (err) {
       console.error(`[Anchor] Retry failed for ballot ${ballot.id}:`, err);
@@ -247,9 +518,18 @@ export async function processPendingAnchors() {
   }
 }
 
+/**
+ * Soft delete a ballot — only allowed when status === DRAFT.
+ * Never hard deletes a ballot that has had voter activity.
+ */
 export async function deleteBallot(ballotId: string, orgId: string) {
   const ballot = await prisma.ballot.findUnique({
-    where: { id: ballotId },
+    where: { id: ballotId, deletedAt: null },
+    include: {
+      _count: {
+        select: { votes: true },
+      },
+    },
   });
 
   if (!ballot) throw notFound("Ballot not found");
@@ -257,14 +537,14 @@ export async function deleteBallot(ballotId: string, orgId: string) {
     throw badRequest("You can only delete your own ballots");
   }
 
-  // Delete in correct order — child records first
-  await prisma.auditEvent.deleteMany({ where: { ballotId } });
-  await prisma.result.deleteMany({ where: { ballotId } });
-  await prisma.vote.deleteMany({ where: { ballotId } });
-  await prisma.option.deleteMany({ where: { ballotId } });
-  await prisma.voterToken.deleteMany({ where: { ballotId } });
+  // Only DRAFT ballots can be deleted
+  if (ballot.status !== "DRAFT") {
+    throw ballotNotEditable("Only draft ballots can be deleted");
+  }
 
-  await prisma.ballot.delete({
+  // Soft delete — set deletedAt timestamp
+  await prisma.ballot.update({
     where: { id: ballotId },
+    data: { deletedAt: new Date() },
   });
 }

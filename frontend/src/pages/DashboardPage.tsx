@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const [ballots, setBallots] = useState<Ballot[]>([]);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<
-    "ALL" | "DRAFT" | "OPEN" | "CLOSED"
+    "ALL" | "DRAFT" | "ACTIVE" | "CLOSED"
   >("ALL");
   const [focusBallotId, setFocusBallotId] = useState<string | null>(
     (location.state as { focusBallotId?: string } | null)?.focusBallotId ?? null,
@@ -42,19 +42,15 @@ export default function DashboardPage() {
     if (!authLoading) fetchBallots();
   }, [authLoading, isAuthenticated]);
 
-  // Auto-refresh every 60s â€” moved BEFORE conditional return
+  // Auto-refresh every 60s
   useEffect(() => {
     const interval = setInterval(fetchBallots, 60_000);
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-focus the newly created ballot: scroll it into view and briefly
-  // highlight it, then clear so a later refresh/refresh doesn't re-trigger.
+  // Auto-focus the newly created ballot
   useEffect(() => {
     if (!focusBallotId || ballots.length === 0) return;
-    // Make sure the current filters can't hide the ballot we're about to
-    // focus â€” if they were active, this effect re-runs once state settles
-    // (activeTab/search are in the dependency array below).
     if (activeTab !== "ALL") {
       setActiveTab("ALL");
       return;
@@ -68,8 +64,6 @@ export default function DashboardPage() {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-    // Clear the router state so a page refresh won't re-scroll/highlight,
-    // and drop the highlight after a moment.
     window.history.replaceState({}, "");
     const timeout = setTimeout(() => setFocusBallotId(null), 2500);
     return () => clearTimeout(timeout);
@@ -213,7 +207,7 @@ export default function DashboardPage() {
               className="text-3xl font-space-grotesk font-bold"
               style={{ color: "var(--ink-primary)" }}
             >
-              {ballots.filter((b) => b.status === "OPEN").length}
+              {ballots.filter((b) => b.status === "ACTIVE").length}
             </p>
           </div>
           <div className="card p-6">
@@ -244,7 +238,7 @@ export default function DashboardPage() {
               No ballots yet.
             </p>
             <Link to="/ballots/new" className="link-dark">
-              Create your first ballot â†’
+              Create your first ballot →
             </Link>
           </div>
         ) : (
@@ -254,7 +248,7 @@ export default function DashboardPage() {
                 className="flex p-1 bg-surface-sunken rounded-lg"
                 style={{ background: "var(--surface-sunken)" }}
               >
-                {(["ALL", "DRAFT", "OPEN", "CLOSED"] as const).map((tab) => (
+                {(["ALL", "DRAFT", "ACTIVE", "CLOSED"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -329,7 +323,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Audit Export Panel â€” closed ballots only */}
+            {/* Audit Export Panel — closed ballots only */}
             {closedBallots.length > 0 && (
               <div style={{ marginTop: "var(--space-10)" }}>
                 <h3

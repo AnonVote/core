@@ -32,14 +32,18 @@ model Ballot {
   organizationId    String
   organization      Organization    @relation(fields: [organizationId], references: [id])
   topic             String
-  status            BallotStatus    @default(OPEN)
+  status            BallotStatus    @default(DRAFT)
   deadline          DateTime
+  startTime         DateTime?
   eligibilityListId String
   eligibilityList   EligibilityList @relation(fields: [eligibilityListId], references: [id])
   allowWeightedVoting Boolean       @default(false)
   allowRankedChoice Boolean       @default(false)
   maxRankings       Int?           // Max number of rankings allowed (for ranked-choice)
+  autoFinalise      Boolean         @default(false)
+  optionCount       Int             @default(0)
   createdAt         DateTime        @default(now())
+  deletedAt         DateTime?
   options           Option[]
   votes             Vote[]
   result            Result?
@@ -48,12 +52,14 @@ model Ballot {
   anchorStatus      AnchorStatus    @default(PENDING)
   tokenDeliveryRetries TokenDeliveryRetry[]
   ballotKey         BallotKey?
+  anchorRetries     BallotAnchorRetry[]
 }
 
 enum BallotStatus {
   DRAFT
-  OPEN
+  ACTIVE
   CLOSED
+  FINALISED
 }
 
 enum AnchorStatus {
@@ -132,6 +138,17 @@ model StellarRetryQueue {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("stellar_retry_queue")
+}
+
+model BallotAnchorRetry {
+  id         String   @id @default(uuid())
+  ballotId   String   @unique
+  ballot     Ballot   @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  retryCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ballot_anchor_retry_queue")
 }
 
 model Result {

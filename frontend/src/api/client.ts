@@ -60,6 +60,8 @@ export const loginOrg = (data: { name: string; password: string }) =>
 
 export const logoutOrg = () => api.post("/organizations/logout");
 
+export const refreshSession = () => api.post("/organizations/refresh");
+
 export const getMe = () =>
   api.get<ApiResponse<Organization>>("/organizations/me");
 
@@ -87,11 +89,13 @@ export const deleteBallot = (id: string) =>
 export const createBallot = (data: {
   topic: string;
   options: string[];
-  eligibilityListId: string;
+  eligibilityListId?: string;
   deadline: string;
   allowWeightedVoting?: boolean;
   allowRankedChoice?: boolean;
   maxRankings?: number;
+  startTime?: string;
+  autoFinalise?: boolean;
 }) => api.post<ApiResponse<Ballot>>("/ballots", data);
 
 export const updateBallot = (

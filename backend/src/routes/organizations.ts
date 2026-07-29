@@ -17,6 +17,7 @@ import {
   changeOrgPassword,
   deleteOrgAccount,
 } from "../services/organizationService";
+import { shouldRefreshToken, SESSION_EXPIRY_SECONDS } from "../middleware/auth";
 
 const router = Router();
 
@@ -122,6 +123,70 @@ router.post(
       }
       res.clearCookie("session");
       res.status(200).json({ data: { message: "Logged out successfully" } });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/organizations/refresh — Refresh session token
+// Issues a new token if the current one is valid and within 1 hour of expiry.
+// Does NOT accept an already-expired token.
+router.post(
+  "/refresh",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = req.cookies?.session;
+      if (!token) {
+        throw unauthorized("No session token provided");
+      }
+
+      // requireAuth already verified the token is valid and not expired.
+      // Only refresh if within the refresh window.
+      if (!shouldRefreshToken(token)) {
+        res.status(200).json({
+          data: { message: "Token is still valid, no refresh needed" },
+        });
+        return;
+      }
+
+      const org = req.organization!;
+
+      // Delete old session
+      await prisma.session.deleteMany({ where: { token } });
+
+      // Create new session
+      const expiresAt = new Date(Date.now() + SESSION_EXPIRY_SECONDS * 1000);
+      const session = await prisma.session.create({
+        data: {
+          organizationId: org.id,
+          token: "",
+          expiresAt,
+        },
+      });
+
+      const newToken = jwt.sign(
+        { sessionId: session.id, orgId: org.id },
+        config.jwtSecret,
+        { expiresIn: "8h" },
+      );
+
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { token: newToken },
+      });
+
+      res.cookie("session", newToken, {
+        httpOnly: true,
+        sameSite: config.nodeEnv === "production" ? "none" : "strict",
+        secure: config.nodeEnv === "production",
+        maxAge: SESSION_EXPIRY_SECONDS * 1000,
+      });
+
+      res.status(200).json({
+        data: { organizationId: org.id, name: org.name },
+      });
     } catch (err) {
       next(err);
     }
