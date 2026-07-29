@@ -128,7 +128,7 @@ export async function issueToken(
   // Fire-and-forget Stellar write — does not block the response
   writeRecord({
     type: "TOKEN_ISSUED",
-    ballotId,
+    ballotId: hashIdentifier(ballotId),
     auditEventId: result.auditEventId,
   })
     .then((stellarResult) => {

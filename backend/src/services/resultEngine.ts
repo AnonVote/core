@@ -83,7 +83,7 @@ export async function tallyBallot(
   // Write to Stellar manageData layer — non-blocking, result is published regardless
   const stellarResult = await writeRecord({
     type: "RESULT_PUBLISHED",
-    ballotId,
+    ballotId: hashIdentifier(ballotId),
     totalVotes: totalWeightedVotes,
     isConsistent,
   });
