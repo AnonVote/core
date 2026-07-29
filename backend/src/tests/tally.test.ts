@@ -4,6 +4,7 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
 import { tallyBallot } from "../services/resultEngine";
+import * as stellarService from "../services/stellarService";
 
 let ballotId: string;
 let optionAId: string;
@@ -134,5 +135,30 @@ describe("tallyBallot — tally engine", () => {
     const result = await tallyBallot(ballotId, { skipSoroban: true });
     expect(result.totalVotes).toBe(COUNT);
     expect(result.isConsistent).toBe(true);
+  });
+
+  it("writes ballotId as hashIdentifier(ballotId) in Stellar manageData", async () => {
+    const writeRecordSpy = jest
+      .spyOn(stellarService, "writeRecord")
+      .mockResolvedValue({ txHash: "0xmock", ledgerTimestamp: new Date() });
+
+    await castVote(optionAId);
+    await prisma.voterToken.create({
+      data: { tokenHash: hashToken(generateToken()), ballotId, used: true },
+    });
+
+    await tallyBallot(ballotId, { skipSoroban: true });
+
+    expect(writeRecordSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ballotId: hashIdentifier(ballotId),
+      }),
+    );
+
+    const callArgs = writeRecordSpy.mock.calls[0][0] as { ballotId: string };
+    expect(callArgs.ballotId).toBe(hashIdentifier(ballotId));
+    expect(callArgs.ballotId).not.toBe(ballotId);
+
+    writeRecordSpy.mockRestore();
   });
 });
