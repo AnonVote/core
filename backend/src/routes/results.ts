@@ -1,5 +1,7 @@
+import crypto from "crypto";
 import { Router, Request, Response, NextFunction } from "express";
 import { getResult, tallyBallot } from "../services/resultEngine";
+import { sorobanGetAuditCounts } from "../services/sorobanService";
 import { requireAuth } from "../middleware/auth";
 import { prisma } from "../prisma/client";
 import { notFound, badRequest } from "../utils/errors";
@@ -12,6 +14,45 @@ function explorerUrl(txHash: string): string {
   const network =
     config.stellarNetwork === "mainnet" ? "public" : "testnet";
   return `https://stellar.expert/explorer/${network}/tx/${txHash}`;
+}
+
+/**
+ * Plain-language explanation of the privacy/verification model, surfaced to
+ * observers alongside the results so they can understand what "verified"
+ * means for this tally without reading the source code.
+ */
+const ENCRYPTION_NOTE =
+  "Each vote is encrypted at submission time with AES-256-GCM using the " +
+  "ballot's encryption key. Votes are never stored or transmitted in " +
+  "plaintext — they are decrypted only in aggregate, during tallying, to " +
+  "compute the counts below. Individual vote payloads are not exposed by " +
+  "this API.";
+
+/**
+ * Determine the on-chain consistency flag for a ballot's result.
+ *
+ * Falls back to the DB-level consistency check (weighted votes vs. used
+ * tokens, computed in resultEngine) whenever the Soroban contract isn't
+ * deployed/configured (SOROBAN_CONTRACT_ID unset — see issue #12), so the
+ * flag always reflects the best verification available rather than
+ * silently reporting false.
+ */
+async function resolveIsConsistent(
+  ballotId: string,
+  dbIsConsistent: boolean,
+): Promise<{ isConsistent: boolean; source: "contract" | "database" }> {
+  if (!config.sorobanContractId) {
+    return { isConsistent: dbIsConsistent, source: "database" };
+  }
+
+  const ballotIdHash = crypto.createHash("sha256").update(ballotId).digest("hex");
+  const onChain = await sorobanGetAuditCounts(ballotIdHash).catch(() => null);
+
+  if (!onChain) {
+    return { isConsistent: dbIsConsistent, source: "database" };
+  }
+
+  return { isConsistent: onChain.isConsistent, source: "contract" };
 }
 
 // GET /api/results/:ballotId — Public: enriched result with option breakdown
@@ -53,9 +94,31 @@ router.get(
           ? Math.round((result.totalVotes / tokensIssued) * 10000) / 100
           : 0;
 
+      const { isConsistent, source: consistencySource } =
+        await resolveIsConsistent(ballotId, result.isConsistent);
+
+      // Simple label -> count map for observers/auditors (e.g. { "Option A": 45 })
+      const resultsByLabel: Record<string, number> = {};
+      options.forEach((opt) => {
+        resultsByLabel[opt.optionText] = opt.count;
+      });
+
+      const metadata = {
+        ballot_id: ballotId,
+        ballot_title: ballot.topic,
+        total_votes: result.totalVotes,
+        tally_timestamp: result.publishedAt,
+        stellar_transaction_id: result.stellarTxId ?? null,
+        soroban_transaction_id: result.sorobanTxId ?? null,
+        is_consistent: isConsistent,
+        consistency_source: consistencySource,
+        encryption_note: ENCRYPTION_NOTE,
+      };
+
       res.status(200).json({
         data: {
           ...result,
+          isConsistent,
           options,
           participationRate,
           tokensIssued,
@@ -65,6 +128,8 @@ router.get(
           sorobanExplorerUrl: result.sorobanTxId
             ? explorerUrl(result.sorobanTxId)
             : null,
+          metadata,
+          results: resultsByLabel,
         },
       });
     } catch (err) {
