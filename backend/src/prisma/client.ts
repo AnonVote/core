@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-prisma.$use(async (params, next) => {
+prisma.$use(async (params: any, next: any) => {
   if (params.model === "Ballot" && params.action === "create") {
     const data = params.args.data as Record<string, unknown> & {
       ballotKey?: unknown;

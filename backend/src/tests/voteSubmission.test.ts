@@ -49,7 +49,7 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
         topic: "Vote Submission Test Topic",
         eligibilityListId: list.id,
         deadline: new Date(Date.now() + 3600_000),
-        status: "OPEN",
+        status: "ACTIVE",
         options: {
           create: [{ text: "Option A" }, { text: "Option B" }],
         },
@@ -57,7 +57,7 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
       include: { options: true },
     });
     ballotId = ballot.id;
-    optionId = ballot.options[0].id;
+    optionId = (ballot as any).options[0].id;
 
     // Issue token
     validToken = generateToken();

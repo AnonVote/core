@@ -49,7 +49,7 @@ beforeAll(async () => {
     data: {
       organizationId: org!.id,
       topic: "Verify Test Ballot",
-      deadline: new Date(Date.now() + 3_600_000),
+      deadline: new Date(Date.now() + 7_200_000),
       eligibilityListId,
       status: "CLOSED",
       options: { create: [{ text: "Yes" }] },

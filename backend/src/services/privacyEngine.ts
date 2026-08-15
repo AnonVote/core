@@ -51,28 +51,26 @@ export async function submitVote(
   }
 
   // Atomic transaction with SELECT FOR UPDATE row-level lock
+  const now = new Date();
   const voteResult = await prisma.$transaction(async (tx) => {
-    // Acquire row-level lock on VoterToken record
-    const lockedTokens: any[] = await tx.$queryRaw`
-      SELECT * FROM "VoterToken"
-      WHERE "tokenHash" = ${effectiveToken}
-      FOR UPDATE
-    `;
+    // Atomic update: only update if used is false
+    const tokenUpdate = await tx.voterToken.updateMany({
+      where: { tokenHash: effectiveToken, used: false, ballotId },
+      data: { used: true, usedAt: now },
+    });
 
-    if (!lockedTokens || lockedTokens.length === 0) {
-      throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
-    }
-
-    const voterToken = lockedTokens[0];
-    if (voterToken.ballotId !== ballotId) {
-      throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
-    }
-
-    if (voterToken.used) {
-      await tx.auditEvent.create({
-        data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
-      }).catch(() => {});
-      throw new AppError("This token has already been used to cast a vote.", 409, "TOKEN_ALREADY_USED");
+    if (tokenUpdate.count === 0) {
+      // Find out why it failed
+      const existing = await tx.voterToken.findUnique({ where: { tokenHash: effectiveToken } });
+      if (!existing || existing.ballotId !== ballotId) {
+        throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
+      }
+      if (existing.used) {
+        await tx.auditEvent.create({
+          data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
+        }).catch(() => {});
+        throw new AppError("This token has already been used to cast a vote.", 409, "TOKEN_ALREADY_USED");
+      }
     }
 
     // Validate ballot exists, open status, and deadline
@@ -85,7 +83,6 @@ export async function submitVote(
       throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
     }
 
-    const now = new Date();
     // State machine: only ACTIVE ballots accept votes
     if (ballot.status !== "ACTIVE" || (ballot.deadline && new Date(ballot.deadline) < now)) {
       throw new AppError("This ballot has closed and is no longer accepting votes.", 403, "BALLOT_CLOSED");
@@ -114,11 +111,6 @@ export async function submitVote(
       },
     });
 
-    // Mark eligibility token as used
-    await tx.voterToken.update({
-      where: { id: voterToken.id },
-      data: { used: true, usedAt: now },
-    });
 
     // Audit log
     await tx.auditEvent.create({

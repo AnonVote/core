@@ -64,7 +64,7 @@ describe("Vote Race Condition Test (backend/src/tests/voteRace.test.ts)", () => 
           topic: `Race Ballot ${run}`,
           eligibilityListId: list.id,
           deadline: new Date(Date.now() + 3600_000),
-          status: "OPEN",
+          status: "ACTIVE",
           options: {
             create: [{ text: "Option A" }, { text: "Option B" }],
           },
@@ -73,7 +73,7 @@ describe("Vote Race Condition Test (backend/src/tests/voteRace.test.ts)", () => 
       });
 
       const ballotId = ballot.id;
-      const optionId = ballot.options[0].id;
+      const optionId = (ballot as any).options[0].id;
 
       const raceToken = generateToken();
       await prisma.voterToken.create({

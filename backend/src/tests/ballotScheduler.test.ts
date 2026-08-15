@@ -62,7 +62,7 @@ describe("Ballot Scheduler — State Transitions", () => {
     });
 
     const drafts = await getDraftBallotsToActivate();
-    expect(drafts.some((b) => b.id === ballot.id)).toBe(true);
+    expect(drafts.some((b: any) => b.id === ballot.id)).toBe(true);
 
     // Activate it
     await prisma.ballot.update({
@@ -92,7 +92,7 @@ describe("Ballot Scheduler — State Transitions", () => {
     });
 
     const expired = await getActiveExpiredBallots();
-    expect(expired.some((b) => b.id === ballot.id)).toBe(true);
+    expect(expired.some((b: any) => b.id === ballot.id)).toBe(true);
 
     await closeBallot(ballot.id);
     const updated = await prisma.ballot.findUnique({ where: { id: ballot.id } });
@@ -118,10 +118,10 @@ describe("Ballot Scheduler — State Transitions", () => {
 
     // Should not be returned by getActiveExpiredBallots
     const expired = await getActiveExpiredBallots();
-    expect(expired.some((b) => b.id === ballot.id)).toBe(false);
+    expect(expired.some((b: any) => b.id === ballot.id)).toBe(false);
 
     // Should not be returned by getDraftBallotsToActivate
     const drafts = await getDraftBallotsToActivate();
-    expect(drafts.some((b) => b.id === ballot.id)).toBe(false);
+    expect(drafts.some((b: any) => b.id === ballot.id)).toBe(false);
   });
 });

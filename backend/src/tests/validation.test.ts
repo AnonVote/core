@@ -110,7 +110,7 @@ describe("POST /api/ballots — validation", () => {
       .send({
         options: ["A", "B"],
         eligibilityListId,
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("ValidationError");
@@ -124,7 +124,7 @@ describe("POST /api/ballots — validation", () => {
       .send({
         topic: "A topic",
         eligibilityListId,
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("ValidationError");
@@ -139,7 +139,7 @@ describe("POST /api/ballots — validation", () => {
         topic: "A topic",
         options: ["Only one"],
         eligibilityListId,
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("ValidationError");
@@ -153,7 +153,7 @@ describe("POST /api/ballots — validation", () => {
         topic: "A topic",
         options: "not-an-array",
         eligibilityListId,
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("ValidationError");
@@ -166,7 +166,7 @@ describe("POST /api/ballots — validation", () => {
       .send({
         topic: "A topic",
         options: ["A", "B"],
-        deadline: new Date(Date.now() + 3_600_000).toISOString(),
+        deadline: new Date(Date.now() + 7_200_000).toISOString(),
       });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/eligibilityListId/i);

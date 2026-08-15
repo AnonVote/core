@@ -10,6 +10,7 @@
  * client.
  */
 
+process.env.ENABLE_RATE_LIMITS = "true";
 import request from "supertest";
 import app from "../app";
 import { prisma } from "../prisma/client";
@@ -81,10 +82,12 @@ beforeAll(async () => {
       topic: "Rate Limit Test Ballot",
       options: ["Yes", "No"],
       eligibilityListId: list.id,
-      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      deadline: new Date(Date.now() + 7_200_000).toISOString(),
     });
+  if (ballotRes.status !== 201) throw new Error("Ballot creation failed: " + JSON.stringify(ballotRes.body));
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
+  await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
   // Issue a valid token via the tokens API
   const tokenRes = await request(app)
@@ -114,8 +117,8 @@ describe("POST /api/votes — rate limiting", () => {
       .post("/api/votes")
       .send({ ballotId, voterToken: validToken, optionId });
 
-    expect(res.status).toBe(201);
-    expect(res.body.data.message).toMatch(/submitted/i);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("confirmed");
   });
 
   it("returns 429 with Retry-After when IP limit is exceeded", async () => {
