@@ -261,6 +261,40 @@ describe("backend tally Soroban integration", () => {
     expect(persisted.is_consistent).toBe(true);
   });
 
+  it("retries transient is_consistent read failures before persisting tally", async () => {
+    let consistencyAttempts = 0;
+    mockRpc.simulateTransaction.mockImplementation(async (tx: any) => {
+      if (tx.operations[0].method === "is_consistent") {
+        consistencyAttempts++;
+        return consistencyAttempts === 1
+          ? simulationError("temporary RPC timeout")
+          : simulationSuccess(true);
+      }
+      return simulationSuccess();
+    });
+    mockRpc.sendTransaction.mockResolvedValueOnce({ status: "PENDING", hash: "tx-tally-read-retry" });
+    mockRpc.getTransaction.mockResolvedValueOnce(txSuccess());
+
+    const repository: TallyRepository = {
+      async createTallyResult(record) {
+        return record;
+      },
+    };
+
+    const persisted = await publishTallyOnChain(
+      makeConfig(),
+      repository,
+      {
+        ballotIdHash: "ballot-tally-read-retry",
+        localResult: { yes: 4, no: 2 },
+      },
+    );
+
+    expect(consistencyAttempts).toBe(2);
+    expect(persisted.soroban_tx_id).toBe("tx-tally-read-retry");
+    expect(persisted.is_consistent).toBe(true);
+  });
+
   it("surfaces a tally consistency read failure instead of persisting an unverifiable result", async () => {
     mockRpc.simulateTransaction.mockImplementation(async (tx: any) => {
       if (tx.operations[0].method === "is_consistent") {

@@ -640,6 +640,24 @@ async function withSorobanRpcResilience<T>(
   );
 }
 
+async function readContractOrThrow(
+  config: SorobanConfig,
+  method: string,
+  args: { value: unknown; type: string }[],
+  txHash = "",
+): Promise<unknown | null> {
+  const read = await readContract(config, method, args);
+  if (read.errorCode !== undefined) {
+    throwFromInvokeResult(method, {
+      txHash,
+      success: false,
+      errorCode: read.errorCode,
+      errorMessage: read.errorMessage,
+    });
+  }
+  return read.value;
+}
+
 /**
  * Parse a Soroban contract error code out of a simulation error string.
  * Contract errors are surfaced as "Error(Contract, #N)" in the XDR diagnostics.
@@ -1322,17 +1340,18 @@ export async function tally(
     options.rpcRetryPolicy,
   );
 
-  const consistencyRead = await readContract(config, ANONVOTE_CONTRACT_METHODS.isConsistent, [
-    { value: ballotIdHash, type: "string" },
-  ]);
-  if (consistencyRead.errorCode !== undefined) {
-    throwFromInvokeResult("tally.is_consistent", {
-      txHash: publishResult.txHash,
-      success: false,
-      errorCode: consistencyRead.errorCode,
-      errorMessage: consistencyRead.errorMessage,
-    });
-  }
+  const isConsistent = await withSorobanRpcResilience(
+    config,
+    "tally.is_consistent",
+    () =>
+      readContractOrThrow(
+        config,
+        ANONVOTE_CONTRACT_METHODS.isConsistent,
+        [{ value: ballotIdHash, type: "string" }],
+        publishResult.txHash,
+      ),
+    options.rpcRetryPolicy,
+  );
 
   return {
     ballotIdHash,
@@ -1340,7 +1359,7 @@ export async function tally(
     resultHash,
     txHash: publishResult.txHash,
     sorobanTxId: publishResult.txHash,
-    isConsistent: consistencyRead.value === true,
+    isConsistent: isConsistent === true,
   };
 }
 
