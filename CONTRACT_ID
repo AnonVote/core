@@ -16,5 +16,5 @@
 # The script will update deployments.json and print the contract ID.
 # Copy it here and into backend/.env as SOROBAN_CONTRACT_ID=<id>
 
-testnet: (not yet deployed)
+testnet: CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH
 mainnet: (not yet deployed)

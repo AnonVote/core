@@ -21,6 +21,44 @@ All inputs use SHA-256 hashes of ballot UUIDs — no raw IDs stored on-chain.
 
 ---
 
+## Deployed contract (testnet)
+
+**Status:** ✅ Deployed & initialized on Stellar **testnet**.
+
+| Field | Value |
+| --- | --- |
+| Contract ID | `CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH` |
+| Network | testnet (`Test SDF Network ; September 2015`) |
+| WASM hash | `d366202b16d3d37ce19bbb10bdd6d179fb2b826ceab75cd011cf6c4e5c2e6960` |
+| Admin | `GA6D2UIEACZO25AG2BUGPLQAZW3JJJZSGYH4LVUW5JMWQQ3SFQDK4UVL` |
+| Deploy tx | `2da3aab9addbc922d3430530716d15071848472e875b5c1595709388945b3b23` |
+| Git tag | `contract-testnet-v1.0.0` |
+
+Full metadata (upload/deploy/initialize tx hashes, timestamp, git commit,
+RPC URL) is recorded in [`deployments.json`](deployments.json); the ID is also
+in [`CONTRACT_ID`](CONTRACT_ID).
+
+### Verify on Stellar Explorer
+
+- Contract: <https://stellar.expert/explorer/testnet/contract/CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH>
+- Deploy transaction: <https://stellar.expert/explorer/testnet/tx/2da3aab9addbc922d3430530716d15071848472e875b5c1595709388945b3b23>
+
+### Verify with a live view call
+
+Read-only calls require no signing key beyond a funded source account:
+
+```bash
+stellar contract invoke \
+  --id CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH \
+  --source-account <YOUR_ACCOUNT> --network testnet \
+  -- get_admin
+# => "GA6D2UIEACZO25AG2BUGPLQAZW3JJJZSGYH4LVUW5JMWQQ3SFQDK4UVL"
+
+# is_paused => false, get_approval_threshold => 1
+```
+
+---
+
 ## Prerequisites
 
 ```bash
