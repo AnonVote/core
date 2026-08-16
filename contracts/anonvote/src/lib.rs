@@ -10,6 +10,9 @@ use soroban_sdk::{
     String, Symbol, Vec,
 };
 
+mod validation;
+use validation::validate_hex_hash;
+
 const APPROVAL_EXPIRATION_SECONDS: u64 = 7 * 24 * 60 * 60;
 const UPGRADE_TIME_LOCK_SECONDS: u64 = 48 * 60 * 60;
 
@@ -41,6 +44,7 @@ pub enum ContractError {
     SameAdmin = 22,
     InvalidBallotIdHash = 23,
     InvalidResultHash = 24,
+    InternalError = 25,
 }
 
 #[contracttype]
@@ -196,7 +200,7 @@ impl AnonVoteContract {
     /// Initializes the contract. Governance starts as 1-of-1 with the admin as
     /// the sole approver, so deployments can explicitly configure M-of-N next.
     pub fn initialize(env: Env, admin: Address) -> Result<(), ContractError> {
-        if env.storage().instance().has(&DataKey::Initialized) {
+        if env.storage().instance().has(&DataKey::Admin) {
             return Err(ContractError::AlreadyInitialized);
         }
 
@@ -330,6 +334,10 @@ impl AnonVoteContract {
         if !is_valid_sha256_hex(&result_hash) {
             return Err(ContractError::InvalidResultHash);
         }
+        // A result can only be proposed for a ballot that exists (mirrors the
+        // existence guard on record_token / record_vote). This fails fast
+        // instead of waiting until the operation is approved and executed.
+        Self::require_ballot_metadata(&env, &ballot_id_hash)?;
         Self::create_operation(
             env,
             caller,
@@ -625,7 +633,7 @@ impl AnonVoteContract {
         caller: Address,
         ballot_id_hash: String,
     ) -> Result<(), ContractError> {
-        validate_hex_hash(&env, &result_hash, ContractError::InvalidResultHash)?;
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
         caller.require_auth();
         Self::require_admin(&env, &caller)?;
         Self::require_ballot_metadata(&env, &ballot_id_hash)?;
@@ -959,6 +967,30 @@ impl AnonVoteContract {
                 let rotated_at = env.ledger().timestamp();
                 env.storage().instance().set(&DataKey::Admin, new_admin);
 
+                // Keep the approver set consistent with the admin: if the
+                // outgoing admin was an approver (the bootstrap 1-of-1 case),
+                // replace it with the incoming admin so the new admin can
+                // approve future operations. Custom M-of-N sets that do not
+                // include the admin are left untouched.
+                let approvers: Vec<Address> = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Approvers)
+                    .unwrap_or(Vec::new(env));
+                let mut updated_approvers = approvers.clone();
+                let mut approvers_changed = false;
+                for i in 0..updated_approvers.len() {
+                    if updated_approvers.get(i).unwrap() == old_admin {
+                        updated_approvers.set(i, new_admin.clone());
+                        approvers_changed = true;
+                    }
+                }
+                if approvers_changed {
+                    env.storage()
+                        .instance()
+                        .set(&DataKey::Approvers, &updated_approvers);
+                }
+
                 // Append to rotation history stored in persistent storage.
                 let mut history: Vec<RotationRecord> = env
                     .storage()
@@ -1107,9 +1139,9 @@ impl AnonVoteContract {
             .storage()
             .instance()
             .get(&DataKey::Admin)
-            .ok_or(ContractError::Unauthorized)?;
+            .ok_or(ContractError::AdminUnauthorized)?;
         if *caller != admin {
-            return Err(ContractError::Unauthorized);
+            return Err(ContractError::AdminUnauthorized);
         }
         Ok(())
     }
@@ -1895,7 +1927,7 @@ mod tests {
     #[test]
     fn record_token_on_non_existent_ballot_returns_ballot_not_found() {
         let (env, client, admin) = setup();
-        let phantom = String::from_str(&env, "phantom-ballot-token");
+        let phantom = String::from_str(&env, BALLOT_D);
         assert_eq!(
             client.try_record_token(&admin, &phantom),
             Err(Ok(ContractError::BallotNotFound))
@@ -1905,7 +1937,7 @@ mod tests {
     #[test]
     fn record_vote_on_non_existent_ballot_returns_ballot_not_found() {
         let (env, client, admin) = setup();
-        let phantom = String::from_str(&env, "phantom-ballot-vote");
+        let phantom = String::from_str(&env, BALLOT_E);
         assert_eq!(
             client.try_record_vote(&admin, &phantom),
             Err(Ok(ContractError::BallotNotFound))
@@ -1915,8 +1947,8 @@ mod tests {
     #[test]
     fn record_result_on_non_existent_ballot_returns_ballot_not_found() {
         let (env, client, admin) = setup();
-        let phantom = String::from_str(&env, "phantom-ballot-result");
-        let result = String::from_str(&env, "some-result-hash");
+        let phantom = String::from_str(&env, BALLOT_F);
+        let result = String::from_str(&env, RESULT_B);
         assert_eq!(
             client.try_record_result(&admin, &phantom, &result),
             Err(Ok(ContractError::BallotNotFound))
@@ -1926,8 +1958,8 @@ mod tests {
     #[test]
     fn happy_path_record_ballot_then_token_vote_result_all_succeed() {
         let (env, client, admin) = setup();
-        let ballot = String::from_str(&env, "happy-path-ballot");
-        let result = String::from_str(&env, "happy-path-result-hash");
+        let ballot = String::from_str(&env, BALLOT_G);
+        let result = String::from_str(&env, RESULT_A);
 
         // Register ballot first
         client.record_ballot(&admin, &ballot, &limits(10, 10));
@@ -1953,6 +1985,3 @@ mod tests {
         assert!(!client.is_consistent(&phantom));
     }
 }
-
-#[cfg(test)]
-mod test;

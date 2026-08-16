@@ -1,5 +1,5 @@
 use soroban_sdk::{Env, String};
-use crate::errors::ContractError;
+use crate::ContractError;
 
 pub fn validate_hex_hash(
     _env: &Env,
