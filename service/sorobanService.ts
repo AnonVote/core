@@ -407,6 +407,37 @@ export const ANONVOTE_CONTRACT_METHODS = {
   isConsistent: "is_consistent",
 } as const;
 
+export interface SorobanDomainError {
+  code: SorobanServiceErrorCode | "UNKNOWN_ERROR";
+  message: string;
+  retryable: boolean;
+  httpStatus: number;
+}
+
+export function toSorobanDomainError(err: unknown): SorobanDomainError {
+  if (err instanceof SorobanServiceError) {
+    const httpStatus = err.retryable
+      ? 503
+      : err.code === SorobanServiceErrorCode.CONTRACT_ERROR
+        ? 409
+        : 502;
+
+    return {
+      code: err.code,
+      message: err.message,
+      retryable: err.retryable,
+      httpStatus,
+    };
+  }
+
+  return {
+    code: "UNKNOWN_ERROR",
+    message: "Unexpected Soroban service failure",
+    retryable: false,
+    httpStatus: 500,
+  };
+}
+
 export type SorobanAuditEventType =
   | "ballot_created"
   | "token_issued"

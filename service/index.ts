@@ -34,6 +34,7 @@ export {
   SorobanServiceError,
   SorobanServiceErrorCode,
   SOROBAN_SERVICE_ERROR_RETRYABLE,
+  toSorobanDomainError,
 } from "./sorobanService.js";
 
 // Re-export the full service surface so callers can use a single import path.
