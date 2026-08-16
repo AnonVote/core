@@ -20,6 +20,7 @@
  */
 
 import * as StellarSdk from "stellar-sdk";
+import { createHash } from "crypto";
 
 // ── SorobanServiceError — throwable typed error for callers ──────────────────
 
@@ -216,6 +217,33 @@ export const DEFAULT_RETRY_POLICY: RetryPolicy = {
   backoffMultiplier: 1.5,
 };
 
+/**
+ * Retry/backoff policy for backend-level RPC operations. This wraps the full
+ * contract invocation and is separate from the transaction-confirmation polling
+ * loop above.
+ */
+export interface RpcRetryPolicy {
+  maxAttempts: number;
+  initialDelayMs: number;
+  backoffMultiplier: number;
+}
+
+export const DEFAULT_RPC_RETRY_POLICY: RpcRetryPolicy = {
+  maxAttempts: 3,
+  initialDelayMs: 250,
+  backoffMultiplier: 2,
+};
+
+export interface CircuitBreakerPolicy {
+  failureThreshold: number;
+  resetTimeoutMs: number;
+}
+
+export const DEFAULT_CIRCUIT_BREAKER_POLICY: CircuitBreakerPolicy = {
+  failureThreshold: 3,
+  resetTimeoutMs: 30_000,
+};
+
 export interface SorobanConfig {
   rpcUrl: string;
   networkPassphrase: string;
@@ -223,6 +251,10 @@ export interface SorobanConfig {
   sourceKeypair: StellarSdk.Keypair;
   /** Optional override for the transaction-confirmation retry/backoff strategy. */
   retryPolicy?: RetryPolicy;
+  /** Optional override for full RPC operation retries. */
+  rpcRetryPolicy?: RpcRetryPolicy;
+  /** Optional override for circuit-breaker behavior. */
+  circuitBreakerPolicy?: CircuitBreakerPolicy;
 }
 
 export enum BallotState {
@@ -303,6 +335,70 @@ export interface SorobanInvokeResult {
   returnValue?: unknown;
   errorCode?: SorobanErrorCode;
   errorMessage?: string;
+}
+
+export interface EncryptedVote {
+  ciphertext: string;
+  nonce?: string;
+  tag?: string;
+  algorithm?: string;
+  proof?: unknown;
+  voteHash?: string;
+}
+
+export interface RecordVoteResult {
+  ballotIdHash: string;
+  encryptedVote: EncryptedVote;
+  txHash: string;
+  sorobanTxId: string;
+  confirmed: true;
+}
+
+export interface TallyResultPayload {
+  [key: string]: unknown;
+}
+
+export interface TallyResult {
+  ballotIdHash: string;
+  localResult: TallyResultPayload;
+  resultHash: string;
+  txHash: string;
+  sorobanTxId: string;
+  isConsistent: boolean;
+}
+
+export interface VoteDatabaseRecord extends RecordVoteResult {
+  soroban_tx_id: string;
+  storedAt: number;
+}
+
+export interface PersistedTallyResult extends TallyResult {
+  soroban_tx_id: string;
+  is_consistent: boolean;
+  storedAt: number;
+}
+
+export interface VoteRepository {
+  createVote(record: VoteDatabaseRecord): Promise<VoteDatabaseRecord>;
+}
+
+export interface TallyRepository {
+  createTallyResult(record: PersistedTallyResult): Promise<PersistedTallyResult>;
+}
+
+export interface VoteSubmissionInput {
+  ballotIdHash: string;
+  encryptedVote: EncryptedVote;
+}
+
+export interface TallySubmissionInput {
+  ballotIdHash: string;
+  localResult: TallyResultPayload;
+  resultHash?: string;
+}
+
+export interface BackendFlowOptions {
+  rpcRetryPolicy?: RpcRetryPolicy;
 }
 
 export type SorobanAuditEventType =
@@ -398,6 +494,113 @@ export interface BallotLimits {
 
 function makeError(code: SorobanErrorCode): Pick<SorobanInvokeResult, "errorCode" | "errorMessage"> {
   return { errorCode: code, errorMessage: ERROR_MESSAGES[code] };
+}
+
+type CircuitBreakerState = {
+  failures: number;
+  openedAt: number | null;
+};
+
+const circuitBreakers = new Map<string, CircuitBreakerState>();
+
+function circuitBreakerKey(config: SorobanConfig): string {
+  return `${config.rpcUrl}|${config.contractId}`;
+}
+
+function getCircuitBreakerState(config: SorobanConfig): CircuitBreakerState {
+  const key = circuitBreakerKey(config);
+  const existing = circuitBreakers.get(key);
+  if (existing) return existing;
+  const state: CircuitBreakerState = { failures: 0, openedAt: null };
+  circuitBreakers.set(key, state);
+  return state;
+}
+
+function assertCircuitClosed(config: SorobanConfig, operation: string): void {
+  const policy = config.circuitBreakerPolicy ?? DEFAULT_CIRCUIT_BREAKER_POLICY;
+  const state = getCircuitBreakerState(config);
+  if (state.openedAt === null) return;
+
+  const elapsedMs = Date.now() - state.openedAt;
+  if (elapsedMs >= policy.resetTimeoutMs) {
+    state.openedAt = null;
+    state.failures = 0;
+    console.warn(`[Soroban] ${operation}: circuit breaker half-open after ${elapsedMs}ms`);
+    return;
+  }
+
+  throw new SorobanServiceError(
+    SorobanServiceErrorCode.NETWORK_ERROR,
+    "Soroban RPC circuit breaker is open; retry later",
+  );
+}
+
+function recordCircuitSuccess(config: SorobanConfig): void {
+  const state = getCircuitBreakerState(config);
+  state.failures = 0;
+  state.openedAt = null;
+}
+
+function recordCircuitFailure(config: SorobanConfig, operation: string, err: SorobanServiceError): void {
+  if (!err.retryable) return;
+  const policy = config.circuitBreakerPolicy ?? DEFAULT_CIRCUIT_BREAKER_POLICY;
+  const state = getCircuitBreakerState(config);
+  state.failures++;
+  if (state.failures >= policy.failureThreshold && state.openedAt === null) {
+    state.openedAt = Date.now();
+    console.error(
+      `[Soroban] ${operation}: circuit breaker opened after ${state.failures} retryable failures for ${config.rpcUrl}`,
+    );
+  }
+}
+
+export function resetSorobanCircuitBreakers(): void {
+  circuitBreakers.clear();
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withSorobanRpcResilience<T>(
+  config: SorobanConfig,
+  operation: string,
+  fn: () => Promise<T>,
+  overridePolicy?: RpcRetryPolicy,
+): Promise<T> {
+  const retryPolicy = overridePolicy ?? config.rpcRetryPolicy ?? DEFAULT_RPC_RETRY_POLICY;
+  let attempt = 0;
+  let delayMs = retryPolicy.initialDelayMs;
+
+  while (attempt < retryPolicy.maxAttempts) {
+    assertCircuitClosed(config, operation);
+    attempt++;
+
+    try {
+      const result = await fn();
+      recordCircuitSuccess(config);
+      return result;
+    } catch (err) {
+      if (!(err instanceof SorobanServiceError)) throw err;
+
+      console.error(
+        `[Soroban] ${operation}: attempt ${attempt}/${retryPolicy.maxAttempts} failed — code=${err.code}, retryable=${err.retryable}, contractError=${err.contractErrorCode ?? "none"}`,
+      );
+      recordCircuitFailure(config, operation, err);
+
+      if (!err.retryable || attempt >= retryPolicy.maxAttempts) {
+        throw err;
+      }
+
+      await delay(delayMs);
+      delayMs = Math.round(delayMs * retryPolicy.backoffMultiplier);
+    }
+  }
+
+  throw new SorobanServiceError(
+    SorobanServiceErrorCode.NETWORK_ERROR,
+    "Soroban RPC operation failed after retries",
+  );
 }
 
 /**
