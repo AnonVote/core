@@ -23,7 +23,7 @@ export const mockRpc = {
   simulateTransaction: vi.fn(),
   sendTransaction: vi.fn(),
   getTransaction: vi.fn(),
-  getEvents: vi.fn(async () => ({ events: [], latestLedger: 0 })),
+  getEvents: vi.fn(async () => ({ events: [] as any[], latestLedger: 0 })),
 };
 
 export function resetMockRpc() {
