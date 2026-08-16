@@ -27,7 +27,11 @@ All inputs use SHA-256 hashes of ballot UUIDs — no raw IDs stored on-chain.
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Add WASM target
+# Install the 1.81.0 toolchain used to build the deployable WASM (see "Build" below)
+rustup toolchain install 1.81.0
+rustup target add wasm32-unknown-unknown --toolchain 1.81.0
+
+# The default/stable toolchain is still used for tests
 rustup target add wasm32-unknown-unknown
 
 # Install Stellar CLI
@@ -38,12 +42,33 @@ cargo install --locked stellar-cli --features opt
 
 ## Build
 
+> **Important — build with rustc 1.81.0.** Since rustc 1.82 the
+> `wasm32-unknown-unknown` target enables the WASM `reference-types` and
+> `multivalue` proposals by default. The Soroban host bundled with
+> `soroban-sdk` 21 rejects those at upload time
+> (`HostError: Error(WasmVm, InvalidAction) "reference-types not enabled"`).
+> Building with 1.81.0 — the last release before that default changed —
+> produces an MVP-clean, uploadable artifact. The committed `Cargo.lock` pins
+> a few transitive deps to pre-`edition2024` versions so cargo 1.81 can parse
+> the graph; build with `--locked` and do not `cargo update` them without
+> re-verifying. See `contracts/anonvote/.cargo/config.toml` for the full
+> rationale.
+
 ```bash
 cd contracts/anonvote
-cargo build --target wasm32-unknown-unknown --release
+rustup run 1.81.0 cargo build --target wasm32-unknown-unknown --release --locked
 ```
 
 Output: `target/wasm32-unknown-unknown/release/anonvote.wasm`
+
+Verify the artifact is free of the rejected proposals (optional, requires
+Binaryen `wasm-opt`) — this must exit 0:
+
+```bash
+wasm-opt target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --mvp-features --enable-mutable-globals --enable-sign-ext --enable-bulk-memory \
+  -o /dev/null
+```
 
 ---
 
