@@ -18,11 +18,13 @@ import {
   publishTallyOnChain,
   recordVote,
   resetSorobanCircuitBreakers,
+  createSorobanService,
   SorobanErrorCode,
   SorobanServiceError,
   SorobanServiceErrorCode,
   submitVoteOnChainFirst,
   tally,
+  toSorobanDomainError,
   type SorobanConfig,
   type TallyRepository,
   type VoteRepository,
@@ -177,6 +179,19 @@ describe("backend vote submission Soroban integration", () => {
     );
     expect(mockRpc.simulateTransaction).toHaveBeenCalledTimes(1);
   });
+
+  it("maps SorobanServiceError to a frontend-safe retriable domain error", () => {
+    const mapped = toSorobanDomainError(
+      new SorobanServiceError(SorobanServiceErrorCode.NETWORK_ERROR, "Stellar network or RPC endpoint is unavailable"),
+    );
+
+    expect(mapped).toEqual({
+      code: SorobanServiceErrorCode.NETWORK_ERROR,
+      message: "Stellar network or RPC endpoint is unavailable",
+      retryable: true,
+      httpStatus: 503,
+    });
+  });
 });
 
 describe("backend tally Soroban integration", () => {
@@ -244,5 +259,14 @@ describe("backend tally Soroban integration", () => {
 
     expect(persisted.soroban_tx_id).toBe("tx-tally-db");
     expect(persisted.is_consistent).toBe(true);
+  });
+
+  it("factory exposes backend vote and tally helpers bound to config", () => {
+    const service = createSorobanService(makeConfig());
+
+    expect(service).toHaveProperty("recordVote");
+    expect(service).toHaveProperty("tally");
+    expect(service).toHaveProperty("submitVoteOnChainFirst");
+    expect(service).toHaveProperty("publishTallyOnChain");
   });
 });
