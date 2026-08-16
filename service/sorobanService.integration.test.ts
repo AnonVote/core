@@ -261,6 +261,38 @@ describe("backend tally Soroban integration", () => {
     expect(persisted.is_consistent).toBe(true);
   });
 
+  it("surfaces a tally consistency read failure instead of persisting an unverifiable result", async () => {
+    mockRpc.simulateTransaction.mockImplementation(async (tx: any) => {
+      if (tx.operations[0].method === "is_consistent") {
+        return simulationError("timeout while reading consistency");
+      }
+      return simulationSuccess();
+    });
+    mockRpc.sendTransaction.mockResolvedValueOnce({ status: "PENDING", hash: "tx-tally-read-fail" });
+    mockRpc.getTransaction.mockResolvedValueOnce(txSuccess());
+
+    const repository: TallyRepository = {
+      createTallyResult: vi.fn(),
+    };
+
+    await expect(
+      publishTallyOnChain(
+        makeConfig(),
+        repository,
+        {
+          ballotIdHash: "ballot-tally-read-fail",
+          localResult: { yes: 1, no: 1 },
+        },
+      ),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.SIMULATION_FAILED &&
+        err.retryable === true,
+    );
+    expect(repository.createTallyResult).not.toHaveBeenCalled();
+  });
+
   it("factory exposes backend vote and tally helpers bound to config", () => {
     const service = createSorobanService(makeConfig());
 
