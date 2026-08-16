@@ -193,6 +193,19 @@ testnet environments, prefer a dedicated RPC provider because public endpoints
 can have higher latency, rate limits, and more noisy timeout behavior during
 ledger spikes.
 
+### Database schema expectations
+
+The backend repository that consumes this package should persist:
+
+- `Vote.soroban_tx_id`, indexed for audit lookups.
+- `TallyResult.soroban_tx_id`, indexed for audit lookups.
+- `TallyResult.is_consistent`, copied from the Soroban `is_consistent` read.
+
+This contracts checkout does not include `backend/prisma/schema.prisma`, so the
+service exposes repository interfaces and returns both camelCase and database
+field names (`sorobanTxId` / `soroban_tx_id`, `isConsistent` /
+`is_consistent`) for the backend layer to store directly.
+
 Low-level contract method mapping:
 
 - `backend/src/services/ballotEngine.ts` — call `invokeContract(id, "record_ballot", [...])`
