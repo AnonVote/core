@@ -54,6 +54,14 @@ cd contracts/anonvote
 cargo test
 ```
 
+TypeScript service checks:
+
+```bash
+npm run typecheck
+npm test
+npm run test:integration
+```
+
 ---
 
 ## Deploy
