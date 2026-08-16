@@ -74,8 +74,10 @@ cp .env.example .env
 ```
 
 | Variable | Required | Description |
-|---|---|---|---|
-| `STELLAR_SECRET_KEY` | Yes | Admin secret key for signing the deploy transaction |
+|---|---|---|
+| `STELLAR_SECRET_KEY` | Yes | Admin secret key for signing deploy and service transactions |
+| `SOROBAN_CONTRACT_ID` | Yes | Deployed AnonVote contract ID |
+| `SOROBAN_RPC_URL` | No | Backend testnet RPC endpoint; defaults to `https://soroban-testnet.stellar.org` |
 | `SOROBAN_RPC_URL_TESTNET` | No | Testnet RPC endpoint — defaults to `https://soroban-testnet.stellar.org` |
 | `SOROBAN_RPC_URL_MAINNET` | No | Mainnet RPC endpoint — defaults to `https://soroban-mainnet.stellar.org` |
 
@@ -140,9 +142,50 @@ git push origin feat/contract-deployment-script
 
 ---
 
-## Wire into the backend
+## Backend vote and tally flow
 
-Once deployed, update `backend/src/services/sorobanService.ts` calls in:
+The TypeScript service exposes backend-facing helpers that call the deployed
+contract and return the Stellar transaction hash to persist in the database:
+
+```ts
+const vote = await service.submitVoteOnChainFirst(voteRepository, {
+  ballotIdHash,
+  encryptedVote,
+});
+// vote.soroban_tx_id is the confirmed Stellar transaction hash.
+
+const tally = await service.publishTallyOnChain(tallyRepository, {
+  ballotIdHash,
+  localResult: { yes: 10, no: 2 },
+});
+// tally.soroban_tx_id and tally.is_consistent should be stored in TallyResult.
+```
+
+The required ordering is: validate and encrypt the vote in the backend, call
+`recordVote()` and wait for Soroban confirmation, then insert the vote row with
+`soroban_tx_id`. Tally publication computes or accepts a result hash, records it
+on-chain with the deployed `record_result` contract method, reads
+`is_consistent`, and persists both `soroban_tx_id` and `is_consistent`.
+
+The deployed contract currently names its mutation methods `record_vote` and
+`record_result`; `recordVote()` and `tally()` are the backend-friendly wrappers.
+If a future contract exposes `vote` or `tally_vote`, update these wrappers and
+keep the database-facing return shape unchanged.
+
+### RPC reliability
+
+Backend vote/tally calls retry transient `NETWORK_ERROR` and
+`SIMULATION_FAILED` failures up to three attempts with exponential backoff.
+Deterministic contract errors are not retried. Repeated transient failures open
+an in-memory circuit breaker for the affected `rpcUrl + contractId`, causing
+new requests to fail fast until the reset timeout expires.
+
+Public Stellar RPC is suitable for local development and CI mocks. For shared
+testnet environments, prefer a dedicated RPC provider because public endpoints
+can have higher latency, rate limits, and more noisy timeout behavior during
+ledger spikes.
+
+Low-level contract method mapping:
 
 - `backend/src/services/ballotEngine.ts` — call `invokeContract(id, "record_ballot", [...])`
 - `backend/src/services/identityManager.ts` — call `invokeContract(id, "record_token", [...])`
