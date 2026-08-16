@@ -401,6 +401,12 @@ export interface BackendFlowOptions {
   rpcRetryPolicy?: RpcRetryPolicy;
 }
 
+export const ANONVOTE_CONTRACT_METHODS = {
+  recordVote: "record_vote",
+  recordResult: "record_result",
+  isConsistent: "is_consistent",
+} as const;
+
 export type SorobanAuditEventType =
   | "ballot_created"
   | "token_issued"
@@ -1158,7 +1164,7 @@ export async function sorobanRecordVote(
     return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
   }
   const caller = config.sourceKeypair.publicKey();
-  const result = await invokeContract(config, "record_vote", [
+  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.recordVote, [
     { value: caller, type: "address" },
     { value: ballotIdHash, type: "string" },
   ]);
@@ -1185,7 +1191,7 @@ export async function sorobanRecordResult(
     return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
   }
   const caller = config.sourceKeypair.publicKey();
-  const result = await invokeContract(config, "record_result", [
+  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.recordResult, [
     { value: caller, type: "address" },
     { value: ballotIdHash, type: "string" },
     { value: resultHash, type: "string" },
@@ -1285,7 +1291,7 @@ export async function tally(
     options.rpcRetryPolicy,
   );
 
-  const consistencyRead = await readContract(config, "is_consistent", [
+  const consistencyRead = await readContract(config, ANONVOTE_CONTRACT_METHODS.isConsistent, [
     { value: ballotIdHash, type: "string" },
   ]);
   if (consistencyRead.errorCode !== undefined) {
