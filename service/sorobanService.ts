@@ -1215,6 +1215,146 @@ export async function sorobanRecordResult(
   return result;
 }
 
+function normalizeForHash(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeForHash);
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = normalizeForHash((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+}
+
+export function hashTallyResult(localResult: TallyResultPayload): string {
+  const canonical = JSON.stringify(normalizeForHash(localResult));
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+/**
+ * Backend-facing vote submission hook.
+ *
+ * This waits for Soroban confirmation and returns the Stellar tx hash that the
+ * backend must persist as `soroban_tx_id` with the encrypted vote row.
+ */
+export async function recordVote(
+  config: SorobanConfig,
+  ballotIdHash: string,
+  encryptedVote: EncryptedVote,
+  options: BackendFlowOptions = {},
+): Promise<RecordVoteResult> {
+  const result = await withSorobanRpcResilience(
+    config,
+    "recordVote",
+    () => sorobanRecordVote(config, ballotIdHash),
+    options.rpcRetryPolicy,
+  );
+
+  return {
+    ballotIdHash,
+    encryptedVote,
+    txHash: result.txHash,
+    sorobanTxId: result.txHash,
+    confirmed: true,
+  };
+}
+
+/**
+ * Backend-facing tally hook.
+ *
+ * The current deployed contract names result publication `record_result`
+ * rather than `tally_vote`; this function wires the tally flow to that real
+ * contract method and then reads `is_consistent` from Soroban.
+ */
+export async function tally(
+  config: SorobanConfig,
+  ballotIdHash: string,
+  localResult: TallyResultPayload,
+  options: BackendFlowOptions & { resultHash?: string } = {},
+): Promise<TallyResult> {
+  const resultHash = options.resultHash ?? hashTallyResult(localResult);
+
+  const publishResult = await withSorobanRpcResilience(
+    config,
+    "tally",
+    () => sorobanRecordResult(config, ballotIdHash, resultHash),
+    options.rpcRetryPolicy,
+  );
+
+  const consistencyRead = await readContract(config, "is_consistent", [
+    { value: ballotIdHash, type: "string" },
+  ]);
+  if (consistencyRead.errorCode !== undefined) {
+    throwFromInvokeResult("tally.is_consistent", {
+      txHash: publishResult.txHash,
+      success: false,
+      errorCode: consistencyRead.errorCode,
+      errorMessage: consistencyRead.errorMessage,
+    });
+  }
+
+  return {
+    ballotIdHash,
+    localResult,
+    resultHash,
+    txHash: publishResult.txHash,
+    sorobanTxId: publishResult.txHash,
+    isConsistent: consistencyRead.value === true,
+  };
+}
+
+/**
+ * Submit a vote using the required ordering: validate/encrypt upstream, record
+ * the vote on Soroban, wait for confirmation, then persist the database row
+ * with `soroban_tx_id`.
+ */
+export async function submitVoteOnChainFirst(
+  config: SorobanConfig,
+  repository: VoteRepository,
+  input: VoteSubmissionInput,
+  options: BackendFlowOptions = {},
+): Promise<VoteDatabaseRecord> {
+  const onChain = await recordVote(
+    config,
+    input.ballotIdHash,
+    input.encryptedVote,
+    options,
+  );
+
+  return repository.createVote({
+    ...onChain,
+    soroban_tx_id: onChain.sorobanTxId,
+    storedAt: Date.now(),
+  });
+}
+
+/**
+ * Publish a local tally on-chain and persist both the Soroban tx hash and the
+ * contract consistency verdict in the TallyResult store.
+ */
+export async function publishTallyOnChain(
+  config: SorobanConfig,
+  repository: TallyRepository,
+  input: TallySubmissionInput,
+  options: BackendFlowOptions = {},
+): Promise<PersistedTallyResult> {
+  const onChain = await tally(config, input.ballotIdHash, input.localResult, {
+    ...options,
+    resultHash: input.resultHash,
+  });
+
+  return repository.createTallyResult({
+    ...onChain,
+    soroban_tx_id: onChain.sorobanTxId,
+    is_consistent: onChain.isConsistent,
+    storedAt: Date.now(),
+  });
+}
+
 /**
  * Rotate the contract admin via M-of-N governance (creates a pending operation).
  * Must be called by the current admin. Rejects if new_admin equals current admin (SameAdmin).
@@ -1819,8 +1959,29 @@ export function createSorobanService(config: SorobanConfig) {
     sorobanRecordVote: (ballotIdHash: string) =>
       sorobanRecordVote(config, ballotIdHash),
 
+    recordVote: (ballotIdHash: string, encryptedVote: EncryptedVote, options?: BackendFlowOptions) =>
+      recordVote(config, ballotIdHash, encryptedVote, options),
+
     sorobanRecordResult: (ballotIdHash: string, resultHash: string) =>
       sorobanRecordResult(config, ballotIdHash, resultHash),
+
+    tally: (
+      ballotIdHash: string,
+      localResult: TallyResultPayload,
+      options?: BackendFlowOptions & { resultHash?: string },
+    ) => tally(config, ballotIdHash, localResult, options),
+
+    submitVoteOnChainFirst: (
+      repository: VoteRepository,
+      input: VoteSubmissionInput,
+      options?: BackendFlowOptions,
+    ) => submitVoteOnChainFirst(config, repository, input, options),
+
+    publishTallyOnChain: (
+      repository: TallyRepository,
+      input: TallySubmissionInput,
+      options?: BackendFlowOptions,
+    ) => publishTallyOnChain(config, repository, input, options),
 
     sorobanFilterEvents: (filter?: SorobanEventFilter) =>
       sorobanFilterEvents(config, filter),
