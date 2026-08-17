@@ -21,13 +21,55 @@ All inputs use SHA-256 hashes of ballot UUIDs — no raw IDs stored on-chain.
 
 ---
 
+## Deployed contract (testnet)
+
+**Status:** ✅ Deployed & initialized on Stellar **testnet**.
+
+| Field | Value |
+| --- | --- |
+| Contract ID | `CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH` |
+| Network | testnet (`Test SDF Network ; September 2015`) |
+| WASM hash | `d366202b16d3d37ce19bbb10bdd6d179fb2b826ceab75cd011cf6c4e5c2e6960` |
+| Admin | `GA6D2UIEACZO25AG2BUGPLQAZW3JJJZSGYH4LVUW5JMWQQ3SFQDK4UVL` |
+| Deploy tx | `2da3aab9addbc922d3430530716d15071848472e875b5c1595709388945b3b23` |
+| Git tag | `contract-testnet-v1.0.0` |
+
+Full metadata (upload/deploy/initialize tx hashes, timestamp, git commit,
+RPC URL) is recorded in [`deployments.json`](deployments.json); the ID is also
+in [`CONTRACT_ID`](CONTRACT_ID).
+
+### Verify on Stellar Explorer
+
+- Contract: <https://stellar.expert/explorer/testnet/contract/CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH>
+- Deploy transaction: <https://stellar.expert/explorer/testnet/tx/2da3aab9addbc922d3430530716d15071848472e875b5c1595709388945b3b23>
+
+### Verify with a live view call
+
+Read-only calls require no signing key beyond a funded source account:
+
+```bash
+stellar contract invoke \
+  --id CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH \
+  --source-account <YOUR_ACCOUNT> --network testnet \
+  -- get_admin
+# => "GA6D2UIEACZO25AG2BUGPLQAZW3JJJZSGYH4LVUW5JMWQQ3SFQDK4UVL"
+
+# is_paused => false, get_approval_threshold => 1
+```
+
+---
+
 ## Prerequisites
 
 ```bash
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Add WASM target
+# Install the 1.81.0 toolchain used to build the deployable WASM (see "Build" below)
+rustup toolchain install 1.81.0
+rustup target add wasm32-unknown-unknown --toolchain 1.81.0
+
+# The default/stable toolchain is still used for tests
 rustup target add wasm32-unknown-unknown
 
 # Install Stellar CLI
@@ -38,12 +80,33 @@ cargo install --locked stellar-cli --features opt
 
 ## Build
 
+> **Important — build with rustc 1.81.0.** Since rustc 1.82 the
+> `wasm32-unknown-unknown` target enables the WASM `reference-types` and
+> `multivalue` proposals by default. The Soroban host bundled with
+> `soroban-sdk` 21 rejects those at upload time
+> (`HostError: Error(WasmVm, InvalidAction) "reference-types not enabled"`).
+> Building with 1.81.0 — the last release before that default changed —
+> produces an MVP-clean, uploadable artifact. The committed `Cargo.lock` pins
+> a few transitive deps to pre-`edition2024` versions so cargo 1.81 can parse
+> the graph; build with `--locked` and do not `cargo update` them without
+> re-verifying. See `contracts/anonvote/.cargo/config.toml` for the full
+> rationale.
+
 ```bash
 cd contracts/anonvote
-cargo build --target wasm32-unknown-unknown --release
+rustup run 1.81.0 cargo build --target wasm32-unknown-unknown --release --locked
 ```
 
 Output: `target/wasm32-unknown-unknown/release/anonvote.wasm`
+
+Verify the artifact is free of the rejected proposals (optional, requires
+Binaryen `wasm-opt`) — this must exit 0:
+
+```bash
+wasm-opt target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --mvp-features --enable-mutable-globals --enable-sign-ext --enable-bulk-memory \
+  -o /dev/null
+```
 
 ---
 
