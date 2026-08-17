@@ -56,6 +56,7 @@ beforeAll(async () => {
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
+  await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
   // Issue and use a token
   const tokenRes = await request(app)

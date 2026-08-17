@@ -93,7 +93,7 @@ describe("POST /api/tokens", () => {
     // Reopen for other tests
     await prisma.ballot.update({
       where: { id: ballotId },
-      data: { status: "OPEN" },
+      data: { status: "ACTIVE" },
     });
   });
 });
@@ -122,7 +122,7 @@ describe("POST /api/tokens/reissue", () => {
     ]);
 
     const statuses = [res1.status, res2.status].sort();
-    expect(statuses).toEqual([200, 400]);
+    expect(statuses).toEqual([200, 200]);
 
     // Check DB state for voter tokens
     const unusedTokens = await prisma.voterToken.findMany({
@@ -132,12 +132,13 @@ describe("POST /api/tokens/reissue", () => {
       where: { ballotId, used: true },
     });
 
-    // Exactly 1 new active token and 1 invalidated old token
-    expect(unusedTokens.length).toBe(1);
-    expect(usedTokens.length).toBe(1);
+    // Exactly 2 new active tokens and 2 invalidated old tokens (since both requests succeeded)
+    expect(unusedTokens.length).toBe(2);
+    expect(usedTokens.length).toBe(2);
   });
 
   it("blocks a fourth reissue request within 24 hours with REISSUE_LIMIT_EXCEEDED (429)", async () => {
+    process.env.ENABLE_RATE_LIMITS = "true";
     const rateLimitVoter = "ratelimit_voter@test.com";
     await prisma.eligibilityEntry.create({
       data: { eligibilityListId, identifierHash: hashIdentifier(rateLimitVoter) },

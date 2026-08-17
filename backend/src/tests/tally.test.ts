@@ -46,7 +46,7 @@ beforeAll(async () => {
     data: {
       organizationId: org!.id,
       topic: "Tally Test Ballot",
-      deadline: new Date(Date.now() + 3_600_000),
+      deadline: new Date(Date.now() + 7_200_000),
       eligibilityListId,
       status: "CLOSED",
       options: { create: [{ text: "Option A" }, { text: "Option B" }] },
@@ -54,8 +54,8 @@ beforeAll(async () => {
     include: { options: true },
   });
   ballotId = ballot.id;
-  optionAId = ballot.options.find((o) => o.text === "Option A")!.id;
-  optionBId = ballot.options.find((o) => o.text === "Option B")!.id;
+  optionAId = ballot.options.find((o: any) => o.text === "Option A")!.id;
+  optionBId = ballot.options.find((o: any) => o.text === "Option B")!.id;
   const keyRecord = await prisma.ballotKey.findUnique({
     where: { ballotId },
   });

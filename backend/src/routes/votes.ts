@@ -36,6 +36,14 @@ router.post(
         fieldErrors.rank = "rank must be a valid number";
       }
 
+      if (Object.keys(fieldErrors).length > 0) {
+        throw new AppError(
+          `Validation failed: ${Object.values(fieldErrors).join("; ")}`,
+          400,
+          "VALIDATION_ERROR"
+        );
+      }
+
       // Derive the real IP (respects X-Forwarded-For when behind a proxy)
       const ip =
         (req.headers["x-forwarded-for"] as string | undefined)
@@ -43,7 +51,7 @@ router.post(
           .trim() ?? req.socket.remoteAddress ?? "unknown";
 
       // Check all three rate-limit dimensions before processing the vote
-      const rlResult = await checkVoteRateLimits(ip, ballotId, voterToken.trim());
+      const rlResult = await checkVoteRateLimits(ip, ballotId, token.trim());
 
       if (!rlResult.allowed) {
         // Log violation to audit table (best-effort, non-blocking)
@@ -54,13 +62,8 @@ router.post(
         const err = rateLimitExceeded(rlResult.retryAfterSeconds);
         res.setHeader("Retry-After", String(rlResult.retryAfterSeconds));
         return next(err);
-      if (Object.keys(fieldErrors).length > 0) {
-        throw new AppError(
-          `Validation failed: ${Object.values(fieldErrors).join("; ")}`,
-          400,
-          "VALIDATION_ERROR"
-        );
       }
+
 
       const result = await submitVote(
         ballotId.trim(),

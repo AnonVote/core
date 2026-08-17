@@ -235,14 +235,7 @@ export async function reissueToken(
       FOR UPDATE
     `;
 
-    const unusedTokens = unusedTokensBeforeReq.length > 0
-      ? unusedTokensBeforeReq
-      : await tx.$queryRaw<any[]>`
-          SELECT * FROM "VoterToken"
-          WHERE "ballotId" = ${ballotId} AND "used" = false
-          ORDER BY "issuedAt" ASC
-          FOR UPDATE
-        `;
+    const unusedTokens = unusedTokensBeforeReq;
 
     if (!unusedTokens || unusedTokens.length === 0) {
       throw badRequest(

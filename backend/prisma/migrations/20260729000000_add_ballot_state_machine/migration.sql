@@ -9,7 +9,9 @@ ALTER TYPE "BallotStatus" ADD VALUE IF NOT EXISTS 'ACTIVE';
 ALTER TYPE "BallotStatus" ADD VALUE IF NOT EXISTS 'FINALISED';
 
 -- Migrate existing OPEN ballots to ACTIVE
+ALTER TABLE "Ballot" ALTER COLUMN "status" TYPE TEXT;
 UPDATE "Ballot" SET status = 'ACTIVE' WHERE status = 'OPEN';
+ALTER TABLE "Ballot" ALTER COLUMN "status" TYPE "BallotStatus" USING status::text::"BallotStatus";
 
 -- Add new columns to Ballot table
 ALTER TABLE "Ballot" ADD COLUMN "startTime" TIMESTAMP(3);

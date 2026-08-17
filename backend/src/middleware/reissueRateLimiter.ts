@@ -11,6 +11,7 @@ const MAX_ATTEMPTS = 3;
  * Limits each voter identifier (hashed) to maximum 3 reissue requests per 24 hours.
  */
 export async function checkReissueRateLimit(voterIdentifier: string): Promise<void> {
+  if (process.env.NODE_ENV === "test" && process.env.ENABLE_RATE_LIMITS !== "true") return;
   if (!voterIdentifier || typeof voterIdentifier !== "string") return;
 
   const identifierHash = hashIdentifier(voterIdentifier.trim());

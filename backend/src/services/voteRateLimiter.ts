@@ -121,6 +121,10 @@ export async function checkVoteRateLimits(
   ballotId: string,
   rawToken: string,
 ): Promise<RateLimitCheckResult> {
+  if (process.env.NODE_ENV === "test" && process.env.ENABLE_RATE_LIMITS !== "true") {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
   // Hash the token so we never persist raw token values
   const tokenHash = hashToken(rawToken);
 

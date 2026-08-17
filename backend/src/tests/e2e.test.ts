@@ -73,6 +73,7 @@ describe("End-to-End: Full post-ballot flow", () => {
     expect(ballotRes.status).toBe(201);
     const ballotId = ballotRes.body.data.id;
     const optionId = ballotRes.body.data.options[0].id;
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
     // 5. Request voter token
     const tokenRes = await request(app).post("/api/tokens").send({

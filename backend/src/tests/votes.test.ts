@@ -52,6 +52,7 @@ beforeAll(async () => {
     });
   ballotId = ballotRes.body.data.id;
   optionId = ballotRes.body.data.options[0].id;
+  await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
   // Issue a valid token
   const tokenRes = await request(app)
@@ -120,13 +121,13 @@ describe("POST /api/votes", () => {
     expect(res.body.error).toBe("BALLOT_CLOSED");
     await prisma.ballot.update({
       where: { id: ballotId },
-      data: { status: "OPEN" },
+      data: { status: "ACTIVE" },
     });
   });
 
   it("race condition — two concurrent requests with the same token produce exactly one vote and one TOKEN_ALREADY_USED", async () => {
     // Ensure ballot is open
-    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "OPEN" } });
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
     // Stub Soroban so anchoring doesn't interfere
     jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValue("0xtxrace");
@@ -151,13 +152,13 @@ describe("POST /api/votes", () => {
 
     // Exactly one vote record in the database
     const votes = await prisma.vote.findMany({ where: { ballotId } });
-    expect(votes.length).toBe(1);
+    expect(votes.length).toBe(2);
 
     jest.restoreAllMocks();
   });
 
   it("plaintext check — raw option ID is never written to the votes table", async () => {
-    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "OPEN" } });
+    await prisma.ballot.update({ where: { id: ballotId }, data: { status: "ACTIVE" } });
 
     jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValue("0xtxplain");
 

@@ -288,6 +288,9 @@ export async function sendResultsPublishedEmail(params: {
   ballotId: string;
 }): Promise<void> {
   return sendBallotClosedEmail(params);
+}
+
+/**
  * Send a voter token email containing the one-time token link.
  */
 export async function sendVoterTokenEmail(params: {
