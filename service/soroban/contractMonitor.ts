@@ -1,4 +1,4 @@
-import type { Client } from "../client";
+import type { Client } from "../client/createSorokitClient";
 import type { SorokitResult } from "../shared/response";
 import { err, ok } from "../shared/response";
 import { toMessage } from "../shared/errors";
