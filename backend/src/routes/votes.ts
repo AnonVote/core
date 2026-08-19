@@ -5,6 +5,7 @@ import { badRequest, rateLimitExceeded } from "../utils/errors";
 import { prisma } from "../prisma/client";
 import { strictRateLimiter } from "../middleware/rateLimiter";
 import { AppError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 const router = Router();
 
@@ -57,7 +58,12 @@ router.post(
         // Log violation to audit table (best-effort, non-blocking)
         prisma.auditEvent
           .create({ data: { ballotId, eventType: "RATE_LIMIT_EXCEEDED" } })
-          .catch(() => {});
+          .catch((err) =>
+            logger.warn("rate_limit_audit_failed", {
+              ballotId,
+              error: err,
+            }),
+          );
 
         const err = rateLimitExceeded(rlResult.retryAfterSeconds);
         res.setHeader("Retry-After", String(rlResult.retryAfterSeconds));

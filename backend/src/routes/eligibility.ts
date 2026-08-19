@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/auth";
 import { hashIdentifier } from "../utils/crypto";
 import { badRequest } from "../utils/errors";
 import { sendVoterBallotEmail } from "../services/emailService";
+import { logger } from "../utils/logger";
 
 const router = Router();
 const upload = multer({
@@ -143,10 +144,20 @@ router.post(
                   topic: ballot.topic,
                   deadline: ballot.deadline,
                   ballotId,
-                }).catch(() => {});
+                }).catch((err) =>
+                  logger.warn("voter_invite_email_failed", {
+                    ballotId,
+                    error: err,
+                  }),
+                );
               }
             })
-            .catch(() => {});
+            .catch((err) =>
+              logger.warn("voter_invite_ballot_lookup_failed", {
+                ballotId,
+                error: err,
+              }),
+            );
         }
       }
 
