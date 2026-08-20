@@ -5,6 +5,7 @@ import { badRequest, notFound, ballotNotEditable } from "../utils/errors";
 import { sendBallotCreatedEmail } from "./emailService";
 import { sorobanRecordBallot } from "./sorobanService";
 import { writeRecord } from "./stellarService";
+import { logger } from "../utils/logger";
 
 /**
  * Create a new ballot with per-ballot encryption key and Stellar anchoring.
@@ -445,7 +446,12 @@ export async function retryBallotAnchor(ballotId: string, orgId: string) {
       // Remove from retry queue
       await prisma.ballotAnchorRetry.deleteMany({
         where: { ballotId },
-      }).catch(() => {});
+      }).catch((err) =>
+        logger.warn("ballot_anchor_retry_delete_failed", {
+          ballotId,
+          error: err,
+        }),
+      );
       return {
         id: ballotId,
         anchorStatus: "ANCHORED" as const,

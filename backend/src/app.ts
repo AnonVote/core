@@ -2,6 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { config } from "./config";
+import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler } from "./middleware/errorHandler";
 import organizationsRouter from "./routes/organizations";
 import ballotsRouter from "./routes/ballots";
@@ -17,6 +18,7 @@ import healthRouter from "./routes/health";
 
 const app = express();
 
+app.use(requestLogger);
 app.use(
   cors({
     origin: config.frontendOrigin,

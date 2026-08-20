@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
 import { sorobanRecordVote } from "../services/sorobanService";
 import { hashIdentifier } from "../utils/crypto";
+import { logger } from "../utils/logger";
 
 let timer: NodeJS.Timeout | null = null;
 let isProcessing = false;
@@ -22,7 +23,14 @@ export async function processStellarRetryQueue(): Promise<void> {
 
     for (const item of pendingItems) {
       if (!item.vote) {
-        await prisma.stellarRetryQueue.delete({ where: { id: item.id } }).catch(() => {});
+        await prisma.stellarRetryQueue
+          .delete({ where: { id: item.id } })
+          .catch((err) =>
+            logger.warn("stellar_retry_queue_orphan_delete_failed", {
+              queueItemId: item.id,
+              error: err,
+            }),
+          );
         continue;
       }
 
@@ -83,12 +91,22 @@ export async function processStellarRetryQueue(): Promise<void> {
               where: { id: item.id },
               data: { retryCount: newRetryCount },
             }),
-          ]).catch(() => {});
+          ]).catch((err) =>
+            logger.error("stellar_retry_failed_mark_failed", {
+              voteId: item.voteId,
+              error: err,
+            }),
+          );
         } else {
           await prisma.stellarRetryQueue.update({
             where: { id: item.id },
             data: { retryCount: newRetryCount },
-          }).catch(() => {});
+          }).catch((err) =>
+            logger.error("stellar_retry_count_update_failed", {
+              voteId: item.voteId,
+              error: err,
+            }),
+          );
         }
       }
     }

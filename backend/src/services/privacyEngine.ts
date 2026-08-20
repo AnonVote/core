@@ -4,6 +4,7 @@ import { sorobanRecordVote } from "./sorobanService";
 import { AppError } from "../utils/errors";
 import { getEffectiveVoter } from "./delegationManager";
 import { getBallotEncryptionKey } from "./ballotKeyService";
+import { logger } from "../utils/logger";
 
 export interface VoteSubmissionResponse {
   status: "confirmed";
@@ -68,7 +69,12 @@ export async function submitVote(
       if (existing.used) {
         await tx.auditEvent.create({
           data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
-        }).catch(() => {});
+        }).catch((err) =>
+          logger.warn("duplicate_vote_audit_failed", {
+            ballotId,
+            error: err,
+          }),
+        );
         throw new AppError("This token has already been used to cast a vote.", 409, "TOKEN_ALREADY_USED");
       }
     }

@@ -6,6 +6,7 @@ import { sorobanRecordResult, verifyBallotConsistency } from "./sorobanService";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
 import { getBallotEncryptionKeyRecord } from "./ballotKeyService";
+import { logger } from "../utils/logger";
 
 export async function tallyBallot(
   ballotId: string,
@@ -185,7 +186,12 @@ export async function tallyBallot(
     topic: ballot.topic,
     totalVotes: totalWeightedVotes,
     ballotId,
-  }).catch(() => {});
+  }).catch((err) =>
+    logger.warn("ballot_closed_email_failed", {
+      ballotId,
+      error: err,
+    }),
+  );
 
   return result;
 }

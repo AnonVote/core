@@ -2,6 +2,7 @@ import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
 import { writeRecord } from "./stellarService";
 import { sorobanRecordToken } from "./sorobanService";
+import { logger } from "../utils/logger";
 import {
   badRequest,
   notFound,
@@ -141,14 +142,24 @@ export async function issueToken(
               stellarLedgerAt: stellarResult.ledgerTimestamp,
             },
           })
-          .catch(() => {});
+          .catch((err) =>
+            logger.warn("audit_event_stellar_update_failed", {
+              auditEventId: result.auditEventId,
+              error: err,
+            }),
+          );
       } else {
         console.warn(
           `[Stellar] TOKEN_ISSUED write failed for auditEvent ${result.auditEventId}`,
         );
       }
     })
-    .catch(() => {});
+    .catch((err) =>
+      logger.warn("token_issued_stellar_write_failed", {
+        auditEventId: result.auditEventId,
+        error: err,
+      }),
+    );
 
   return tokenResponse;
 }

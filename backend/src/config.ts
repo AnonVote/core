@@ -32,6 +32,12 @@ function validateConfig(): void {
     }
   }
 
+  const validLogLevels = new Set(["debug", "info", "warn", "error"]);
+  const logLevel = process.env.LOG_LEVEL || "info";
+  if (!validLogLevels.has(logLevel.toLowerCase())) {
+    errors.push("LOG_LEVEL must be one of: debug, info, warn, error");
+  }
+
   if (errors.length > 0) {
     console.error("[Config] Missing or invalid environment variables:");
     errors.forEach((e) => console.error(`  - ${e}`));
@@ -63,4 +69,6 @@ export const config = {
   emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",
   sorobanContractId: process.env.SOROBAN_CONTRACT_ID || "",
   sorobanServerUrl: process.env.SOROBAN_SERVER_URL || "",
+  logLevel: process.env.LOG_LEVEL || "info",
+  logSkipPaths: process.env.LOG_SKIP_PATHS || "/health,/healthz,/api/health",
 };
