@@ -393,6 +393,10 @@ The system is production-safe. Per-ballot encryption keys, rate limiting, error 
 
 ---
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history, breaking changes, and migration guides.
+
 ## Contributing
 
 Issues are labeled with their corresponding milestone so you can see what stage of development they belong to.
