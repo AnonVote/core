@@ -1,4 +1,4 @@
-﻿//! AnonVote Soroban smart contract.
+//! AnonVote Soroban smart contract.
 //!
 //! The contract stores public ballot audit data and protects critical
 //! governance operations with configurable M-of-N approval.
@@ -328,6 +328,7 @@ impl AnonVoteContract {
         ballot_id_hash: String,
         result_hash: String,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         if !is_valid_sha256_hex(&ballot_id_hash) {
             return Err(ContractError::InvalidBallotIdHash);
         }
@@ -351,6 +352,7 @@ impl AnonVoteContract {
         caller: Address,
         new_admin: Address,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         Self::create_operation(env, caller, CriticalOperation::AdminRotation(new_admin))
     }
 
@@ -365,6 +367,7 @@ impl AnonVoteContract {
         caller: Address,
         new_wasm_hash: BytesN<32>,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         Self::create_operation(
             env,
             caller,
@@ -380,6 +383,7 @@ impl AnonVoteContract {
         approver_address: Address,
     ) -> Result<bool, ContractError> {
         approver_address.require_auth();
+        Self::require_not_paused(&env)?;
         Self::verify_initialized(&env)?;
 
         let key = DataKey::Operation(operation_id);
@@ -662,6 +666,7 @@ impl AnonVoteContract {
     }
 
     pub fn execute_upgrade(env: Env) -> Result<(), ContractError> {
+        Self::require_not_paused(&env)?;
         Self::verify_initialized(&env)?;
         let pending: PendingUpgrade = env
             .storage()
@@ -1983,5 +1988,63 @@ mod tests {
         let phantom = String::from_str(&env, "phantom-ballot-consistent");
         // Must be false, not true (0 == 0 should not be a valid audit pass).
         assert!(!client.is_consistent(&phantom));
+    }
+
+    #[test]
+    fn pause_enforcement_blocks_operations() {
+        let (env, client, admin) = setup();
+        
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        
+        // Pause contract
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+        assert_eq!(client.is_paused(), true);
+        
+        // Operations should be blocked with ContractPaused
+        assert_eq!(
+            client.try_record_ballot(&admin, &ballot, &limits(10, 10)),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        
+        assert_eq!(
+            client.try_record_token(&admin, &ballot),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::ContractPaused))
+        );
+
+        assert_eq!(
+            client.try_record_result(&admin, &ballot, &result),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        
+        let new_admin = Address::generate(&env);
+        assert_eq!(
+            client.try_rotate_admin(&admin, &new_admin),
+            Err(Ok(ContractError::ContractPaused))
+        );
+        
+        let fake_wasm_hash = env.crypto().sha256(&soroban_sdk::Bytes::new(&env)).into();
+        assert_eq!(
+            client.try_schedule_upgrade(&admin, &fake_wasm_hash),
+            Err(Ok(ContractError::ContractPaused))
+        );
+
+        // Resume contract
+        client.resume_contract(&admin);
+        assert_eq!(client.is_paused(), false);
+        
+        // Operations should work normally now
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.record_token(&admin, &ballot);
+        client.record_vote(&admin, &ballot);
+        
+        let op_id_res = client.record_result(&admin, &ballot, &result);
+        client.approve_operation(&op_id_res, &admin);
     }
 }
