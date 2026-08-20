@@ -197,6 +197,11 @@ pub struct AnonVoteContract;
 
 #[contractimpl]
 impl AnonVoteContract {
+    /// Returns the semantic version of this contract package.
+    pub fn get_version(env: Env) -> String {
+        String::from_str(&env, env!("CARGO_PKG_VERSION"))
+    }
+
     /// Initializes the contract. Governance starts as 1-of-1 with the admin as
     /// the sole approver, so deployments can explicitly configure M-of-N next.
     pub fn initialize(env: Env, admin: Address) -> Result<(), ContractError> {
@@ -1314,6 +1319,12 @@ mod tests {
         client.record_ballot(&admin, &ballot, &limits(10, 10));
         assert_eq!(client.get_admin(), Some(admin));
         assert_eq!(client.get_tokens_issued(&ballot), Some(0));
+    }
+
+    #[test]
+    fn get_version_returns_contract_cargo_version() {
+        let (env, client, _) = setup();
+        assert_eq!(client.get_version(), String::from_str(&env, env!("CARGO_PKG_VERSION")));
     }
 
     #[test]

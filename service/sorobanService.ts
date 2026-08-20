@@ -1750,6 +1750,20 @@ export async function sorobanGetBallotMetadata(
 }
 
 /**
+ * Get the semantic version embedded in the deployed contract.
+ * Returns null if the config is invalid or the query fails.
+ */
+export async function sorobanGetVersion(
+  config: SorobanConfig,
+): Promise<string | null> {
+  const contractCheck = validateContractId(config.contractId);
+  if (!contractCheck.valid) return null;
+  const { value, errorCode } = await readContract(config, "get_version", []);
+  if (errorCode !== undefined || value === null || value === undefined) return null;
+  return String(value);
+}
+
+/**
  * Get ballot statistics (tokens_issued, votes_cast, result_hash).
  * Returns null if the config is invalid or the query fails.
  */

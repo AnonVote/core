@@ -31,6 +31,7 @@ import {
   sorobanGetBallotMetadata,
   sorobanGetBallotStats,
   sorobanGetAllBallots,
+  sorobanGetVersion,
   sorobanBallotIsActive,
   sorobanIsBallotFinalized,
   SorobanErrorCode,
@@ -305,6 +306,21 @@ describe("sorobanGetBallotMetadata — view function", () => {
   it("returns null when contract ID is invalid without calling RPC", async () => {
     const meta = await sorobanGetBallotMetadata(makeConfig({ contractId: "bad-id" }), "ballot-1");
     expect(meta).toBeNull();
+    expect(mockRpc.simulateTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("sorobanGetVersion — view function", () => {
+  it("returns the contract semantic version string", async () => {
+    mockRpc.simulateTransaction.mockResolvedValueOnce(simulationSuccess("0.1.0"));
+
+    const version = await sorobanGetVersion(makeConfig());
+    expect(version).toBe("0.1.0");
+  });
+
+  it("returns null when the contract ID is invalid without calling RPC", async () => {
+    const version = await sorobanGetVersion(makeConfig({ contractId: "bad-id" }));
+    expect(version).toBeNull();
     expect(mockRpc.simulateTransaction).not.toHaveBeenCalled();
   });
 });
