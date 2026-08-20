@@ -27,8 +27,9 @@ type FakeBallot = {
   tokensIssued: number;
   votesCast: number;
   resultHash: string | null;
-  state: "Active" | "ResultPublished" | "Archived";
+  state: "Active" | "Expired" | "ResultPublished" | "Archived";
   isActive: boolean;
+  stateUpdatedAt: number;
 };
 
 type RotationRecord = {
@@ -48,6 +49,7 @@ const ContractErrorCode = {
   BallotAlreadyExists: 5,
   ResultAlreadyPublished: 6,
   InvalidStateTransition: 12,
+  BallotExpired: 12,
   SameAdmin: 22,
 };
 
@@ -92,6 +94,7 @@ export class FakeLedger {
           resultHash: null,
           state: "Active",
           isActive: true,
+          stateUpdatedAt: this.timestamp,
         });
         // Track in ballot list
         this.ballotList.push(ballotIdHash);
@@ -101,6 +104,9 @@ export class FakeLedger {
       case "record_token": {
         const ballot = this.ballots.get(get(1) as string);
         if (!ballot) return { ok: false, contractErrorCode: ContractErrorCode.BallotNotFound };
+        if (ballot.state === "Expired") {
+          return { ok: false, contractErrorCode: ContractErrorCode.BallotExpired };
+        }
         ballot.tokensIssued++;
         return { ok: true };
       }
@@ -108,7 +114,22 @@ export class FakeLedger {
       case "record_vote": {
         const ballot = this.ballots.get(get(1) as string);
         if (!ballot) return { ok: false, contractErrorCode: ContractErrorCode.BallotNotFound };
+        if (ballot.state === "Expired") {
+          return { ok: false, contractErrorCode: ContractErrorCode.BallotExpired };
+        }
         ballot.votesCast++;
+        return { ok: true };
+      }
+
+      case "expire_ballot": {
+        const ballot = this.ballots.get(get(1) as string);
+        if (!ballot) return { ok: false, contractErrorCode: ContractErrorCode.BallotNotFound };
+        if (ballot.state !== "Active") {
+          return { ok: false, contractErrorCode: ContractErrorCode.BallotExpired };
+        }
+        ballot.state = "Expired";
+        ballot.isActive = false;
+        ballot.stateUpdatedAt = this.timestamp;
         return { ok: true };
       }
 
@@ -207,6 +228,25 @@ export class FakeLedger {
             is_consistent: ballot.tokensIssued === ballot.votesCast,
             result_hash: ballot.resultHash,
             state: ballot.state,
+            tokens_issued: ballot.tokensIssued,
+            votes_cast: ballot.votesCast,
+          },
+        };
+      }
+
+      case "get_ballot_state": {
+        const ballotIdHash = get(0) as string;
+        const ballot = this.ballots.get(ballotIdHash);
+        if (!ballot) return { ok: true, value: undefined }; // matches Option::None
+        return {
+          ok: true,
+          value: {
+            admin: ballot.admin,
+            created_at: ballot.createdAt,
+            expiration_time: 0,
+            result_hash: ballot.resultHash,
+            state: ballot.state,
+            state_updated_at: ballot.stateUpdatedAt,
             tokens_issued: ballot.tokensIssued,
             votes_cast: ballot.votesCast,
           },

@@ -14,11 +14,14 @@ vi.mock("stellar-sdk", async () => {
 
 import * as StellarSdk from "stellar-sdk";
 import {
+  BallotState,
   hashTallyResult,
   publishTallyOnChain,
   recordVote,
   resetSorobanCircuitBreakers,
   createSorobanService,
+  sorobanExpireBallot,
+  sorobanIsBallotExpired,
   SorobanErrorCode,
   SorobanServiceError,
   SorobanServiceErrorCode,
@@ -334,5 +337,61 @@ describe("backend tally Soroban integration", () => {
     expect(service).toHaveProperty("tally");
     expect(service).toHaveProperty("submitVoteOnChainFirst");
     expect(service).toHaveProperty("publishTallyOnChain");
+  });
+});
+
+describe("ballot expiration Soroban integration", () => {
+  it("sorobanExpireBallot calls the real expire_ballot contract method", async () => {
+    mockRpc.simulateTransaction.mockImplementation(async (tx: any) => {
+      expect(tx.operations[0].method).toBe("expire_ballot");
+      expect(tx.operations[0].args[1].value).toBe("ballot-expire-1");
+      return simulationSuccess();
+    });
+    mockRpc.sendTransaction.mockResolvedValueOnce({ status: "PENDING", hash: "tx-expire-1" });
+    mockRpc.getTransaction.mockResolvedValueOnce(txSuccess());
+
+    const result = await sorobanExpireBallot(makeConfig(), "ballot-expire-1");
+
+    expect(result).toMatchObject({ success: true, txHash: "tx-expire-1" });
+  });
+
+  it("sorobanExpireBallot surfaces BallotExpired when the ballot is already expired", async () => {
+    mockRpc.simulateTransaction.mockResolvedValueOnce(simulationError("Error(Contract, #12)"));
+
+    await expect(
+      sorobanExpireBallot(makeConfig(), "ballot-already-expired"),
+    ).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.CONTRACT_ERROR &&
+        err.contractErrorCode === SorobanErrorCode.BallotExpired,
+    );
+  });
+
+  it("sorobanIsBallotExpired reads the contract state and reports true once Expired", async () => {
+    mockRpc.simulateTransaction.mockResolvedValueOnce(
+      simulationSuccess({ state: BallotState.Expired }),
+    );
+
+    const expired = await sorobanIsBallotExpired(makeConfig(), "ballot-expired-check");
+
+    expect(expired).toBe(true);
+  });
+
+  it("sorobanIsBallotExpired reports false for an Active ballot", async () => {
+    mockRpc.simulateTransaction.mockResolvedValueOnce(
+      simulationSuccess({ state: BallotState.Active }),
+    );
+
+    const expired = await sorobanIsBallotExpired(makeConfig(), "ballot-active-check");
+
+    expect(expired).toBe(false);
+  });
+
+  it("factory exposes the expiration helpers bound to config", () => {
+    const service = createSorobanService(makeConfig());
+
+    expect(service).toHaveProperty("sorobanExpireBallot");
+    expect(service).toHaveProperty("sorobanIsBallotExpired");
   });
 });

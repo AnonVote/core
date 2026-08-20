@@ -9,10 +9,14 @@ vi.mock("stellar-sdk", async () => {
 });
 
 import {
+  BallotState,
   sorobanRecordBallot,
   sorobanRecordToken,
   sorobanRecordVote,
   sorobanRecordResult,
+  sorobanExpireBallot,
+  sorobanIsBallotExpired,
+  sorobanGetBallotState,
   sorobanGetAuditCounts,
   sorobanResultExists,
   sorobanGetAuditReport,
@@ -432,6 +436,83 @@ describe("AnonVote ballot lifecycle (mocked contract, no live network)", () => {
     // 9. Verify with incorrect root parameter
     const verifyWrongRoot = await sorobanVerifyResultProof(config, ballotIdHash, proof0, "wrong-root-hex");
     expect(verifyWrongRoot).toBe(false);
+  });
+});
+
+describe("Ballot expiration (mocked contract, no live network)", () => {
+  it("record_token and record_vote succeed while Active, then reject once Expired", async () => {
+    const config = makeConfig();
+    const ballotIdHash = "ballot-expiry-lifecycle";
+
+    await sorobanRecordBallot(config, ballotIdHash);
+    await sorobanRecordToken(config, ballotIdHash);
+    await sorobanRecordVote(config, ballotIdHash);
+
+    expect(await sorobanIsBallotExpired(config, ballotIdHash)).toBe(false);
+
+    await sorobanExpireBallot(config, ballotIdHash);
+
+    expect(await sorobanIsBallotExpired(config, ballotIdHash)).toBe(true);
+
+    await expect(sorobanRecordToken(config, ballotIdHash)).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.CONTRACT_ERROR &&
+        err.contractErrorCode === SorobanErrorCode.BallotExpired,
+    );
+    await expect(sorobanRecordVote(config, ballotIdHash)).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.CONTRACT_ERROR &&
+        err.contractErrorCode === SorobanErrorCode.BallotExpired,
+    );
+
+    // Counts recorded before expiration are untouched.
+    const counts = await sorobanGetAuditCounts(config, ballotIdHash);
+    expect(counts).toMatchObject({ tokensIssued: 1, votesCast: 1 });
+  });
+
+  it("the on-chain state transition is authoritative — get_ballot_state reflects Expired", async () => {
+    const config = makeConfig();
+    const ballotIdHash = "ballot-expiry-state";
+    await sorobanRecordBallot(config, ballotIdHash);
+
+    const before = await sorobanGetBallotState(config, ballotIdHash);
+    expect(before?.state).toBe(BallotState.Active);
+
+    await sorobanExpireBallot(config, ballotIdHash);
+
+    const after = await sorobanGetBallotState(config, ballotIdHash);
+    expect(after?.state).toBe(BallotState.Expired);
+  });
+
+  it("an already-expired ballot cannot be expired again", async () => {
+    const config = makeConfig();
+    const ballotIdHash = "ballot-expiry-idempotency";
+    await sorobanRecordBallot(config, ballotIdHash);
+    await sorobanExpireBallot(config, ballotIdHash);
+
+    await expect(sorobanExpireBallot(config, ballotIdHash)).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.CONTRACT_ERROR &&
+        err.contractErrorCode === SorobanErrorCode.BallotExpired,
+    );
+  });
+
+  it("expiring an unknown ballot returns BallotNotFound", async () => {
+    const config = makeConfig();
+    await expect(sorobanExpireBallot(config, "never-recorded-ballot")).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof SorobanServiceError &&
+        err.code === SorobanServiceErrorCode.CONTRACT_ERROR &&
+        err.contractErrorCode === SorobanErrorCode.BallotNotFound,
+    );
+  });
+
+  it("sorobanIsBallotExpired returns null for a ballot that does not exist", async () => {
+    const config = makeConfig();
+    expect(await sorobanIsBallotExpired(config, "phantom-ballot")).toBe(null);
   });
 });
 

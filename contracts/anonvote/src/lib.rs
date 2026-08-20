@@ -51,6 +51,7 @@ pub enum ContractError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BallotState {
     Active,
+    Expired,
     ResultPublished,
 }
 
@@ -138,6 +139,7 @@ pub enum BallotEvent {
     TokenRecorded(String, u32),
     VoteRecorded(String, u32),
     ResultPublished(String, String),
+    BallotExpired(String, u64),
 }
 
 /// Operations that must be approved by the configured M-of-N approvers.
@@ -187,7 +189,6 @@ pub enum DataKey {
     VotesCast(String),
     ResultHash(String),
     BallotMetadata(String),
-    BallotExpired(String),
     PendingUpgrade,
     RotationHistory,
 }
@@ -632,6 +633,14 @@ impl AnonVoteContract {
         Ok(())
     }
 
+    /// Atomically transitions a ballot from `Active` to `Expired`.
+    ///
+    /// `BallotState::Expired` is the single authoritative expiration signal —
+    /// once set, `record_vote` and `record_token` reject every subsequent
+    /// call for this ballot. Expiring a ballot that is already `Expired` or
+    /// `ResultPublished` is rejected with `BallotExpired` rather than
+    /// silently succeeding, so the transition can never be re-applied or
+    /// used to move a finalized ballot backwards.
     pub fn expire_ballot(
         env: Env,
         caller: Address,
@@ -640,13 +649,23 @@ impl AnonVoteContract {
         validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
         caller.require_auth();
         Self::require_admin(&env, &caller)?;
-        Self::require_ballot_metadata(&env, &ballot_id_hash)?;
-        env.storage()
-            .persistent()
-            .set(&DataKey::BallotExpired(ballot_id_hash.clone()), &true);
+        let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
+        let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+        if metadata.state != BallotState::Active {
+            return Err(ContractError::BallotExpired);
+        }
+
+        metadata.state = BallotState::Expired;
+        metadata.state_updated_at = env.ledger().timestamp();
+        env.storage().persistent().set(&metadata_key, &metadata);
+
         env.events().publish(
             (symbol_short!("audit"), symbol_short!("exp_adm")),
-            ballot_id_hash,
+            (ballot_id_hash.clone(), metadata.state_updated_at, caller),
+        );
+        env.events().publish(
+            (symbol_short!("ballot"),),
+            BallotEvent::BallotExpired(ballot_id_hash, metadata.state_updated_at),
         );
         Ok(())
     }
@@ -1184,36 +1203,19 @@ impl AnonVoteContract {
     }
 
     /// Returns ballot metadata and checks expiration in a single call.
-    /// Saves one persistent storage read compared to calling
-    /// `require_ballot_metadata` + `require_ballot_not_expired` separately.
+    ///
+    /// `BallotState::Expired` (set atomically by `expire_ballot`) is the sole
+    /// source of truth for whether a ballot still accepts tokens/votes — this
+    /// is the check `record_token` and `record_vote` rely on.
     fn require_ballot_metadata_and_not_expired(
         env: &Env,
         ballot_id_hash: &String,
     ) -> Result<BallotMetadata, ContractError> {
         let metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-        let expired_key = DataKey::BallotExpired(ballot_id_hash.clone());
-        let explicitly_expired: bool = env
-            .storage()
-            .persistent()
-            .get(&expired_key)
-            .unwrap_or(false);
-        if explicitly_expired {
+        if metadata.state == BallotState::Expired {
             return Err(ContractError::BallotExpired);
         }
         Ok(metadata)
-    }
-
-    fn require_ballot_not_expired(env: &Env, ballot_id_hash: &String) -> Result<(), ContractError> {
-        let key = DataKey::BallotExpired(ballot_id_hash.clone());
-        let explicitly_expired: bool = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or(false);
-        if explicitly_expired {
-            return Err(ContractError::BallotExpired);
-        }
-        Ok(())
     }
 }
 
@@ -1259,7 +1261,7 @@ fn bytes_to_hex(env: &Env, bytes: &BytesN<32>) -> String {
 mod tests {
     use super::*;
     use soroban_sdk::testutils::{Address as _, Events, Ledger};
-    use soroban_sdk::{IntoVal, TryIntoVal};
+    use soroban_sdk::{IntoVal, TryIntoVal, Val};
 
     // Valid 64-char lowercase hex strings used as ballot / result hashes in tests.
     // Each is a real SHA-256 hex digest so they pass is_valid_sha256_hex().
@@ -2046,5 +2048,107 @@ mod tests {
         
         let op_id_res = client.record_result(&admin, &ballot, &result);
         client.approve_operation(&op_id_res, &admin);
+    }
+
+    #[test]
+    fn expire_ballot_transitions_active_to_expired_atomically() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let before = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(before.state, BallotState::Active);
+
+        client.expire_ballot(&admin, &ballot);
+
+        let after = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(after.state, BallotState::Expired);
+        assert!(after.state_updated_at >= before.state_updated_at);
+    }
+
+    #[test]
+    fn expire_ballot_emits_audit_event() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        client.expire_ballot(&admin, &ballot);
+
+        let expected_topics: Vec<Val> = (symbol_short!("audit"), symbol_short!("exp_adm")).into_val(&env);
+        let events = env.events().all();
+        let found = events
+            .iter()
+            .any(|(_, topics, _)| topics == expected_topics);
+        assert!(found, "expected an (audit, exp_adm) event to be published");
+    }
+
+    #[test]
+    fn record_vote_rejects_after_expiration() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.record_token(&admin, &ballot);
+
+        client.expire_ballot(&admin, &ballot);
+
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotExpired))
+        );
+        assert_eq!(client.get_votes_cast(&ballot), Some(0));
+    }
+
+    #[test]
+    fn record_token_rejects_after_expiration() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        client.expire_ballot(&admin, &ballot);
+
+        assert_eq!(
+            client.try_record_token(&admin, &ballot),
+            Err(Ok(ContractError::BallotExpired))
+        );
+        assert_eq!(client.get_tokens_issued(&ballot), Some(0));
+    }
+
+    #[test]
+    fn expired_ballot_cannot_be_re_expired_or_reactivated() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        client.expire_ballot(&admin, &ballot);
+        assert_eq!(
+            client.try_expire_ballot(&admin, &ballot),
+            Err(Ok(ContractError::BallotExpired))
+        );
+
+        let state = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(state.state, BallotState::Expired);
+    }
+
+    #[test]
+    fn expire_ballot_rejects_unknown_ballot() {
+        let (env, client, admin) = setup();
+        let phantom = String::from_str(&env, BALLOT_B);
+        assert_eq!(
+            client.try_expire_ballot(&admin, &phantom),
+            Err(Ok(ContractError::BallotNotFound))
+        );
+    }
+
+    #[test]
+    fn expire_ballot_rejects_non_admin_caller() {
+        let (env, client, admin) = setup();
+        let outsider = Address::generate(&env);
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        assert_eq!(
+            client.try_expire_ballot(&outsider, &ballot),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
     }
 }
