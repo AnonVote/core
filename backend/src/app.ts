@@ -13,6 +13,7 @@ import auditRouter from "./routes/audit";
 import delegationsRouter from "./routes/delegations";
 import verificationRouter from "./routes/verification";
 import adminRouter from "./routes/admin";
+import healthRouter from "./routes/health";
 
 const app = express();
 
@@ -24,6 +25,10 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+
+// Health check must be publicly accessible (no auth) and registered before any
+// authenticated routes so monitoring systems and load balancers can probe it.
+app.use("/api/health", healthRouter);
 
 app.use("/api/organizations", organizationsRouter);
 app.use("/api/ballots", ballotsRouter);
