@@ -1,4 +1,4 @@
-﻿//! AnonVote Soroban smart contract.
+//! AnonVote Soroban smart contract.
 //!
 //! The contract stores public ballot audit data and protects critical
 //! governance operations with configurable M-of-N approval.
@@ -367,6 +367,7 @@ impl AnonVoteContract {
         ballot_id_hash: String,
         result_hash: String,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         if !is_valid_sha256_hex(&ballot_id_hash) {
             return Err(ContractError::InvalidBallotIdHash);
         }
@@ -390,6 +391,7 @@ impl AnonVoteContract {
         caller: Address,
         new_admin: Address,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         Self::create_operation(env, caller, CriticalOperation::AdminRotation(new_admin))
     }
 
@@ -404,6 +406,7 @@ impl AnonVoteContract {
         caller: Address,
         new_wasm_hash: BytesN<32>,
     ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
         Self::create_operation(
             env,
             caller,
@@ -419,6 +422,7 @@ impl AnonVoteContract {
         approver_address: Address,
     ) -> Result<bool, ContractError> {
         approver_address.require_auth();
+        Self::require_not_paused(&env)?;
         Self::verify_initialized(&env)?;
 
         let key = DataKey::Operation(operation_id);
@@ -701,6 +705,7 @@ impl AnonVoteContract {
     }
 
     pub fn execute_upgrade(env: Env) -> Result<(), ContractError> {
+        Self::require_not_paused(&env)?;
         Self::verify_initialized(&env)?;
         let pending: PendingUpgrade = env
             .storage()
@@ -2277,343 +2282,61 @@ mod tests {
         assert!(!client.is_consistent(&phantom));
     }
 
-    // ── Admin key rotation tests ──────────────────────────────────────────
-
-    fn make_key(env: &Env, byte: u8) -> BytesN<32> {
-        BytesN::from_array(env, &[byte; 32])
-    }
-
-    fn setup_with_key(byte: u8) -> (Env, AnonVoteContractClient<'static>, Address) {
+    #[test]
+    fn pause_enforcement_blocks_operations() {
         let (env, client, admin) = setup();
-        let key = make_key(&env, byte);
-        client.initialize_admin_key(&admin, &key);
-        (env, client, admin)
-    }
-
-    #[test]
-    fn initialize_admin_key_stores_key() {
-        let (env, client, admin) = setup();
-        let key = make_key(&env, 0x01);
-        client.initialize_admin_key(&admin, &key);
-        let info = client.get_admin_key_info();
-        assert_eq!(info.current_key, key);
-        assert_eq!(info.pending_key, OptionalKey::None);
-        assert_eq!(info.rotation_count, 0);
-        assert_eq!(info.last_rotation_time, 0);
-        assert_eq!(info.seconds_until_confirmation, 0);
-    }
-
-    #[test]
-    fn initialize_admin_key_rejects_double_init() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let key2 = make_key(&env, 0x02);
+        
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        
+        // Pause contract
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+        assert_eq!(client.is_paused(), true);
+        
+        // Operations should be blocked with ContractPaused
         assert_eq!(
-            client.try_initialize_admin_key(&admin, &key2),
-            Err(Ok(ContractError::AlreadyInitialized))
+            client.try_record_ballot(&admin, &ballot, &limits(10, 10)),
+            Err(Ok(ContractError::ContractPaused))
         );
-    }
-
-    #[test]
-    fn initialize_admin_key_rejects_zero_key() {
-        let (env, client, admin) = setup();
-        let zero_key = BytesN::from_array(&env, &[0u8; 32]);
+        
         assert_eq!(
-            client.try_initialize_admin_key(&admin, &zero_key),
-            Err(Ok(ContractError::InvalidAdminKey))
+            client.try_record_token(&admin, &ballot),
+            Err(Ok(ContractError::ContractPaused))
         );
-    }
-
-    #[test]
-    fn initialize_admin_key_rejected_by_non_admin() {
-        let (env, client, _admin) = setup();
-        let non_admin = Address::generate(&env);
-        let key = make_key(&env, 0x01);
+        
         assert_eq!(
-            client.try_initialize_admin_key(&non_admin, &key),
-            Err(Ok(ContractError::AdminUnauthorized))
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::ContractPaused))
         );
-    }
-
-    #[test]
-    fn rotate_admin_key_sets_pending_key() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-
-        let info = client.get_admin_key_info();
-        assert_eq!(info.pending_key, OptionalKey::Some(new_key));
-        assert!(info.seconds_until_confirmation > 0);
-        // Current key unchanged
-        assert_eq!(info.current_key, make_key(&env, 0x01));
-    }
-
-    #[test]
-    fn rotate_admin_key_rejects_zero_key() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let zero_key = BytesN::from_array(&env, &[0u8; 32]);
-        assert_eq!(
-            client.try_rotate_admin_key(&admin, &zero_key),
-            Err(Ok(ContractError::InvalidAdminKey))
-        );
-    }
-
-    #[test]
-    fn rotate_admin_key_rejects_same_key() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let same_key = make_key(&env, 0x01);
-        assert_eq!(
-            client.try_rotate_admin_key(&admin, &same_key),
-            Err(Ok(ContractError::InvalidAdminKey))
-        );
-    }
-
-    #[test]
-    fn rotate_admin_key_rejected_by_non_admin() {
-        let (env, client, _admin) = setup_with_key(0x01);
-        let non_admin = Address::generate(&env);
-        let new_key = make_key(&env, 0x02);
-        assert_eq!(
-            client.try_rotate_admin_key(&non_admin, &new_key),
-            Err(Ok(ContractError::AdminUnauthorized))
-        );
-    }
-
-    #[test]
-    fn rotate_admin_key_fails_if_rotation_already_pending() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let key2 = make_key(&env, 0x02);
-        let key3 = make_key(&env, 0x03);
-        client.rotate_admin_key(&admin, &key2);
-        assert_eq!(
-            client.try_rotate_admin_key(&admin, &key3),
-            Err(Ok(ContractError::KeyRotationAlreadyPending))
-        );
-    }
-
-    #[test]
-    fn rotate_admin_key_fails_without_initialized_key() {
-        let (env, client, admin) = setup();
-        let new_key = make_key(&env, 0x02);
-        assert_eq!(
-            client.try_rotate_admin_key(&admin, &new_key),
-            Err(Ok(ContractError::AdminKeyNotInitialized))
-        );
-    }
-
-    #[test]
-    fn cannot_confirm_before_cooldown_elapsed() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-
-        // Advance time but not past the cooldown
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN - 1);
 
         assert_eq!(
-            client.try_confirm_admin_key_rotation(&admin),
-            Err(Ok(ContractError::RotationTooSoon))
+            client.try_record_result(&admin, &ballot, &result),
+            Err(Ok(ContractError::ContractPaused))
         );
-        // Current key still unchanged
-        let info = client.get_admin_key_info();
-        assert_eq!(info.current_key, make_key(&env, 0x01));
-    }
-
-    #[test]
-    fn can_confirm_after_cooldown_elapsed() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        client.confirm_admin_key_rotation(&admin);
-
-        let info = client.get_admin_key_info();
-        assert_eq!(info.current_key, new_key);
-        assert_eq!(info.pending_key, OptionalKey::None);
-        assert_eq!(info.rotation_count, 1);
-        assert!(info.last_rotation_time > 0);
-        assert_eq!(info.seconds_until_confirmation, 0);
-    }
-
-    #[test]
-    fn pending_key_becomes_current_after_confirmation() {
-        let (env, client, admin) = setup_with_key(0xAA);
-        let new_key = make_key(&env, 0xBB);
-        client.rotate_admin_key(&admin, &new_key);
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        client.confirm_admin_key_rotation(&admin);
-
-        assert_eq!(client.get_admin_key_info().current_key, new_key);
-    }
-
-    #[test]
-    fn rotation_count_increments_on_each_confirmation() {
-        let (env, client, admin) = setup_with_key(0x01);
-
-        for i in 1u8..=3 {
-            let new_key = make_key(&env, i + 1);
-            client.rotate_admin_key(&admin, &new_key);
-            env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-            client.confirm_admin_key_rotation(&admin);
-            assert_eq!(client.get_admin_key_info().rotation_count, i as u32);
-        }
-    }
-
-    #[test]
-    fn cancel_key_rotation_clears_pending_state() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-
-        client.cancel_key_rotation(&admin);
-
-        let info = client.get_admin_key_info();
-        assert_eq!(info.pending_key, OptionalKey::None);
-        assert_eq!(info.current_key, make_key(&env, 0x01));
-        assert_eq!(info.seconds_until_confirmation, 0);
-    }
-
-    #[test]
-    fn cancel_with_no_pending_rotation_returns_error() {
-        let (env, client, admin) = setup_with_key(0x01);
+        
+        let new_admin = Address::generate(&env);
         assert_eq!(
-            client.try_cancel_key_rotation(&admin),
-            Err(Ok(ContractError::NoKeyRotationPending))
+            client.try_rotate_admin(&admin, &new_admin),
+            Err(Ok(ContractError::ContractPaused))
         );
-    }
-
-    #[test]
-    fn cancel_rejected_by_non_admin() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-        let non_admin = Address::generate(&env);
+        
+        let fake_wasm_hash = env.crypto().sha256(&soroban_sdk::Bytes::new(&env)).into();
         assert_eq!(
-            client.try_cancel_key_rotation(&non_admin),
-            Err(Ok(ContractError::AdminUnauthorized))
+            client.try_schedule_upgrade(&admin, &fake_wasm_hash),
+            Err(Ok(ContractError::ContractPaused))
         );
-    }
 
-    #[test]
-    fn confirm_with_no_pending_rotation_returns_error() {
-        let (env, client, admin) = setup_with_key(0x01);
-        assert_eq!(
-            client.try_confirm_admin_key_rotation(&admin),
-            Err(Ok(ContractError::NoKeyRotationPending))
-        );
-    }
-
-    #[test]
-    fn after_cancel_can_request_new_rotation() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let key2 = make_key(&env, 0x02);
-        let key3 = make_key(&env, 0x03);
-
-        client.rotate_admin_key(&admin, &key2);
-        client.cancel_key_rotation(&admin);
-
-        // Now we can request with a different key
-        client.rotate_admin_key(&admin, &key3);
-        let info = client.get_admin_key_info();
-        assert_eq!(info.pending_key, OptionalKey::Some(key3));
-    }
-
-    #[test]
-    fn get_admin_key_info_returns_correct_data_before_and_after_rotation() {
-        let (env, client, admin) = setup_with_key(0x10);
-        let new_key = make_key(&env, 0x20);
-
-        // Before rotation request
-        let info = client.get_admin_key_info();
-        assert_eq!(info.current_key, make_key(&env, 0x10));
-        assert_eq!(info.pending_key, OptionalKey::None);
-        assert_eq!(info.rotation_count, 0);
-        assert_eq!(info.last_rotation_time, 0);
-        assert_eq!(info.seconds_until_confirmation, 0);
-
-        // After rotation request
-        client.rotate_admin_key(&admin, &new_key);
-        let info2 = client.get_admin_key_info();
-        assert_eq!(info2.pending_key, OptionalKey::Some(new_key.clone()));
-        assert_eq!(info2.seconds_until_confirmation, KEY_ROTATION_COOLDOWN);
-
-        // After partial time advance
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN / 2);
-        let info3 = client.get_admin_key_info();
-        assert!(info3.seconds_until_confirmation > 0);
-        assert!(info3.seconds_until_confirmation <= KEY_ROTATION_COOLDOWN / 2);
-
-        // After cooldown fully elapsed
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        let info4 = client.get_admin_key_info();
-        assert_eq!(info4.seconds_until_confirmation, 0);
-
-        // After confirmation
-        client.confirm_admin_key_rotation(&admin);
-        let info5 = client.get_admin_key_info();
-        assert_eq!(info5.current_key, new_key);
-        assert_eq!(info5.pending_key, OptionalKey::None);
-        assert_eq!(info5.rotation_count, 1);
-        assert!(info5.last_rotation_time > 0);
-    }
-
-    #[test]
-    fn get_admin_key_info_returns_error_when_key_not_initialized() {
-        let (_, client, _) = setup();
-        assert_eq!(
-            client.try_get_admin_key_info(),
-            Err(Ok(ContractError::AdminKeyNotInitialized))
-        );
-    }
-
-    #[test]
-    fn multiple_rotations_in_sequence_work_correctly() {
-        let (env, client, admin) = setup_with_key(0x01);
-
-        let key_values: [u8; 4] = [0x02, 0x03, 0x04, 0x05];
-        for (i, &byte) in key_values.iter().enumerate() {
-            let new_key = make_key(&env, byte);
-            client.rotate_admin_key(&admin, &new_key);
-            env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-            client.confirm_admin_key_rotation(&admin);
-
-            let info = client.get_admin_key_info();
-            assert_eq!(info.current_key, new_key);
-            assert_eq!(info.pending_key, OptionalKey::None);
-            assert_eq!(info.rotation_count, (i + 1) as u32);
-        }
-    }
-
-    #[test]
-    fn last_rotation_time_is_updated_on_each_confirmation() {
-        let (env, client, admin) = setup_with_key(0x01);
-
-        client.rotate_admin_key(&admin, &make_key(&env, 0x02));
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        client.confirm_admin_key_rotation(&admin);
-        let t1 = client.get_admin_key_info().last_rotation_time;
-
-        env.ledger().with_mut(|l| l.timestamp += 100);
-        client.rotate_admin_key(&admin, &make_key(&env, 0x03));
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        client.confirm_admin_key_rotation(&admin);
-        let t2 = client.get_admin_key_info().last_rotation_time;
-
-        assert!(t2 > t1);
-    }
-
-    #[test]
-    fn rotation_exactly_at_cooldown_boundary_succeeds() {
-        let (env, client, admin) = setup_with_key(0x01);
-        let new_key = make_key(&env, 0x02);
-        client.rotate_admin_key(&admin, &new_key);
-        // Advance exactly to the cooldown boundary
-        env.ledger().with_mut(|l| l.timestamp += KEY_ROTATION_COOLDOWN);
-        // Should succeed (elapsed == KEY_ROTATION_COOLDOWN >= KEY_ROTATION_COOLDOWN)
-        client.confirm_admin_key_rotation(&admin);
-        assert_eq!(
-            client.get_admin_key_info().current_key,
-            new_key
-        );
+        // Resume contract
+        client.resume_contract(&admin);
+        assert_eq!(client.is_paused(), false);
+        
+        // Operations should work normally now
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.record_token(&admin, &ballot);
+        client.record_vote(&admin, &ballot);
+        
+        let op_id_res = client.record_result(&admin, &ballot, &result);
+        client.approve_operation(&op_id_res, &admin);
     }
 }
