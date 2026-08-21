@@ -294,7 +294,7 @@ describe("checkVoteRateLimits — counter logic (DB-backed)", () => {
     expect(result.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it("resets the window and allows a request after the window has expired", async () => {
+  it("rejects the first request after an expired window when the next count would exceed the limit", async () => {
     const { checkVoteRateLimits: realCheck } = jest.requireActual(
       "../services/voteRateLimiter",
     ) as typeof import("../services/voteRateLimiter");
@@ -303,18 +303,20 @@ describe("checkVoteRateLimits — counter logic (DB-backed)", () => {
     const expiredBallotId = "ballot-expired-" + Date.now();
     const expiredToken = generateToken();
 
-    // Seed all three counters as expired (expiresAt in the past)
+    // Seed all three counters as expired at or above the limit.
     const pastTime = new Date(Date.now() - 10_000);
     await prisma.rateLimitEntry.createMany({
       data: [
-        { key: `ip:${expiredIp}`, count: 999, windowStart: pastTime, expiresAt: pastTime },
-        { key: `ballot:${expiredBallotId}`, count: 999, windowStart: pastTime, expiresAt: pastTime },
-        { key: `token:${hashToken(expiredToken)}`, count: 999, windowStart: pastTime, expiresAt: pastTime },
+        { key: `ip:${expiredIp}`, count: VOTE_IP_LIMIT, windowStart: pastTime, expiresAt: pastTime },
+        { key: `ballot:${expiredBallotId}`, count: VOTE_BALLOT_LIMIT, windowStart: pastTime, expiresAt: pastTime },
+        { key: `token:${hashToken(expiredToken)}`, count: VOTE_TOKEN_LIMIT, windowStart: pastTime, expiresAt: pastTime },
       ],
     });
 
     const result = await realCheck(expiredIp, expiredBallotId, expiredToken);
-    expect(result.allowed).toBe(true);
+    expect(result.allowed).toBe(false);
+    expect(result.dimension).toBe("ip");
+    expect(result.retryAfterSeconds).toBeGreaterThan(0);
   });
 });
 
