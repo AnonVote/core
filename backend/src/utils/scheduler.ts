@@ -107,7 +107,7 @@ export async function startScheduler(): Promise<void> {
   }
 
   console.log("[Scheduler] Started — waiting for ballots to schedule checks");
-  processExpiredBallots();
+  processBallotStateTransitions();
 
   // Purge expired rate-limit entries every 10 minutes to keep the table lean
   setInterval(async () => {
@@ -120,5 +120,4 @@ export async function startScheduler(): Promise<void> {
       console.error("[Scheduler] Rate-limit purge error:", err);
     }
   }, 10 * 60 * 1000);
-  processBallotStateTransitions();
 }

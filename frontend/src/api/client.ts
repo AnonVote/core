@@ -5,6 +5,7 @@ import type {
   Result,
   AuditCounts,
   ApiResponse,
+  AdminBallotSummary,
 } from "../types";
 
 const api = axios.create({
@@ -163,6 +164,9 @@ export const getAudit = (ballotId: string) =>
 
 // Admin
 export const getAdminBallots = () => api.get<ApiResponse<Ballot[]>>("/admin/ballots");
+
+export const getAdminBallotSummary = () =>
+  api.get<ApiResponse<AdminBallotSummary[]>>("/admin/ballots/summary");
 
 export const getRateLimitSettings = () =>
   api.get<

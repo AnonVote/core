@@ -43,6 +43,17 @@ export interface Ballot {
   result?: Result;
 }
 
+export interface AdminBallotSummary {
+  id: string;
+  topic: string;
+  status: BallotStatus;
+  deadline: string;
+  voterCount: number;
+  tokensIssued: number;
+  votesReceived: number;
+  tallyStatus: "PENDING" | "READY" | "FINALISED";
+}
+
 export interface EligibilityList {
   id: string;
   createdAt: string;

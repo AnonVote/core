@@ -57,6 +57,69 @@ router.get(
   },
 );
 
+// GET /api/admin/ballots/summary — aggregated ballot stats for the admin dashboard
+router.get(
+  "/ballots/summary",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ballots = await prisma.ballot.findMany({
+        where: { organizationId: req.organization!.id },
+        select: {
+          id: true,
+          topic: true,
+          status: true,
+          deadline: true,
+          eligibilityListId: true,
+          result: true,
+          _count: {
+            select: { votes: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const data = await Promise.all(
+        ballots.map(async (ballot) => {
+          const [voterCount, tokensIssued, votesReceived] = await Promise.all([
+            prisma.eligibilityEntry.count({
+              where: { eligibilityListId: ballot.eligibilityListId },
+            }),
+            prisma.voterToken.count({
+              where: { ballotId: ballot.id },
+            }),
+            prisma.vote.count({
+              where: { ballotId: ballot.id },
+            }),
+          ]);
+
+          let tallyStatus: "PENDING" | "READY" | "FINALISED" = "PENDING";
+          if (ballot.result?.finalised || ballot.status === "FINALISED") {
+            tallyStatus = "FINALISED";
+          } else if (votesReceived > 0 || ballot.status === "CLOSED") {
+            tallyStatus = "READY";
+          }
+
+          return {
+            id: ballot.id,
+            topic: ballot.topic,
+            status: ballot.status,
+            deadline: ballot.deadline,
+            voterCount,
+            tokensIssued,
+            votesReceived,
+            tallyStatus,
+          };
+        }),
+      );
+
+      res.status(200).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
