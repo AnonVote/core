@@ -259,6 +259,7 @@ export interface SorobanConfig {
 
 export enum BallotState {
   Active          = "Active",
+  Expired         = "Expired",
   ResultPublished = "ResultPublished",
   Archived        = "Archived",
 }
@@ -405,6 +406,8 @@ export const ANONVOTE_CONTRACT_METHODS = {
   recordVote: "record_vote",
   recordResult: "record_result",
   isConsistent: "is_consistent",
+  expireBallot: "expire_ballot",
+  getBallotState: "get_ballot_state",
 } as const;
 
 export interface SorobanDomainError {
@@ -1270,6 +1273,41 @@ export async function sorobanRecordResult(
   return result;
 }
 
+/**
+ * Expire a ballot on-chain (admin only).
+ *
+ * This is the single authoritative expiration transition: the contract
+ * atomically moves `BallotState` from `Active` to `Expired` and every
+ * subsequent `record_vote` / `record_token` call for this ballot is
+ * rejected with `BallotExpired`. Calling this on a ballot that is already
+ * `Expired` or `ResultPublished` returns `BallotExpired` rather than
+ * silently succeeding, so the transition can never be re-applied.
+ *
+ * The backend MUST call this (rather than only updating its own database
+ * row) to expire a ballot, and should treat the contract's state — read via
+ * `sorobanGetBallotState` / `sorobanIsBallotExpired` — as the source of
+ * truth, syncing its own status field to match rather than diverging from it.
+ */
+export async function sorobanExpireBallot(
+  config: SorobanConfig,
+  ballotIdHash: string,
+): Promise<SorobanInvokeResult> {
+  const configCheck = validateSorobanConfig(config);
+  if (!configCheck.valid) {
+    console.warn(`[Soroban] sorobanExpireBallot: ${configCheck.error.message}`);
+    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+  }
+  const caller = config.sourceKeypair.publicKey();
+  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.expireBallot, [
+    { value: caller, type: "address" },
+    { value: ballotIdHash, type: "string" },
+  ]);
+  if (!result.success) {
+    throwFromInvokeResult("sorobanExpireBallot", result);
+  }
+  return result;
+}
+
 function normalizeForHash(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(normalizeForHash);
@@ -1367,6 +1405,16 @@ export async function tally(
  * Submit a vote using the required ordering: validate/encrypt upstream, record
  * the vote on Soroban, wait for confirmation, then persist the database row
  * with `soroban_tx_id`.
+ *
+ * Expiration is enforced atomically by the contract's `record_vote` itself
+ * (it rejects with `BallotExpired` once `BallotState` is `Expired`), so an
+ * expired ballot never reaches `repository.createVote` — the on-chain call
+ * throws first via `recordVote` -> `throwFromInvokeResult`. Callers that
+ * want to keep their own database status in sync with the contract (e.g. to
+ * avoid even attempting a submission, or to reconcile after an admin calls
+ * `sorobanExpireBallot`) should poll `sorobanIsBallotExpired` /
+ * `sorobanGetBallotState` independently — the contract state is always the
+ * source of truth.
  */
 export async function submitVoteOnChainFirst(
   config: SorobanConfig,
@@ -1654,10 +1702,30 @@ export async function sorobanGetBallotState(
 ): Promise<BallotStateSnapshot | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value } = await readContract(config, "get_ballot_state", [
+  const { value } = await readContract(config, ANONVOTE_CONTRACT_METHODS.getBallotState, [
     { value: ballotIdHash, type: "string" },
   ]);
   return value as BallotStateSnapshot | null;
+}
+
+/**
+ * Read-only check of whether a ballot is `Expired` on-chain.
+ *
+ * The backend should call this (or inspect `sorobanGetBallotState`) before
+ * accepting a vote submission, rather than relying solely on its own
+ * database status — the contract's `BallotState` is the single source of
+ * truth for expiration. Returns `null` if the config is invalid, the query
+ * fails, or the ballot does not exist (an unknown ballot is never
+ * "expired" — it is simply not found, which callers should handle
+ * separately via `BallotNotFound`).
+ */
+export async function sorobanIsBallotExpired(
+  config: SorobanConfig,
+  ballotIdHash: string,
+): Promise<boolean | null> {
+  const snapshot = await sorobanGetBallotState(config, ballotIdHash);
+  if (snapshot === null) return null;
+  return snapshot.state === BallotState.Expired;
 }
 
 /**
@@ -1747,6 +1815,20 @@ export async function sorobanGetBallotMetadata(
     admin: String(raw.admin ?? ""),
     is_active: raw.is_active === true,
   };
+}
+
+/**
+ * Get the semantic version embedded in the deployed contract.
+ * Returns null if the config is invalid or the query fails.
+ */
+export async function sorobanGetVersion(
+  config: SorobanConfig,
+): Promise<string | null> {
+  const contractCheck = validateContractId(config.contractId);
+  if (!contractCheck.valid) return null;
+  const { value, errorCode } = await readContract(config, "get_version", []);
+  if (errorCode !== undefined || value === null || value === undefined) return null;
+  return String(value);
 }
 
 /**
@@ -2020,6 +2102,12 @@ export function createSorobanService(config: SorobanConfig) {
 
     sorobanRecordResult: (ballotIdHash: string, resultHash: string) =>
       sorobanRecordResult(config, ballotIdHash, resultHash),
+
+    sorobanExpireBallot: (ballotIdHash: string) =>
+      sorobanExpireBallot(config, ballotIdHash),
+
+    sorobanIsBallotExpired: (ballotIdHash: string) =>
+      sorobanIsBallotExpired(config, ballotIdHash),
 
     tally: (
       ballotIdHash: string,

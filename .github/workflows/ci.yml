@@ -31,7 +31,7 @@ jobs:
 
       - name: Build WASM (release)
         working-directory: anonvote
-        run: cargo build --target wasm32-unknown-unknown --release
+        run: cargo build --target wasm32-unknown-unknown --release --locked
 
       - name: Verify WASM output exists and is non-empty
         working-directory: anonvote
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run cargo tests
         working-directory: anonvote
-        run: cargo test
+        run: cargo test --locked
 
   service:
     name: TypeScript — npm test
