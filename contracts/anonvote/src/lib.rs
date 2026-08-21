@@ -15,6 +15,7 @@ use validation::validate_hex_hash;
 
 const APPROVAL_EXPIRATION_SECONDS: u64 = 7 * 24 * 60 * 60;
 const UPGRADE_TIME_LOCK_SECONDS: u64 = 48 * 60 * 60;
+const KEY_ROTATION_COOLDOWN: u64 = 86400; // 24 hours in seconds
 
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,6 +46,13 @@ pub enum ContractError {
     InvalidBallotIdHash = 23,
     InvalidResultHash = 24,
     InternalError = 25,
+    // Admin key rotation errors
+    InvalidAdminKey = 26,
+    KeyRotationAlreadyPending = 27,
+    NoKeyRotationPending = 28,
+    RotationTooSoon = 29,
+    KeyRotationUnauthorized = 30,
+    AdminKeyNotInitialized = 31,
 }
 
 #[contracttype]
@@ -124,6 +132,31 @@ pub struct RotationRecord {
     pub rotated_at: u64,
 }
 
+/// Soroban-compatible optional key wrapper (`Option<BytesN<32>>` is not directly serialisable).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OptionalKey {
+    None,
+    Some(BytesN<32>),
+}
+
+/// Info returned by `get_admin_key_info`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminKeyInfo {
+    /// The currently active admin key.
+    pub current_key: BytesN<32>,
+    /// The pending key awaiting confirmation (`OptionalKey::None` when absent).
+    pub pending_key: OptionalKey,
+    /// Total number of completed key rotations.
+    pub rotation_count: u32,
+    /// Ledger timestamp of the last successful rotation (0 if never rotated).
+    pub last_rotation_time: u64,
+    /// Seconds remaining before `confirm_admin_key_rotation` is callable.
+    /// 0 means the cooldown has elapsed (or no rotation is pending).
+    pub seconds_until_confirmation: u64,
+}
+
 /// Typed, structured audit events for external indexers.
 ///
 /// These are published in addition to the existing lightweight
@@ -191,6 +224,12 @@ pub enum DataKey {
     BallotMetadata(String),
     PendingUpgrade,
     RotationHistory,
+    // Admin key (BytesN<32>) rotation state
+    AdminKey,
+    PendingAdminKey,
+    KeyRotationRequestedAt,
+    KeyRotationCount,
+    LastKeyRotationTime,
 }
 
 #[contract]
@@ -721,6 +760,253 @@ impl AnonVoteContract {
         Ok(())
     }
 
+    // ── Admin key (BytesN<32>) rotation ────────────────────────────────────
+
+    /// Initialises the `BytesN<32>` admin key in persistent storage.
+    ///
+    /// Must be called once by the current admin after contract initialization.
+    /// The key is separate from the `Address`-based admin and is used for
+    /// off-chain signature verification.
+    pub fn initialize_admin_key(
+        env: Env,
+        caller: Address,
+        key: BytesN<32>,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        if env.storage().persistent().has(&DataKey::AdminKey) {
+            return Err(ContractError::AlreadyInitialized);
+        }
+        if Self::is_zero_key(&key) {
+            return Err(ContractError::InvalidAdminKey);
+        }
+        env.storage().persistent().set(&DataKey::AdminKey, &key);
+        env.storage()
+            .persistent()
+            .set(&DataKey::KeyRotationCount, &0u32);
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastKeyRotationTime, &0u64);
+        env.events().publish(
+            (symbol_short!("key"), symbol_short!("init")),
+            (caller, env.ledger().timestamp()),
+        );
+        Ok(())
+    }
+
+    /// Requests a `BytesN<32>` admin key rotation.
+    ///
+    /// Sets `pending_admin_key` and records the request timestamp. The new key
+    /// is not active until `confirm_admin_key_rotation` is called after the
+    /// cooldown period.
+    pub fn rotate_admin_key(
+        env: Env,
+        caller: Address,
+        new_key: BytesN<32>,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let current_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminKey)
+            .ok_or(ContractError::AdminKeyNotInitialized)?;
+
+        if Self::is_zero_key(&new_key) {
+            return Err(ContractError::InvalidAdminKey);
+        }
+        if new_key == current_key {
+            return Err(ContractError::InvalidAdminKey);
+        }
+        if env.storage().persistent().has(&DataKey::PendingAdminKey) {
+            return Err(ContractError::KeyRotationAlreadyPending);
+        }
+
+        let now = env.ledger().timestamp();
+        env.storage()
+            .persistent()
+            .set(&DataKey::PendingAdminKey, &new_key);
+        env.storage()
+            .persistent()
+            .set(&DataKey::KeyRotationRequestedAt, &now);
+        env.events().publish(
+            (symbol_short!("key"), symbol_short!("rot_req")),
+            (caller, now, now + KEY_ROTATION_COOLDOWN),
+        );
+        Ok(())
+    }
+
+    /// Confirms a pending `BytesN<32>` admin key rotation after the cooldown.
+    ///
+    /// Can be called by either the old or the new admin `Address`.
+    /// Transitions `pending_admin_key` → `admin_key` and increments the
+    /// rotation counter.
+    pub fn confirm_admin_key_rotation(
+        env: Env,
+        caller: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let pending_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingAdminKey)
+            .ok_or(ContractError::NoKeyRotationPending)?;
+        let requested_at: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::KeyRotationRequestedAt)
+            .ok_or(ContractError::NoKeyRotationPending)?;
+
+        let now = env.ledger().timestamp();
+        let elapsed = now.saturating_sub(requested_at);
+        if elapsed < KEY_ROTATION_COOLDOWN {
+            return Err(ContractError::RotationTooSoon);
+        }
+
+        let _old_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminKey)
+            .ok_or(ContractError::AdminKeyNotInitialized)?;
+
+        // Promote pending key to current.
+        env.storage()
+            .persistent()
+            .set(&DataKey::AdminKey, &pending_key);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingAdminKey);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::KeyRotationRequestedAt);
+
+        let count: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::KeyRotationCount)
+            .unwrap_or(0);
+        let new_count = count.checked_add(1).ok_or(ContractError::CounterOverflow)?;
+        env.storage()
+            .persistent()
+            .set(&DataKey::KeyRotationCount, &new_count);
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastKeyRotationTime, &now);
+
+        env.events().publish(
+            (symbol_short!("key"), symbol_short!("rot_ok")),
+            (caller, pending_key, new_count, now),
+        );
+        Ok(())
+    }
+
+    /// Cancels a pending `BytesN<32>` admin key rotation.
+    ///
+    /// Only the current admin `Address` can cancel. Clears both
+    /// `pending_admin_key` and `rotation_requested_at`.
+    pub fn cancel_key_rotation(
+        env: Env,
+        caller: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        if !env.storage().persistent().has(&DataKey::PendingAdminKey) {
+            return Err(ContractError::NoKeyRotationPending);
+        }
+
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingAdminKey);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::KeyRotationRequestedAt);
+
+        env.events().publish(
+            (symbol_short!("key"), symbol_short!("rot_cncl")),
+            (caller, env.ledger().timestamp()),
+        );
+        Ok(())
+    }
+
+    /// Returns a snapshot of the current admin key state.
+    ///
+    /// Returns an error if the admin key has not been initialised yet.
+    pub fn get_admin_key_info(env: Env) -> Result<AdminKeyInfo, ContractError> {
+        let current_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminKey)
+            .ok_or(ContractError::AdminKeyNotInitialized)?;
+
+        let opt_pending: Option<BytesN<32>> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingAdminKey);
+
+        let rotation_count: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::KeyRotationCount)
+            .unwrap_or(0);
+
+        let last_rotation_time: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::LastKeyRotationTime)
+            .unwrap_or(0);
+
+        let seconds_until_confirmation: u64 = if opt_pending.is_some() {
+            let requested_at: u64 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::KeyRotationRequestedAt)
+                .unwrap_or(0);
+            let now = env.ledger().timestamp();
+            let elapsed = now.saturating_sub(requested_at);
+            KEY_ROTATION_COOLDOWN.saturating_sub(elapsed)
+        } else {
+            0
+        };
+
+        let pending_key = match opt_pending {
+            Some(k) => OptionalKey::Some(k),
+            None => OptionalKey::None,
+        };
+
+        Ok(AdminKeyInfo {
+            current_key,
+            pending_key,
+            rotation_count,
+            last_rotation_time,
+            seconds_until_confirmation,
+        })
+    }
+
+    /// Verifies an admin signature against a message using the current admin key.
+    ///
+    /// Uses the Soroban `ed25519_verify` host function. Returns `true` if the
+    /// signature is valid for the given message under the current admin key.
+    pub fn verify_admin_signature(
+        env: Env,
+        message: Bytes,
+        signature: BytesN<64>,
+    ) -> Result<bool, ContractError> {
+        let current_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminKey)
+            .ok_or(ContractError::AdminKeyNotInitialized)?;
+        env.crypto()
+            .ed25519_verify(&current_key, &message, &signature);
+        Ok(true)
+    }
+
+    // ── End admin key rotation ──────────────────────────────────────────────
+
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)
     }
@@ -1221,6 +1507,25 @@ impl AnonVoteContract {
             return Err(ContractError::BallotExpired);
         }
         Ok(metadata)
+    }
+
+    fn require_ballot_not_expired(env: &Env, ballot_id_hash: &String) -> Result<(), ContractError> {
+        let key = DataKey::BallotExpired(ballot_id_hash.clone());
+        let explicitly_expired: bool = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(false);
+        if explicitly_expired {
+            return Err(ContractError::BallotExpired);
+        }
+        Ok(())
+    }
+
+    /// Returns `true` if all 32 bytes of the key are zero (i.e. unset / invalid).
+    fn is_zero_key(key: &BytesN<32>) -> bool {
+        let arr = key.to_array();
+        arr.iter().all(|&b| b == 0)
     }
 }
 
