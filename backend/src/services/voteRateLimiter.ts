@@ -67,18 +67,20 @@ async function checkAndIncrement(
     },
   });
 
-  // If the stored window has expired, reset it atomically
+  // If the stored window has expired, reset the window but still validate the
+  // next count before allowing the request through.
   if (entry.expiresAt <= now) {
+    const nextCount = entry.count + 1;
     const reset = await prisma.rateLimitEntry.update({
       where: { key },
       data: {
-        count: 1,
+        count: nextCount,
         windowStart: now,
         expiresAt,
       },
     });
     return {
-      allowed: true,
+      allowed: reset.count <= limit,
       retryAfterSeconds: Math.ceil(windowMs / 1000),
       current: reset.count,
       limit,
