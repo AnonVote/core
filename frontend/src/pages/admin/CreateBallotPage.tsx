@@ -287,8 +287,9 @@ export default function AdminCreateBallotPage() {
 
           {/* Deadline Picker */}
           <div>
-            <label className="form-label">Voting Deadline</label>
+            <label htmlFor="ballot-deadline" className="form-label">Voting Deadline</label>
             <input
+              id="ballot-deadline"
               type="datetime-local"
               value={deadline}
               min={minDeadline}

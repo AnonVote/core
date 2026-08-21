@@ -9,6 +9,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboard"));
 const CreateBallotPage = lazy(() => import("./pages/CreateBallotPage"));
 const EditBallotPage = lazy(() => import("./pages/EditBallotPage"));
 const TokenRequestPage = lazy(() => import("./pages/TokenRequestPage"));
@@ -41,6 +42,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboardPage />
                 </ProtectedRoute>
               }
             />

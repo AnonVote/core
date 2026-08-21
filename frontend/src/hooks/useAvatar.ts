@@ -9,7 +9,7 @@ const AVATAR_KEY_PREFIX = "avatar_";
  */
 export function useAvatar(userId: string | null) {
   const getAvatarKey = (id: string | null) => {
-    return id ? `${AVATAR_KEY_PREFIX}${id}` : "avatar_default";
+    return id ? `${AVATAR_KEY_PREFIX}${id}` : "anonvote-avatar";
   };
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
