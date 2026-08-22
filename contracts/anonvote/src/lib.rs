@@ -53,14 +53,20 @@ pub enum ContractError {
     RotationTooSoon = 29,
     KeyRotationUnauthorized = 30,
     AdminKeyNotInitialized = 31,
+    // State machine errors
+    BallotNotInVotingState = 32,
+    BallotNotInClosedState = 33,
+    BallotAlreadyTallied = 34,
+    InvalidStateTransition = 35,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BallotState {
-    Active,
-    Expired,
-    ResultPublished,
+    Created,
+    Voting,
+    Closed,
+    Tallied,
 }
 
 #[contracttype]
@@ -556,7 +562,7 @@ impl AnonVoteContract {
                 created_at: now,
                 expiration_time: 0,
                 limits,
-                state: BallotState::Active,
+                state: BallotState::Created,
                 state_updated_at: now,
             };
             env.storage().persistent().set(&metadata_key, &metadata);
@@ -598,7 +604,7 @@ impl AnonVoteContract {
             created_at: now,
             expiration_time: 0,
             limits,
-            state: BallotState::Active,
+            state: BallotState::Created,
             state_updated_at: now,
         };
         env.storage().persistent().set(&metadata_key, &metadata);
@@ -619,6 +625,69 @@ impl AnonVoteContract {
         Ok(())
     }
 
+    /// Transitions a ballot from Created to Voting state.
+    ///
+    /// Only the admin can start voting. Once started, tokens and votes can be recorded.
+    /// Cannot transition if the ballot is already in Voting, Closed, or Tallied state.
+    pub fn start_voting(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+    ) -> Result<(), ContractError> {
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
+        let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Created {
+            return Err(ContractError::InvalidStateTransition);
+        }
+
+        metadata.state = BallotState::Voting;
+        metadata.state_updated_at = env.ledger().timestamp();
+        env.storage().persistent().set(&metadata_key, &metadata);
+
+        env.events().publish(
+            (symbol_short!("ballot"), symbol_short!("voting")),
+            (ballot_id_hash, metadata.state_updated_at, caller),
+        );
+        Ok(())
+    }
+
+    /// Transitions a ballot from Voting to Closed state.
+    ///
+    /// Only the admin can close voting. Once closed, no more tokens or votes can be recorded,
+    /// but the result can be tallied.
+    /// Cannot transition if the ballot is not in Voting state.
+    pub fn close_voting(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+    ) -> Result<(), ContractError> {
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
+        let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::InvalidStateTransition);
+        }
+
+        metadata.state = BallotState::Closed;
+        metadata.state_updated_at = env.ledger().timestamp();
+        env.storage().persistent().set(&metadata_key, &metadata);
+
+        env.events().publish(
+            (symbol_short!("ballot"), symbol_short!("closed")),
+            (ballot_id_hash, metadata.state_updated_at, caller),
+        );
+        Ok(())
+    }
+
     pub fn record_token(
         env: Env,
         caller: Address,
@@ -628,7 +697,11 @@ impl AnonVoteContract {
         caller.require_auth();
         Self::require_not_paused(&env)?;
         Self::require_admin(&env, &caller)?;
-        let metadata = Self::require_ballot_metadata_and_not_expired(&env, &ballot_id_hash)?;
+        let metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::BallotNotInVotingState);
+        }
 
         let key = DataKey::TokensIssued(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
@@ -657,7 +730,11 @@ impl AnonVoteContract {
         caller.require_auth();
         Self::require_not_paused(&env)?;
         Self::require_admin(&env, &caller)?;
-        let metadata = Self::require_ballot_metadata_and_not_expired(&env, &ballot_id_hash)?;
+        let metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::BallotNotInVotingState);
+        }
 
         let key = DataKey::VotesCast(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
@@ -677,14 +754,13 @@ impl AnonVoteContract {
         Ok(())
     }
 
-    /// Atomically transitions a ballot from `Active` to `Expired`.
+    /// Atomically transitions a ballot from `Voting` to `Closed`.
     ///
-    /// `BallotState::Expired` is the single authoritative expiration signal —
-    /// once set, `record_vote` and `record_token` reject every subsequent
-    /// call for this ballot. Expiring a ballot that is already `Expired` or
-    /// `ResultPublished` is rejected with `BallotExpired` rather than
-    /// silently succeeding, so the transition can never be re-applied or
-    /// used to move a finalized ballot backwards.
+    /// `BallotState::Closed` prevents further token issuance and vote recording.
+    /// Once closed, only result publication (tally) is allowed.
+    /// Expiring a ballot that is already `Closed` or `Tallied` is rejected.
+    ///
+    /// Note: This is a compatibility alias for `close_voting`. Use `close_voting` for new code.
     pub fn expire_ballot(
         env: Env,
         caller: Address,
@@ -695,11 +771,12 @@ impl AnonVoteContract {
         Self::require_admin(&env, &caller)?;
         let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
         let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
-        if metadata.state != BallotState::Active {
+        
+        if metadata.state != BallotState::Voting {
             return Err(ContractError::BallotExpired);
         }
 
-        metadata.state = BallotState::Expired;
+        metadata.state = BallotState::Closed;
         metadata.state_updated_at = env.ledger().timestamp();
         env.storage().persistent().set(&metadata_key, &metadata);
 
@@ -1338,10 +1415,21 @@ impl AnonVoteContract {
                     }
                     return Err(ContractError::ResultAlreadyPublished);
                 }
-                env.storage().persistent().set(&result_key, result_hash);
+
+                // Validate state transition: result can only be published from Closed state
                 let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
                 let mut metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-                metadata.state = BallotState::ResultPublished;
+
+                if metadata.state != BallotState::Closed {
+                    return Err(ContractError::BallotNotInClosedState);
+                }
+
+                if metadata.state == BallotState::Tallied {
+                    return Err(ContractError::BallotAlreadyTallied);
+                }
+
+                env.storage().persistent().set(&result_key, result_hash);
+                metadata.state = BallotState::Tallied;
                 metadata.state_updated_at = env.ledger().timestamp();
                 env.storage().persistent().set(&metadata_key, &metadata);
                 env.events().publish(
@@ -1495,31 +1583,20 @@ impl AnonVoteContract {
 
     /// Returns ballot metadata and checks expiration in a single call.
     ///
-    /// `BallotState::Expired` (set atomically by `expire_ballot`) is the sole
+    /// `BallotState::Closed` (set atomically by `close_voting` or `expire_ballot`) is the sole
     /// source of truth for whether a ballot still accepts tokens/votes — this
     /// is the check `record_token` and `record_vote` rely on.
+    ///
+    /// Note: This function is deprecated. Use direct state checks in `record_token`/`record_vote`.
     fn require_ballot_metadata_and_not_expired(
         env: &Env,
         ballot_id_hash: &String,
     ) -> Result<BallotMetadata, ContractError> {
         let metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-        if metadata.state == BallotState::Expired {
+        if metadata.state == BallotState::Closed || metadata.state == BallotState::Tallied {
             return Err(ContractError::BallotExpired);
         }
         Ok(metadata)
-    }
-
-    fn require_ballot_not_expired(env: &Env, ballot_id_hash: &String) -> Result<(), ContractError> {
-        let key = DataKey::BallotExpired(ballot_id_hash.clone());
-        let explicitly_expired: bool = env
-            .storage()
-            .persistent()
-            .get(&key)
-            .unwrap_or(false);
-        if explicitly_expired {
-            return Err(ContractError::BallotExpired);
-        }
-        Ok(())
     }
 
     /// Returns `true` if all 32 bytes of the key are zero (i.e. unset / invalid).
@@ -1888,6 +1965,7 @@ mod tests {
         let (env, client, admin) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(1, 1));
+        client.start_voting(&admin, &ballot);
         client.record_token(&admin, &ballot);
         client.record_vote(&admin, &ballot);
         assert_eq!(client.get_tokens_issued(&ballot), Some(1));
@@ -1917,9 +1995,12 @@ mod tests {
         assert_eq!(report.expiration_time, 0);
         assert!(report.is_consistent);
         assert_eq!(report.result_hash, None);
-        assert_eq!(report.state, BallotState::Active);
+        assert_eq!(report.state, BallotState::Created);
         assert_eq!(report.tokens_issued, 0);
         assert_eq!(report.votes_cast, 0);
+
+        // Start voting
+        client.start_voting(&admin, &ballot);
 
         // Record tokens/votes and assert matches individual reads
         client.record_token(&admin, &ballot);
@@ -1939,13 +2020,14 @@ mod tests {
         assert_eq!(report3.is_consistent, client.is_consistent(&ballot));
         assert!(!report3.is_consistent);
 
-        // Publish result
+        // Close voting and publish result
+        client.close_voting(&admin, &ballot);
         let result = String::from_str(&env, RESULT_A);
         let operation_id = client.record_result(&admin, &ballot, &result);
         client.approve_operation(&operation_id, &admin);
 
         let report4 = client.get_audit_report(&ballot).unwrap();
-        assert_eq!(report4.state, BallotState::ResultPublished);
+        assert_eq!(report4.state, BallotState::Tallied);
         assert_eq!(report4.result_hash, Some(result));
     }
 
@@ -1977,6 +2059,7 @@ mod tests {
 
         // Publish result
         let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.close_voting(&admin, &ballot);
         client.approve_operation(&op_id, &admin);
 
         // Verify valid proof for leaf 0
@@ -1994,6 +2077,7 @@ mod tests {
         let single_root_hex = bytes_to_hex(&env, &leaf0);
         let ballot_single = String::from_str(&env, BALLOT_B);
         client.record_ballot(&admin, &ballot_single, &limits(10, 10));
+        client.close_voting(&admin, &ballot_single);
         let op_id_single = client.record_result(&admin, &ballot_single, &single_root_hex);
         client.approve_operation(&op_id_single, &admin);
 
@@ -2072,6 +2156,10 @@ mod tests {
 
         // Advance again and publish result; timestamp still unchanged
         env.ledger().with_mut(|l| l.timestamp += 100);
+        client.start_voting(&admin, &ballot);
+        client.record_token(&admin, &ballot);
+        client.record_vote(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
         let result = String::from_str(&env, RESULT_A);
         let op_id = client.record_result(&admin, &ballot, &result);
         client.approve_operation(&op_id, &admin);
@@ -2142,7 +2230,7 @@ mod tests {
             assert_eq!(client.get_tokens_issued(id), Some(0));
             assert_eq!(client.get_votes_cast(id), Some(0));
             let meta = client.get_ballot_metadata(id).unwrap();
-            assert_eq!(meta.state, BallotState::Active);
+            assert_eq!(meta.state, BallotState::Created);
         }
     }
 
@@ -2242,7 +2330,7 @@ mod tests {
         assert_eq!(meta.limits.max_tokens, 5);
         assert_eq!(meta.limits.max_votes, 7);
         assert_eq!(meta.admin, admin);
-        assert_eq!(meta.state, BallotState::Active);
+        assert_eq!(meta.state, BallotState::Created);
     }
 
     // ── issue #75: ballot existence guard tests ───────────────────────────
@@ -2287,6 +2375,9 @@ mod tests {
         // Register ballot first
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
+        // Start voting
+        client.start_voting(&admin, &ballot);
+
         // All three subsequent operations must succeed
         client.record_token(&admin, &ballot);
         client.record_vote(&admin, &ballot);
@@ -2295,6 +2386,7 @@ mod tests {
         assert_eq!(client.get_votes_cast(&ballot), Some(1));
         assert!(client.is_consistent(&ballot));
 
+        client.close_voting(&admin, &ballot);
         let op_id = client.record_result(&admin, &ballot, &result);
         client.approve_operation(&op_id, &admin);
         assert_eq!(client.get_result_hash(&ballot), Some(result));
@@ -2359,9 +2451,11 @@ mod tests {
         
         // Operations should work normally now
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
         client.record_token(&admin, &ballot);
         client.record_vote(&admin, &ballot);
         
+        client.close_voting(&admin, &ballot);
         let op_id_res = client.record_result(&admin, &ballot, &result);
         client.approve_operation(&op_id_res, &admin);
     }
@@ -2371,14 +2465,15 @@ mod tests {
         let (env, client, admin) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
 
         let before = client.get_ballot_state(&ballot).unwrap();
-        assert_eq!(before.state, BallotState::Active);
+        assert_eq!(before.state, BallotState::Voting);
 
         client.expire_ballot(&admin, &ballot);
 
         let after = client.get_ballot_state(&ballot).unwrap();
-        assert_eq!(after.state, BallotState::Expired);
+        assert_eq!(after.state, BallotState::Closed);
         assert!(after.state_updated_at >= before.state_updated_at);
     }
 
@@ -2403,13 +2498,14 @@ mod tests {
         let (env, client, admin) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
         client.record_token(&admin, &ballot);
 
         client.expire_ballot(&admin, &ballot);
 
         assert_eq!(
             client.try_record_vote(&admin, &ballot),
-            Err(Ok(ContractError::BallotExpired))
+            Err(Ok(ContractError::BallotNotInVotingState))
         );
         assert_eq!(client.get_votes_cast(&ballot), Some(0));
     }
@@ -2419,12 +2515,13 @@ mod tests {
         let (env, client, admin) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
 
         client.expire_ballot(&admin, &ballot);
 
         assert_eq!(
             client.try_record_token(&admin, &ballot),
-            Err(Ok(ContractError::BallotExpired))
+            Err(Ok(ContractError::BallotNotInVotingState))
         );
         assert_eq!(client.get_tokens_issued(&ballot), Some(0));
     }
@@ -2434,6 +2531,7 @@ mod tests {
         let (env, client, admin) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
 
         client.expire_ballot(&admin, &ballot);
         assert_eq!(
@@ -2442,7 +2540,7 @@ mod tests {
         );
 
         let state = client.get_ballot_state(&ballot).unwrap();
-        assert_eq!(state.state, BallotState::Expired);
+        assert_eq!(state.state, BallotState::Closed);
     }
 
     #[test]
@@ -2461,10 +2559,228 @@ mod tests {
         let outsider = Address::generate(&env);
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
 
         assert_eq!(
             client.try_expire_ballot(&outsider, &ballot),
             Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    // ── State machine tests (issue #103) ──────────────────────────────────────
+
+    #[test]
+    fn state_machine_happy_path_created_voting_closed_tallied() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+
+        // Create ballot → Created state
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        let state1 = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(state1.state, BallotState::Created);
+
+        // Start voting → Voting state
+        client.start_voting(&admin, &ballot);
+        let state2 = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(state2.state, BallotState::Voting);
+        assert!(state2.state_updated_at >= state1.state_updated_at);
+
+        // Record token and vote (only works in Voting state)
+        client.record_token(&admin, &ballot);
+        client.record_vote(&admin, &ballot);
+
+        // Close voting → Closed state
+        client.close_voting(&admin, &ballot);
+        let state3 = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(state3.state, BallotState::Closed);
+        assert!(state3.state_updated_at >= state2.state_updated_at);
+
+        // Publish result → Tallied state
+        let op_id = client.record_result(&admin, &ballot, &result);
+        client.approve_operation(&op_id, &admin);
+        let state4 = client.get_ballot_state(&ballot).unwrap();
+        assert_eq!(state4.state, BallotState::Tallied);
+        assert!(state4.state_updated_at >= state3.state_updated_at);
+    }
+
+    #[test]
+    fn cannot_vote_on_created_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        // Ballot is in Created state, voting not started
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotNotInVotingState))
+        );
+    }
+
+    #[test]
+    fn cannot_record_token_on_created_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        assert_eq!(
+            client.try_record_token(&admin, &ballot),
+            Err(Ok(ContractError::BallotNotInVotingState))
+        );
+    }
+
+    #[test]
+    fn cannot_vote_on_closed_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
+
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotNotInVotingState))
+        );
+    }
+
+    #[test]
+    fn cannot_record_token_on_closed_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
+
+        assert_eq!(
+            client.try_record_token(&admin, &ballot),
+            Err(Ok(ContractError::BallotNotInVotingState))
+        );
+    }
+
+    #[test]
+    fn cannot_vote_on_tallied_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
+        let op_id = client.record_result(&admin, &ballot, &result);
+        client.approve_operation(&op_id, &admin);
+
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotNotInVotingState))
+        );
+    }
+
+    #[test]
+    fn cannot_tally_voting_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+
+        let op_id = client.record_result(&admin, &ballot, &result);
+        assert_eq!(
+            client.try_approve_operation(&op_id, &admin),
+            Err(Ok(ContractError::BallotNotInClosedState))
+        );
+    }
+
+    #[test]
+    fn cannot_tally_twice() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        let result2 = String::from_str(&env, RESULT_B);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
+        
+        let op_id = client.record_result(&admin, &ballot, &result);
+        client.approve_operation(&op_id, &admin);
+
+        // Try to tally again with different result
+        let op_id2 = client.record_result(&admin, &ballot, &result2);
+        assert_eq!(
+            client.try_approve_operation(&op_id2, &admin),
+            Err(Ok(ContractError::BallotAlreadyTallied))
+        );
+    }
+
+    #[test]
+    fn cannot_transition_backward_voting_to_created() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+
+        // Cannot transition back from Voting to Created
+        assert_eq!(
+            client.try_start_voting(&admin, &ballot),
+            Err(Ok(ContractError::InvalidStateTransition))
+        );
+    }
+
+    #[test]
+    fn cannot_transition_backward_closed_to_voting() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        client.start_voting(&admin, &ballot);
+        client.close_voting(&admin, &ballot);
+
+        // Cannot transition back from Closed to Voting
+        assert_eq!(
+            client.try_start_voting(&admin, &ballot),
+            Err(Ok(ContractError::InvalidStateTransition))
+        );
+
+        assert_eq!(
+            client.try_close_voting(&admin, &ballot),
+            Err(Ok(ContractError::InvalidStateTransition))
+        );
+    }
+
+    #[test]
+    fn state_changed_at_updates_correctly() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        let ts1 = client.get_ballot_state(&ballot).unwrap().state_updated_at;
+
+        env.ledger().with_mut(|l| l.timestamp += 100);
+        client.start_voting(&admin, &ballot);
+        let ts2 = client.get_ballot_state(&ballot).unwrap().state_updated_at;
+        assert!(ts2 > ts1);
+
+        env.ledger().with_mut(|l| l.timestamp += 100);
+        client.close_voting(&admin, &ballot);
+        let ts3 = client.get_ballot_state(&ballot).unwrap().state_updated_at;
+        assert!(ts3 > ts2);
+    }
+
+    #[test]
+    fn cannot_skip_states_created_to_tallied() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let result = String::from_str(&env, RESULT_A);
+        
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        // Try to skip directly to tallied without going through Voting/Closed
+        let op_id = client.record_result(&admin, &ballot, &result);
+        assert_eq!(
+            client.try_approve_operation(&op_id, &admin),
+            Err(Ok(ContractError::BallotNotInClosedState))
         );
     }
 }
