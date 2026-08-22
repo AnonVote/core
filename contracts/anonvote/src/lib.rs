@@ -503,7 +503,7 @@ impl AnonVoteContract {
         }
 
         pending.approvals.push_back(approver_address.clone());
-        pending.approval_count = pending.approvals.len() as u32;
+        pending.approval_count = Self::count_valid_approvals(&approvers, &pending.approvals);
         env.storage().persistent().set(&approval_key, &true);
         Self::update_approver_activity(&env, &approver_address)?;
 
@@ -572,7 +572,9 @@ impl AnonVoteContract {
             return Err(ContractError::OperationExpired);
         }
 
-        if pending.approval_count < pending.threshold {
+        let valid_approval_count = Self::count_valid_approvals(&approvers, &pending.approvals);
+        pending.approval_count = valid_approval_count;
+        if valid_approval_count < pending.threshold {
             return Err(ContractError::ThresholdNotMet);
         }
 
@@ -625,7 +627,9 @@ impl AnonVoteContract {
             return Err(ContractError::OperationExpired);
         }
 
-        if pending.approval_count < pending.threshold {
+        let valid_approval_count = Self::count_valid_approvals(&approvers, &pending.approvals);
+        pending.approval_count = valid_approval_count;
+        if valid_approval_count < pending.threshold {
             return Err(ContractError::ThresholdNotMet);
         }
 
@@ -1206,6 +1210,9 @@ impl AnonVoteContract {
         if op.status == OperationStatus::Pending && env.ledger().timestamp() > op.expires_at {
             op.status = OperationStatus::Expired;
         }
+        if let Some(approvers) = env.storage().instance().get::<DataKey, Vec<Address>>(&DataKey::Approvers) {
+            op.approval_count = Self::count_valid_approvals(&approvers, &op.approvals);
+        }
         Some(op)
     }
 
@@ -1377,6 +1384,16 @@ impl AnonVoteContract {
             seen.push_back(approver);
         }
         Ok(())
+    }
+
+    fn count_valid_approvals(approvers: &Vec<Address>, approvals: &Vec<Address>) -> u32 {
+        let mut count = 0u32;
+        for approver in approvals.iter() {
+            if Self::contains_address(approvers, &approver) {
+                count += 1;
+            }
+        }
+        count
     }
 
     fn update_approver_activity(env: &Env, approver: &Address) -> Result<(), ContractError> {
@@ -2279,5 +2296,48 @@ mod tests {
         client.record_ballot(&a1, &ballot, &limits(10, 10));
         client.record_token(&a1, &ballot);
         client.record_vote(&a1, &ballot);
+    }
+
+    #[test]
+    fn test_remove_approver_invalidates_past_approvals() {
+        let (env, client, a1, a2, a3) = setup();
+        let a4 = Address::generate(&env);
+
+        let op_add = client.propose_operation(&a1, &OperationType::AddApprover(a4.clone()));
+        client.approve_operation(&op_add, &a2);
+        client.emergency_execute(&a1, &op_add);
+
+        let op_thresh = client.propose_operation(&a1, &OperationType::ChangeThreshold(3));
+        client.approve_operation(&op_thresh, &a2);
+        client.emergency_execute(&a1, &op_thresh);
+
+        assert_eq!(client.get_approval_threshold(), 3);
+        assert_eq!(client.get_approvers().len(), 4);
+
+        let op_pause = client.propose_operation(&a1, &OperationType::PauseContract);
+        client.approve_operation(&op_pause, &a4);
+
+        assert_eq!(client.get_operation(&op_pause).unwrap().approval_count, 2);
+
+        let op_rm = client.propose_operation(&a1, &OperationType::RemoveApprover(a4.clone()));
+        client.approve_operation(&op_rm, &a2);
+        client.approve_operation(&op_rm, &a3);
+        client.emergency_execute(&a1, &op_rm);
+
+        assert_eq!(client.get_approvers().len(), 3);
+
+        assert_eq!(client.get_operation(&op_pause).unwrap().approval_count, 1);
+
+        client.approve_operation(&op_pause, &a2);
+        assert_eq!(client.get_operation(&op_pause).unwrap().approval_count, 2);
+        assert_eq!(
+            client.try_emergency_execute(&a1, &op_pause),
+            Err(Ok(ContractError::ThresholdNotMet))
+        );
+
+        client.approve_operation(&op_pause, &a3);
+        assert_eq!(client.get_operation(&op_pause).unwrap().approval_count, 3);
+        client.emergency_execute(&a1, &op_pause);
+        assert_eq!(client.is_paused(), true);
     }
 }
