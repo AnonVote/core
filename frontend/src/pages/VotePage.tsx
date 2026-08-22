@@ -77,7 +77,6 @@ export default function VotePage() {
   const [tokenTouched, setTokenTouched] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const [tokenInlineError, setTokenInlineError] = useState("");
   const [error, setError] = useState("");
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -129,18 +128,6 @@ export default function VotePage() {
   const hasSelection = !!selectedOption;
   const canSubmit = tokenValid && hasSelection && confirmed && !loading;
   const showTokenError = tokenTouched && token.trim().length > 0 && !tokenValid;
-
-  useEffect(() => {
-    if (!token) {
-      setTokenInlineError("");
-      return;
-    }
-    if (tokenTouched && !isValidTokenFormat(token)) {
-      setTokenInlineError("Invalid token format. Token must be a 64-character hexadecimal string.");
-    } else {
-      setTokenInlineError("");
-    }
-  }, [token, tokenTouched]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
