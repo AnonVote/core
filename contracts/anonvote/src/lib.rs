@@ -57,6 +57,14 @@ pub enum ContractError {
     RotationTooSoon = 29,
     KeyRotationUnauthorized = 30,
     AdminKeyNotInitialized = 31,
+    // Merkle / cross-contract verification errors
+    MerkleRootAlreadySet = 32,
+    MerkleRootNotSet = 33,
+    InvalidResultCommitment = 34,
+    ResultCommitmentAlreadySet = 35,
+    BatchVerificationFailed = 36,
+    CrossContractCallFailed = 37,
+    InvalidMerkleRoot = 38,
     // Governance errors
     CooldownActive = 32,
     OperationRejected = 33,
@@ -219,6 +227,27 @@ pub struct ApproverActivity {
     pub last_active: u64,
 }
 
+/// Result of a batch Merkle proof verification.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BatchVerificationResult {
+    pub total_proofs: u32,
+    pub verified: u32,
+    pub failed: u32,
+    pub results: Vec<bool>,
+}
+
+/// Record of a cross-contract verification call.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CrossContractCallRecord {
+    pub ballot_id_hash: String,
+    pub contract_address: String,
+    pub method: String,
+    pub result: bool,
+    pub timestamp: u64,
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub enum DataKey {
@@ -236,6 +265,7 @@ pub enum DataKey {
     VotesCast(String),
     ResultHash(String),
     BallotMetadata(String),
+    BallotExpired(String),
     PendingUpgrade,
     RotationHistory,
     // Admin key (BytesN<32>) rotation state
@@ -244,6 +274,10 @@ pub enum DataKey {
     KeyRotationRequestedAt,
     KeyRotationCount,
     LastKeyRotationTime,
+    // Merkle / cross-contract verification
+    MerkleRoot(String),
+    ResultCommitment(String),
+    CrossContractRecord(String),
     ApproverActivity(Address),
     RejectionCooldown(OperationType),
 }
@@ -1365,6 +1399,285 @@ impl AnonVoteContract {
         Ok(true)
     }
 
+    // ── Merkle root & result commitment storage ────────────────────────────
+
+    /// Stores the Merkle root of all vote hashes for a ballot on-chain.
+    ///
+    /// The root is a `BytesN<32>` computed by the backend from the Merkle tree
+    /// of all individual vote hashes.  Once set it is immutable for the ballot.
+    pub fn set_merkle_root(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+        merkle_root: BytesN<32>,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_not_paused(&env)?;
+        Self::require_admin(&env, &caller)?;
+        if !is_valid_sha256_hex(&ballot_id_hash) {
+            return Err(ContractError::InvalidBallotIdHash);
+        }
+        Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        let key = DataKey::MerkleRoot(ballot_id_hash.clone());
+        if env.storage().persistent().has(&key) {
+            return Err(ContractError::MerkleRootAlreadySet);
+        }
+        env.storage().persistent().set(&key, &merkle_root);
+        env.events().publish(
+            (symbol_short!("audit"), symbol_short!("mkrl_set")),
+            (ballot_id_hash, merkle_root, env.ledger().timestamp()),
+        );
+        Ok(())
+    }
+
+    /// Returns the stored Merkle root for a ballot, if one has been set.
+    pub fn get_merkle_root(env: Env, ballot_id_hash: String) -> Option<BytesN<32>> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::MerkleRoot(ballot_id_hash))
+    }
+
+    /// Stores a result commitment (SHA-256 of all vote hashes concatenated) on-chain.
+    ///
+    /// This provides an independent, compact proof that the backend processed a
+    /// specific set of votes.  The commitment is a 64-char lowercase hex SHA-256
+    /// digest.  Once set it is immutable for the ballot.
+    pub fn set_result_commitment(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+        commitment: String,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_not_paused(&env)?;
+        Self::require_admin(&env, &caller)?;
+        if !is_valid_sha256_hex(&ballot_id_hash) {
+            return Err(ContractError::InvalidBallotIdHash);
+        }
+        if !is_valid_sha256_hex(&commitment) {
+            return Err(ContractError::InvalidResultCommitment);
+        }
+        Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        let key = DataKey::ResultCommitment(ballot_id_hash.clone());
+        if env.storage().persistent().has(&key) {
+            return Err(ContractError::ResultCommitmentAlreadySet);
+        }
+        env.storage().persistent().set(&key, &commitment);
+        env.events().publish(
+            (symbol_short!("audit"), symbol_short!("rscmt_set")),
+            (ballot_id_hash, commitment, env.ledger().timestamp()),
+        );
+        Ok(())
+    }
+
+    /// Returns the stored result commitment for a ballot, if one has been set.
+    pub fn get_result_commitment(env: Env, ballot_id_hash: String) -> Option<String> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ResultCommitment(ballot_id_hash))
+    }
+
+    // ── Batch Merkle proof verification ─────────────────────────────────────
+
+    /// Verifies multiple Merkle proofs against the stored result hash in a
+    /// single call, reducing on-chain computation costs.
+    ///
+    /// Each proof is independently verified.  The returned
+    /// `BatchVerificationResult` contains per-proof boolean results so callers
+    /// can identify exactly which proofs failed.
+    pub fn verify_batch_proofs(
+        env: Env,
+        ballot_id_hash: String,
+        proofs: Vec<MerkleProof>,
+    ) -> Result<BatchVerificationResult, ContractError> {
+        Self::require_not_paused(&env)?;
+        if !is_valid_sha256_hex(&ballot_id_hash) {
+            return Err(ContractError::InvalidBallotIdHash);
+        }
+        let result_key = DataKey::ResultHash(ballot_id_hash.clone());
+        if !env.storage().persistent().has(&result_key) {
+            return Err(ContractError::BallotNotFound);
+        }
+        let stored_result_hash: String = env
+            .storage()
+            .persistent()
+            .get(&result_key)
+            .ok_or(ContractError::InternalError)?;
+
+        let total = proofs.len();
+        let mut verified: u32 = 0;
+        let mut failed: u32 = 0;
+        let mut results = Vec::new(&env);
+
+        for i in 0..total {
+            let proof = proofs.get(i).unwrap();
+            let is_valid = Self::verify_merkle_path(&env, &proof, &stored_result_hash);
+            results.push_back(is_valid);
+            if is_valid {
+                verified += 1;
+            } else {
+                failed += 1;
+            }
+        }
+
+        Ok(BatchVerificationResult {
+            total_proofs: total,
+            verified,
+            failed,
+            results,
+        })
+    }
+
+    /// Core Merkle path verification used by both single and batch verification.
+    ///
+    /// Returns `true` if the proof's vote hash, when walked up the Merkle path,
+    /// produces the expected root hex **and** that root hex matches
+    /// `expected_root_hex`.
+    fn verify_merkle_path(
+        env: &Env,
+        proof: &MerkleProof,
+        expected_root_hex: &String,
+    ) -> bool {
+        let mut current_hash = proof.vote_hash.clone();
+        let mut idx = proof.index;
+
+        for sibling in proof.path.iter() {
+            let mut data = Bytes::new(env);
+            if idx % 2 == 0 {
+                data.extend_from_array(&current_hash.to_array());
+                data.extend_from_array(&sibling.to_array());
+            } else {
+                data.extend_from_array(&sibling.to_array());
+                data.extend_from_array(&current_hash.to_array());
+            }
+            current_hash = env.crypto().sha256(&data).into();
+            idx /= 2;
+        }
+
+        let computed_root_hex = bytes_to_hex(env, &current_hash);
+        computed_root_hex == *expected_root_hex
+    }
+
+    // ── Cross-contract verification ─────────────────────────────────────────
+
+    /// Calls an external governance-token contract to verify that `voter`
+    /// holds the governance token (returns `true` if eligible).
+    ///
+    /// This is a cross-contract call — the target contract must expose a
+    /// `bal_of(address) -> bool` view method.  The result is recorded on
+    /// chain for audit purposes.
+    pub fn verify_token_holder(
+        env: Env,
+        caller: Address,
+        governance_contract: Address,
+        voter: Address,
+    ) -> Result<bool, ContractError> {
+        caller.require_auth();
+        Self::require_not_paused(&env)?;
+        Self::verify_initialized(&env)?;
+
+        // Cross-contract call: invoke bal_of on the governance token contract.
+        let args = soroban_sdk::Vec::from_array(&env, [voter.to_val()]);
+        let is_eligible: bool = env.invoke_contract(
+            &governance_contract,
+            &symbol_short!("bal_of"),
+            args,
+        );
+
+        // Store the verification record for audit trail.
+        let record_key = voter.to_string();
+        let record = CrossContractCallRecord {
+            ballot_id_hash: String::from_str(&env, ""),
+            contract_address: governance_contract.to_string(),
+            method: String::from_str(&env, "bal_of"),
+            result: is_eligible,
+            timestamp: env.ledger().timestamp(),
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::CrossContractRecord(record_key), &record);
+
+        Ok(is_eligible)
+    }
+
+    /// Calls an external oracle contract to retrieve the current price for
+    /// `asset`.
+    ///
+    /// The target contract must expose a `g_price(asset) -> i128`
+    /// view method that returns the price in the smallest unit (e.g. cents).
+    pub fn get_price_from_oracle(
+        env: Env,
+        caller: Address,
+        oracle_contract: Address,
+        asset: String,
+    ) -> Result<i128, ContractError> {
+        caller.require_auth();
+        Self::require_not_paused(&env)?;
+        Self::verify_initialized(&env)?;
+
+        let args = soroban_sdk::Vec::from_array(&env, [asset.to_val()]);
+        let price: i128 = env.invoke_contract(
+            &oracle_contract,
+            &symbol_short!("g_price"),
+            args,
+        );
+
+        Ok(price)
+    }
+
+    /// Returns a stored cross-contract verification record, if one exists.
+    pub fn get_cross_contract_record(
+        env: Env,
+        record_key: String,
+    ) -> Option<CrossContractCallRecord> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::CrossContractRecord(record_key))
+    }
+
+    /// Stores a result commitment and Merkle root atomically, then verifies
+    /// a batch of proofs — all in a single transaction.
+    ///
+    /// This is a convenience wrapper for backends that want to commit the
+    /// full verification bundle in one call.
+    pub fn commit_and_verify(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+        merkle_root: BytesN<32>,
+        result_commitment: String,
+        proofs: Vec<MerkleProof>,
+    ) -> Result<BatchVerificationResult, ContractError> {
+        caller.require_auth();
+        Self::require_not_paused(&env)?;
+        Self::require_admin(&env, &caller)?;
+        if !is_valid_sha256_hex(&ballot_id_hash) {
+            return Err(ContractError::InvalidBallotIdHash);
+        }
+        Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        // Store merkle root (ignore AlreadySet — idempotent commit)
+        let root_key = DataKey::MerkleRoot(ballot_id_hash.clone());
+        if !env.storage().persistent().has(&root_key) {
+            env.storage().persistent().set(&root_key, &merkle_root);
+        }
+
+        // Store result commitment (ignore AlreadySet — idempotent commit)
+        let commitment_key = DataKey::ResultCommitment(ballot_id_hash.clone());
+        if !env.storage().persistent().has(&commitment_key) {
+            if !is_valid_sha256_hex(&result_commitment) {
+                return Err(ContractError::InvalidResultCommitment);
+            }
+            env.storage().persistent().set(&commitment_key, &result_commitment);
+        }
+
+        // Verify batch
+        Self::verify_batch_proofs(env, ballot_id_hash, proofs)
+    }
+
+    fn validate_operation(env: &Env, operation: &CriticalOperation) -> Result<(), ContractError> {
     fn validate_approvers_and_threshold(
         approvers: &Vec<Address>,
         threshold: u32,
@@ -2339,5 +2652,583 @@ mod tests {
         assert_eq!(client.get_operation(&op_pause).unwrap().approval_count, 3);
         client.emergency_execute(&a1, &op_pause);
         assert_eq!(client.is_paused(), true);
+    }
+
+    // ── Merkle root storage tests ───────────────────────────────────────
+
+    #[test]
+    fn set_and_get_merkle_root() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_merkle_root(&admin, &ballot, &root);
+
+        let stored = client.get_merkle_root(&ballot);
+        assert_eq!(stored, Some(root));
+    }
+
+    #[test]
+    fn get_merkle_root_returns_none_before_set() {
+        let (env, client, _admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        assert_eq!(client.get_merkle_root(&ballot), None);
+    }
+
+    #[test]
+    fn set_merkle_root_rejects_duplicate() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_merkle_root(&admin, &ballot, &root);
+
+        let root2 = BytesN::from_array(&env, &[2u8; 32]);
+        assert_eq!(
+            client.try_set_merkle_root(&admin, &ballot, &root2),
+            Err(Ok(ContractError::MerkleRootAlreadySet))
+        );
+    }
+
+    #[test]
+    fn set_merkle_root_rejects_non_admin() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        let outsider = Address::generate(&env);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        assert_eq!(
+            client.try_set_merkle_root(&outsider, &ballot, &root),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn set_merkle_root_rejects_nonexistent_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        assert_eq!(
+            client.try_set_merkle_root(&admin, &ballot, &root),
+            Err(Ok(ContractError::BallotNotFound))
+        );
+    }
+
+    #[test]
+    fn set_merkle_root_rejects_invalid_hash() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, "not-a-valid-hex-hash");
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        assert_eq!(
+            client.try_set_merkle_root(&admin, &ballot, &root),
+            Err(Ok(ContractError::InvalidBallotIdHash))
+        );
+    }
+
+    #[test]
+    fn set_merkle_root_rejects_when_paused() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        assert_eq!(
+            client.try_set_merkle_root(&admin, &ballot, &root),
+            Err(Ok(ContractError::ContractPaused))
+        );
+    }
+
+    #[test]
+    fn set_merkle_root_emits_event() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_merkle_root(&admin, &ballot, &root);
+
+        let events = env.events().all();
+        let found = events.iter().any(|(_, topics, _)| {
+            topics == (symbol_short!("audit"), symbol_short!("mkrl_set")).into_val(&env)
+        });
+        assert!(found);
+    }
+
+    // ── Result commitment storage tests ──────────────────────────────────
+
+    #[test]
+    fn set_and_get_result_commitment() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let commitment = String::from_str(&env, RESULT_A);
+        client.set_result_commitment(&admin, &ballot, &commitment);
+
+        let stored = client.get_result_commitment(&ballot);
+        assert_eq!(stored, Some(commitment));
+    }
+
+    #[test]
+    fn get_result_commitment_returns_none_before_set() {
+        let (env, client, _admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        assert_eq!(client.get_result_commitment(&ballot), None);
+    }
+
+    #[test]
+    fn set_result_commitment_rejects_duplicate() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let commitment = String::from_str(&env, RESULT_A);
+        client.set_result_commitment(&admin, &ballot, &commitment);
+
+        let commitment2 = String::from_str(&env, RESULT_B);
+        assert_eq!(
+            client.try_set_result_commitment(&admin, &ballot, &commitment2),
+            Err(Ok(ContractError::ResultCommitmentAlreadySet))
+        );
+    }
+
+    #[test]
+    fn set_result_commitment_rejects_invalid_hex() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let bad = String::from_str(&env, "not-valid-hex");
+        assert_eq!(
+            client.try_set_result_commitment(&admin, &ballot, &bad),
+            Err(Ok(ContractError::InvalidResultCommitment))
+        );
+    }
+
+    #[test]
+    fn set_result_commitment_rejects_non_admin() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        let outsider = Address::generate(&env);
+
+        let commitment = String::from_str(&env, RESULT_A);
+        assert_eq!(
+            client.try_set_result_commitment(&outsider, &ballot, &commitment),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn set_result_commitment_rejects_nonexistent_ballot() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+
+        let commitment = String::from_str(&env, RESULT_A);
+        assert_eq!(
+            client.try_set_result_commitment(&admin, &ballot, &commitment),
+            Err(Ok(ContractError::BallotNotFound))
+        );
+    }
+
+    #[test]
+    fn set_result_commitment_rejects_when_paused() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+
+        let commitment = String::from_str(&env, RESULT_A);
+        assert_eq!(
+            client.try_set_result_commitment(&admin, &ballot, &commitment),
+            Err(Ok(ContractError::ContractPaused))
+        );
+    }
+
+    #[test]
+    fn set_result_commitment_emits_event() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let commitment = String::from_str(&env, RESULT_A);
+        client.set_result_commitment(&admin, &ballot, &commitment);
+
+        let events = env.events().all();
+        let found = events.iter().any(|(_, topics, _)| {
+            topics == (symbol_short!("audit"), symbol_short!("rscmt_set")).into_val(&env)
+        });
+        assert!(found);
+    }
+
+    // ── Batch verification tests ─────────────────────────────────────────
+
+    #[test]
+    fn verify_batch_proofs_valid_proofs() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let leaf1 = BytesN::from_array(&env, &[2u8; 32]);
+
+        let mut data = Bytes::new(&env);
+        data.extend_from_array(&leaf0.to_array());
+        data.extend_from_array(&leaf1.to_array());
+        let root: BytesN<32> = env.crypto().sha256(&data).into();
+        let root_hex = bytes_to_hex(&env, &root);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let proof0 = MerkleProof {
+            vote_hash: leaf0.clone(),
+            path: Vec::from_array(&env, [leaf1.clone()]),
+            index: 0,
+        };
+        let proof1 = MerkleProof {
+            vote_hash: leaf1.clone(),
+            path: Vec::from_array(&env, [leaf0.clone()]),
+            index: 1,
+        };
+
+        let proofs = Vec::from_array(&env, [proof0, proof1]);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 2);
+        assert_eq!(result.verified, 2);
+        assert_eq!(result.failed, 0);
+    }
+
+    #[test]
+    fn verify_batch_proofs_rejects_invalid_proofs() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let leaf1 = BytesN::from_array(&env, &[2u8; 32]);
+
+        let mut data = Bytes::new(&env);
+        data.extend_from_array(&leaf0.to_array());
+        data.extend_from_array(&leaf1.to_array());
+        let root: BytesN<32> = env.crypto().sha256(&data).into();
+        let root_hex = bytes_to_hex(&env, &root);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        // Valid proof for leaf0
+        let proof0 = MerkleProof {
+            vote_hash: leaf0.clone(),
+            path: Vec::from_array(&env, [leaf1.clone()]),
+            index: 0,
+        };
+        // Invalid proof: wrong vote hash
+        let bad_proof = MerkleProof {
+            vote_hash: BytesN::from_array(&env, &[0u8; 32]),
+            path: Vec::from_array(&env, [leaf1.clone()]),
+            index: 0,
+        };
+
+        let proofs = Vec::from_array(&env, [proof0, bad_proof]);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 2);
+        assert_eq!(result.verified, 1);
+        assert_eq!(result.failed, 1);
+    }
+
+    #[test]
+    fn verify_batch_proofs_empty_batch() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let root_hex = bytes_to_hex(&env, &leaf0);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let proofs = Vec::new(&env);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 0);
+        assert_eq!(result.verified, 0);
+        assert_eq!(result.failed, 0);
+    }
+
+    #[test]
+    fn verify_batch_proofs_rejects_no_result_published() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let proof = MerkleProof {
+            vote_hash: BytesN::from_array(&env, &[1u8; 32]),
+            path: Vec::new(&env),
+            index: 0,
+        };
+        let proofs = Vec::from_array(&env, [proof]);
+
+        assert_eq!(
+            client.try_verify_batch_proofs(&ballot, &proofs),
+            Err(Ok(ContractError::BallotNotFound))
+        );
+    }
+
+    #[test]
+    fn verify_batch_proofs_rejects_invalid_ballot_hash() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let proof = MerkleProof {
+            vote_hash: BytesN::from_array(&env, &[1u8; 32]),
+            path: Vec::new(&env),
+            index: 0,
+        };
+        let proofs = Vec::from_array(&env, [proof]);
+        let bad_ballot = String::from_str(&env, "invalid");
+
+        assert_eq!(
+            client.try_verify_batch_proofs(&bad_ballot, &proofs),
+            Err(Ok(ContractError::InvalidBallotIdHash))
+        );
+    }
+
+    #[test]
+    fn verify_batch_proofs_all_invalid() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let root_hex = bytes_to_hex(&env, &leaf0);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let bad_proof = MerkleProof {
+            vote_hash: BytesN::from_array(&env, &[0u8; 32]),
+            path: Vec::new(&env),
+            index: 0,
+        };
+        let proofs = Vec::from_array(&env, [bad_proof]);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 1);
+        assert_eq!(result.verified, 0);
+        assert_eq!(result.failed, 1);
+    }
+
+    #[test]
+    fn verify_batch_proofs_single_node_tree() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let root_hex = bytes_to_hex(&env, &leaf0);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let proof = MerkleProof {
+            vote_hash: leaf0.clone(),
+            path: Vec::new(&env),
+            index: 0,
+        };
+        let proofs = Vec::from_array(&env, [proof]);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 1);
+        assert_eq!(result.verified, 1);
+    }
+
+    #[test]
+    fn verify_batch_proofs_rejects_when_paused() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+
+        let proofs = Vec::new(&env);
+        assert_eq!(
+            client.try_verify_batch_proofs(&ballot, &proofs),
+            Err(Ok(ContractError::ContractPaused))
+        );
+    }
+
+    #[test]
+    fn verify_batch_proofs_wrong_index() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let leaf1 = BytesN::from_array(&env, &[2u8; 32]);
+
+        let mut data = Bytes::new(&env);
+        data.extend_from_array(&leaf0.to_array());
+        data.extend_from_array(&leaf1.to_array());
+        let root: BytesN<32> = env.crypto().sha256(&data).into();
+        let root_hex = bytes_to_hex(&env, &root);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        // Proof with correct hash but wrong index
+        let proof = MerkleProof {
+            vote_hash: leaf0.clone(),
+            path: Vec::from_array(&env, [leaf1.clone()]),
+            index: 1, // Should be 0
+        };
+        let proofs = Vec::from_array(&env, [proof]);
+        let result = client.verify_batch_proofs(&ballot, &proofs);
+
+        assert_eq!(result.total_proofs, 1);
+        assert_eq!(result.failed, 1);
+    }
+
+    // ── Commit and verify tests ──────────────────────────────────────────
+
+    #[test]
+    fn commit_and_verify_stores_root_and_commitment_and_verifies() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let leaf1 = BytesN::from_array(&env, &[2u8; 32]);
+
+        let mut data = Bytes::new(&env);
+        data.extend_from_array(&leaf0.to_array());
+        data.extend_from_array(&leaf1.to_array());
+        let root: BytesN<32> = env.crypto().sha256(&data).into();
+        let root_hex = bytes_to_hex(&env, &root);
+
+        // Publish result first (required by batch verify)
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let commitment = String::from_str(&env, RESULT_A);
+        let proof0 = MerkleProof {
+            vote_hash: leaf0.clone(),
+            path: Vec::from_array(&env, [leaf1.clone()]),
+            index: 0,
+        };
+        let proof1 = MerkleProof {
+            vote_hash: leaf1.clone(),
+            path: Vec::from_array(&env, [leaf0.clone()]),
+            index: 1,
+        };
+        let proofs = Vec::from_array(&env, [proof0, proof1]);
+
+        let result = client.commit_and_verify(&admin, &ballot, &root, &commitment, &proofs);
+
+        assert_eq!(result.total_proofs, 2);
+        assert_eq!(result.verified, 2);
+        assert_eq!(client.get_merkle_root(&ballot), Some(root));
+        assert_eq!(client.get_result_commitment(&ballot), Some(commitment));
+    }
+
+    #[test]
+    fn commit_and_verify_rejects_non_admin() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+        let outsider = Address::generate(&env);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        let commitment = String::from_str(&env, RESULT_A);
+        let proofs = Vec::new(&env);
+
+        assert_eq!(
+            client.try_commit_and_verify(&outsider, &ballot, &root, &commitment, &proofs),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn commit_and_verify_rejects_invalid_commitment_hex() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        let bad_commitment = String::from_str(&env, "not-hex");
+        let proofs = Vec::new(&env);
+
+        assert_eq!(
+            client.try_commit_and_verify(&admin, &ballot, &root, &bad_commitment, &proofs),
+            Err(Ok(ContractError::InvalidResultCommitment))
+        );
+    }
+
+    #[test]
+    fn commit_and_verify_rejects_when_paused() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let op_id = client.pause_contract(&admin);
+        client.approve_operation(&op_id, &admin);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        let commitment = String::from_str(&env, RESULT_A);
+        let proofs = Vec::new(&env);
+
+        assert_eq!(
+            client.try_commit_and_verify(&admin, &ballot, &root, &commitment, &proofs),
+            Err(Ok(ContractError::ContractPaused))
+        );
+    }
+
+    #[test]
+    fn commit_and_verify_idempotent_root_setting() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(10, 10));
+
+        let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
+        let root_hex = bytes_to_hex(&env, &leaf0);
+
+        let op_id = client.record_result(&admin, &ballot, &root_hex);
+        client.approve_operation(&op_id, &admin);
+
+        let root = BytesN::from_array(&env, &[1u8; 32]);
+        let commitment = String::from_str(&env, RESULT_A);
+        let proofs = Vec::new(&env);
+
+        // First call stores everything
+        let _ = client.commit_and_verify(&admin, &ballot, &root, &commitment, &proofs);
+        // Second call should not error (idempotent)
+        let _ = client.commit_and_verify(&admin, &ballot, &root, &commitment, &proofs);
+
+        assert_eq!(client.get_merkle_root(&ballot), Some(root));
+        assert_eq!(client.get_result_commitment(&ballot), Some(commitment));
+    }
+
+    // ── Cross-contract record tests ──────────────────────────────────────
+
+    #[test]
+    fn get_cross_contract_record_returns_none_for_unknown_key() {
+        let (env, client, _admin) = setup();
+        let key = String::from_str(&env, "unknown");
+        assert_eq!(client.get_cross_contract_record(&key), None);
     }
 }
