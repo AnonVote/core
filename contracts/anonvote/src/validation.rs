@@ -1,5 +1,5 @@
-use soroban_sdk::{BytesN, Env, String};
 use crate::ContractError;
+use soroban_sdk::{BytesN, Env, String};
 
 /// Validates that `hash` is a 64-character lowercase hex string (SHA-256 digest).
 pub fn validate_hex_hash(

@@ -33,3 +33,29 @@ deployment.
 
 Events published by the contract use fixed topic symbols. Changing topic
 symbols is a breaking change for off-chain event indexers.
+
+## Ballot State Machine
+
+Deadline-aware ballots follow this forward-only lifecycle during normal
+operation:
+
+`Created -> Active -> Expired -> ResultPublished`
+
+- `record_ballot_with_deadline` creates a ballot in `Created`; the deadline is
+  immutable and must be in the future.
+- `activate_ballot` is the only normal transition to `Active`.
+- Votes and token records require `Active`, and the ledger timestamp must be
+  strictly less than the deadline. At the exact deadline they are rejected.
+- `expire_ballot` transitions `Active` to `Expired` only once the deadline has
+  been reached.
+- Result publication requires `Expired`; the stored result is write-once.
+
+The legacy `record_ballot` and batch entry points remain immediately active
+with no automatic deadline (`expiration_time == 0`) for API compatibility, but
+still require explicit expiry before result publication.
+
+Recovery is the sole exception to forward-only transitions. It is proposed as
+a governance operation, requires a configured threshold of at least 3-of-5,
+may only move backwards, is unavailable once a ballot is 30 days old, and is
+limited to ten executed recoveries per 30-day bucket. Each recovery is stored
+in the separate recovery history and emits the `(audit, recovery)` event.
