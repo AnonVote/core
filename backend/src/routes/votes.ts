@@ -1,15 +1,24 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { submitVote } from "../services/privacyEngine";
 import { checkVoteRateLimits } from "../services/voteRateLimiter";
-import { badRequest, rateLimitExceeded } from "../utils/errors";
+import { rateLimitExceeded } from "../utils/errors";
 import { prisma } from "../prisma/client";
-import { strictRateLimiter } from "../middleware/rateLimiter";
-import { AppError } from "../utils/errors";
 import { logger } from "../utils/logger";
-import { dbCircuitBreakerMiddleware, executeWithCircuitBreaker } from "../middleware/circuitBreaker";
-import { validateVoteRequest } from "../middleware/voteValidation";
+import { validate } from "../middleware/validate";
+import { submitVoteSchema } from "../validation/schemas";
 
 const router = Router();
+
+// Normalise legacy snake_case / alternate field names sent by older clients.
+// `validate(submitVoteSchema)` expects camelCase, so we copy before it runs.
+function normaliseVoteBody(req: Request, _res: Response, next: NextFunction): void {
+  const b = req.body as Record<string, unknown>;
+  if (b.ballot_id !== undefined && b.ballotId === undefined) b.ballotId = b.ballot_id;
+  if (b.option_id !== undefined && b.optionId === undefined) b.optionId = b.option_id;
+  // "token" is the legacy name; "voterToken" is the schema-canonical name
+  if (b.token !== undefined && b.voterToken === undefined) b.voterToken = b.token;
+  next();
+}
 
 // POST /api/votes — Submit an anonymous vote
 // Middleware order is critical for DDoS protection:
@@ -18,14 +27,13 @@ const router = Router();
 // 3. Rate limiting - enforce per-IP, per-ballot, per-token limits
 router.post(
   "/",
-  dbCircuitBreakerMiddleware,
-  validateVoteRequest,
+  normaliseVoteBody,
+  validate(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Extract and normalize parameters (validation already done by middleware)
-      const ballotId = req.body.ballot_id ?? req.body.ballotId;
-      const token = req.body.token ?? req.body.voterToken;
-      const optionId = req.body.option_id ?? req.body.optionId;
+      const ballotId = (req.body.ballotId as string).trim();
+      const token = (req.body.voterToken as string).trim();
+      const optionId = (req.body.optionId as string).trim();
       const weight = req.body.weight ?? 1;
       const rank = req.body.rank;
 
@@ -36,10 +44,7 @@ router.post(
           .trim() ?? req.socket.remoteAddress ?? "unknown";
 
       // Check all three rate-limit dimensions before processing the vote
-      // Wrap in circuit breaker to track database health
-      const rlResult = await executeWithCircuitBreaker(() =>
-        checkVoteRateLimits(ip, ballotId, token.trim())
-      );
+      const rlResult = await checkVoteRateLimits(ip, ballotId, token);
 
       if (!rlResult.allowed) {
         // Log violation to audit table (best-effort, non-blocking)
@@ -57,16 +62,7 @@ router.post(
         return next(err);
       }
 
-      // Submit the vote (wrapped in circuit breaker in submitVote function)
-      const result = await executeWithCircuitBreaker(() =>
-        submitVote(
-          ballotId.trim(),
-          token.trim(),
-          optionId.trim(),
-          weight,
-          rank
-        )
-      );
+      const result = await submitVote(ballotId, token, optionId, weight, rank);
 
       res.status(200).json(result);
     } catch (err) {
