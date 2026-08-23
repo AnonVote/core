@@ -2,8 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
 
+// Mock storage-crypto so tests are deterministic and don't need Web Crypto.
+// encryptJSON  → JSON.stringify  (identity)
+// decryptJSON  → JSON.parse      (identity)
+vi.mock("../utils/storage-crypto", () => ({
+  getOrCreateSessionKey: vi.fn().mockResolvedValue({}),
+  encryptJSON: vi.fn().mockImplementation(async (data: unknown) =>
+    JSON.stringify(data),
+  ),
+  decryptJSON: vi.fn().mockImplementation(async (encoded: string) =>
+    JSON.parse(encoded),
+  ),
+}));
+
 // ── IndexedDB mock ────────────────────────────────────────────────────────────
-// jsdom does not ship IndexedDB. We implement a minimal in-memory fake.
 
 const store: Map<number, object> = new Map();
 let nextId = 1;
@@ -19,7 +31,6 @@ function makeRequest<T>(
     onerror: null as ((e: Event) => void) | null,
   } as unknown as IDBRequest<T>;
 
-  // Dispatch asynchronously so the IDB open request upgrades before resolving
   setTimeout(() => {
     if (error) {
       req.onerror?.({} as Event);
@@ -77,6 +88,22 @@ vi.mock("../api/client", () => ({
 import { submitVote } from "../api/client";
 const mockedSubmitVote = submitVote as ReturnType<typeof vi.fn>;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function makeStoredEntry(
+  id: number,
+  vote: {
+    ballotId: string;
+    voterToken: string;
+    optionId: string;
+    weight?: number;
+  },
+) {
+  // With the mocked encryptJSON, the payload is just JSON.stringify of the vote fields.
+  const encryptedPayload = JSON.stringify({ ...vote, queuedAt: Date.now() });
+  return { id, encryptedPayload, queuedAt: Date.now() };
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -102,7 +129,7 @@ afterEach(() => {
 });
 
 describe("useOfflineQueue", () => {
-  it("enqueue() adds a vote to the IndexedDB store", async () => {
+  it("enqueue() adds an encrypted entry to the IndexedDB store", async () => {
     const { result } = renderHook(() => useOfflineQueue());
 
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());
@@ -118,23 +145,31 @@ describe("useOfflineQueue", () => {
     expect(fakeObjectStore.add).toHaveBeenCalledTimes(1);
     expect(store.size).toBe(1);
 
-    const entry = [...store.values()][0] as { ballotId: string; queuedAt: number };
-    expect(entry.ballotId).toBe("b1");
+    const entry = [...store.values()][0] as {
+      encryptedPayload: string;
+      queuedAt: number;
+    };
+    expect(typeof entry.encryptedPayload).toBe("string");
     expect(typeof entry.queuedAt).toBe("number");
+
+    // With identity mock, payload is JSON — verify it contains the vote data
+    const decrypted = JSON.parse(entry.encryptedPayload);
+    expect(decrypted.ballotId).toBe("b1");
+    expect(decrypted.voterToken).toBe("a".repeat(64));
   });
 
   it("syncQueue() calls submitVote for each queued vote", async () => {
     mockedSubmitVote.mockResolvedValue({ data: { data: { voteId: "v1" } } });
 
-    // Pre-populate the store
-    store.set(1, {
-      id: 1,
-      ballotId: "b1",
-      voterToken: "a".repeat(64),
-      optionId: "opt-1",
-      weight: 1,
-      queuedAt: Date.now(),
-    });
+    store.set(
+      1,
+      makeStoredEntry(1, {
+        ballotId: "b1",
+        voterToken: "a".repeat(64),
+        optionId: "opt-1",
+        weight: 1,
+      }),
+    );
 
     const { result } = renderHook(() => useOfflineQueue());
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());
@@ -152,14 +187,15 @@ describe("useOfflineQueue", () => {
   it("syncQueue() removes a successfully submitted vote from the store", async () => {
     mockedSubmitVote.mockResolvedValue({ data: {} });
 
-    store.set(1, {
-      id: 1,
-      ballotId: "b2",
-      voterToken: "b".repeat(64),
-      optionId: "opt-2",
-      weight: 1,
-      queuedAt: Date.now(),
-    });
+    store.set(
+      1,
+      makeStoredEntry(1, {
+        ballotId: "b2",
+        voterToken: "b".repeat(64),
+        optionId: "opt-2",
+        weight: 1,
+      }),
+    );
 
     const { result } = renderHook(() => useOfflineQueue());
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());
@@ -176,14 +212,15 @@ describe("useOfflineQueue", () => {
     mockedSubmitVote.mockResolvedValue({ data: {} });
 
     const onSynced = vi.fn();
-    store.set(1, {
-      id: 1,
-      ballotId: "b3",
-      voterToken: "c".repeat(64),
-      optionId: "opt-3",
-      weight: 1,
-      queuedAt: Date.now(),
-    });
+    store.set(
+      1,
+      makeStoredEntry(1, {
+        ballotId: "b3",
+        voterToken: "c".repeat(64),
+        optionId: "opt-3",
+        weight: 1,
+      }),
+    );
 
     const { result } = renderHook(() => useOfflineQueue({ onSynced }));
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());
@@ -202,14 +239,15 @@ describe("useOfflineQueue", () => {
     mockedSubmitVote.mockRejectedValue(new Error("Server error"));
 
     const onSyncFailed = vi.fn();
-    store.set(1, {
-      id: 1,
-      ballotId: "b4",
-      voterToken: "d".repeat(64),
-      optionId: "opt-4",
-      weight: 1,
-      queuedAt: Date.now(),
-    });
+    store.set(
+      1,
+      makeStoredEntry(1, {
+        ballotId: "b4",
+        voterToken: "d".repeat(64),
+        optionId: "opt-4",
+        weight: 1,
+      }),
+    );
 
     const { result } = renderHook(() => useOfflineQueue({ onSyncFailed }));
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());
@@ -219,7 +257,6 @@ describe("useOfflineQueue", () => {
     });
 
     expect(onSyncFailed).toHaveBeenCalledTimes(1);
-    // Entry NOT deleted because submission failed
     expect(fakeObjectStore.delete).not.toHaveBeenCalled();
     expect(store.size).toBe(1);
   });
@@ -227,14 +264,15 @@ describe("useOfflineQueue", () => {
   it("syncQueue() is called automatically when the browser comes back online", async () => {
     mockedSubmitVote.mockResolvedValue({ data: {} });
 
-    store.set(1, {
-      id: 1,
-      ballotId: "b5",
-      voterToken: "e".repeat(64),
-      optionId: "opt-5",
-      weight: 1,
-      queuedAt: Date.now(),
-    });
+    store.set(
+      1,
+      makeStoredEntry(1, {
+        ballotId: "b5",
+        voterToken: "e".repeat(64),
+        optionId: "opt-5",
+        weight: 1,
+      }),
+    );
 
     renderHook(() => useOfflineQueue());
     await waitFor(() => expect(indexedDB.open).toHaveBeenCalled());

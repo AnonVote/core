@@ -1,4 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
+import {
+  getOrCreateSessionKey,
+  encryptJSON,
+  decryptJSON,
+} from "../utils/storage-crypto";
 
 export interface PersistedVoteForm {
   token: string;
@@ -10,33 +15,37 @@ const KEY_PREFIX = "anonvote-vote-form_";
 export function useFormPersistence(ballotId: string | undefined) {
   const key = ballotId ? `${KEY_PREFIX}${ballotId}` : null;
 
-  // Non-null means a saved draft exists and should prompt the user
   const [savedDraft, setSavedDraft] = useState<PersistedVoteForm | null>(null);
 
-  // Load any saved draft on mount
+  // Decrypt and load any saved draft on mount
   useEffect(() => {
     if (!key) return;
-    try {
+    (async () => {
       const raw = localStorage.getItem(key);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as PersistedVoteForm;
-      if (parsed.token || parsed.selectedOption) {
-        setSavedDraft(parsed);
+      try {
+        const cryptoKey = await getOrCreateSessionKey();
+        const parsed = await decryptJSON<PersistedVoteForm>(raw, cryptoKey);
+        if (parsed.token || parsed.selectedOption) {
+          setSavedDraft(parsed);
+        }
+      } catch {
+        // Key mismatch (stale session data) or corrupt — discard silently
+        localStorage.removeItem(key);
       }
-    } catch {
-      // corrupted — silently discard
-    }
+    })();
   }, [key]);
 
   const persist = useCallback(
-    (form: PersistedVoteForm) => {
+    async (form: PersistedVoteForm): Promise<void> => {
       if (!key) return;
-      // Only persist if there is something worth saving
       if (!form.token && !form.selectedOption) return;
       try {
-        localStorage.setItem(key, JSON.stringify(form));
+        const cryptoKey = await getOrCreateSessionKey();
+        const encrypted = await encryptJSON(form, cryptoKey);
+        localStorage.setItem(key, encrypted);
       } catch {
-        // quota exceeded — ignore
+        // crypto or quota failure — ignore
       }
     },
     [key],
@@ -48,14 +57,12 @@ export function useFormPersistence(ballotId: string | undefined) {
     setSavedDraft(null);
   }, [key]);
 
-  // Accept the saved draft and return its values
   const restoreDraft = useCallback((): PersistedVoteForm | null => {
     const draft = savedDraft;
-    setSavedDraft(null); // dismiss the restore banner
+    setSavedDraft(null);
     return draft;
   }, [savedDraft]);
 
-  // Dismiss without restoring
   const dismissDraft = useCallback(() => {
     setSavedDraft(null);
   }, []);
