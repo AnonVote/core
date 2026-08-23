@@ -20,6 +20,8 @@ const REJECTION_COOLDOWN_SECONDS: u64 = 24 * 60 * 60; // 24 hours in seconds
 const KEY_ROTATION_COOLDOWN: u64 = 86400; // 24 hours in seconds
 const MIN_APPROVERS: u32 = 2;
 const MAX_APPROVERS: u32 = 10;
+const ADMIN_ROTATION_TIME_LOCK: u64 = 7 * 24 * 60 * 60; // 7 days
+const ADMIN_INACTIVITY_THRESHOLD: u64 = 365 * 24 * 60 * 60; // 365 days
 
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -66,9 +68,20 @@ pub enum ContractError {
     CrossContractCallFailed = 37,
     InvalidMerkleRoot = 38,
     // Governance errors
-    CooldownActive = 32,
-    OperationRejected = 33,
-    ThresholdNotMet = 34,
+    CooldownActive = 39,
+    OperationRejected = 40,
+    ThresholdNotMet = 41,
+    // Admin address rotation errors (issue #125)
+    RotationAlreadyPending = 42,
+    NoRotationPending = 43,
+    AddressRotationTooSoon = 44,
+    InvalidRecoveryKey = 45,
+    RecoveryKeyConsumed = 46,
+    PermissionDenied = 47,
+    SuccessorAlreadySet = 48,
+    NoSuccessorSet = 49,
+    AdminStillActive = 50,
+    NotSuccessor = 51,
 }
 
 #[contracttype]
@@ -146,6 +159,24 @@ pub struct RotationRecord {
     pub old_admin: Address,
     pub new_admin: Address,
     pub rotated_at: u64,
+}
+
+/// Pending admin address rotation proposal (issue #125).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminRotationProposal {
+    pub new_admin: Address,
+    pub proposed_at: u64,
+    pub execute_after: u64,
+}
+
+/// Permissions that can be delegated to a non-admin address (issue #125).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DelegatedPermission {
+    PauseContract,
+    ChangeThreshold,
+    RotateKey,
 }
 
 /// Soroban-compatible optional key wrapper (`Option<BytesN<32>>` is not directly serialisable).
@@ -280,6 +311,18 @@ pub enum DataKey {
     CrossContractRecord(String),
     ApproverActivity(Address),
     RejectionCooldown(OperationType),
+    // Admin address rotation with time-lock (issue #125)
+    PendingAdminAddress,
+    AdminAddressRotationRequestedAt,
+    RecoveryKeyHash,
+    RecoveryKeyUsed,
+    // Delegation (issue #125)
+    Delegation(Address, DelegatedPermission),
+    // Successor / emergency contact (issue #125)
+    Successor,
+    SuccessorSetAt,
+    LastAdminActivity,
+    EmergencyContact,
 }
 
 #[contract]
@@ -310,6 +353,9 @@ impl AnonVoteContract {
         env.storage()
             .instance()
             .set(&DataKey::OperationNonce, &0u64);
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastAdminActivity, &env.ledger().timestamp());
         Ok(())
     }
 
@@ -1218,6 +1264,452 @@ impl AnonVoteContract {
         Ok(true)
     }
 
+    // ── Admin address rotation with time-lock (issue #125) ─────────────────
+
+    /// Proposes replacement of the admin address. Enforces a 7-day time lock
+    /// before the new address can take effect, giving observers a window to
+    /// react if the proposal was made under duress.
+    pub fn admin_propose_rotation(
+        env: Env,
+        caller: Address,
+        new_admin: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let current_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(ContractError::NotInitialized)?;
+        if new_admin == current_admin {
+            return Err(ContractError::SameAdmin);
+        }
+        if env.storage().persistent().has(&DataKey::PendingAdminAddress) {
+            return Err(ContractError::RotationAlreadyPending);
+        }
+
+        let now = env.ledger().timestamp();
+        env.storage()
+            .persistent()
+            .set(&DataKey::PendingAdminAddress, &new_admin);
+        env.storage()
+            .persistent()
+            .set(&DataKey::AdminAddressRotationRequestedAt, &now);
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("rot_prp")),
+            (caller, new_admin, now, now + ADMIN_ROTATION_TIME_LOCK),
+        );
+        Ok(())
+    }
+
+    /// Executes a pending admin address rotation once the 7-day time lock has
+    /// expired. Anyone can call this; the time lock itself is the guard.
+    pub fn execute_admin_rotation(env: Env) -> Result<(), ContractError> {
+        let new_admin: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingAdminAddress)
+            .ok_or(ContractError::NoRotationPending)?;
+        let proposed_at: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminAddressRotationRequestedAt)
+            .ok_or(ContractError::NoRotationPending)?;
+
+        let now = env.ledger().timestamp();
+        if now.saturating_sub(proposed_at) < ADMIN_ROTATION_TIME_LOCK {
+            return Err(ContractError::AddressRotationTooSoon);
+        }
+
+        let old_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(ContractError::NotInitialized)?;
+
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+
+        let mut history: Vec<RotationRecord> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RotationHistory)
+            .unwrap_or(Vec::new(&env));
+        history.push_back(RotationRecord {
+            old_admin: old_admin.clone(),
+            new_admin: new_admin.clone(),
+            rotated_at: now,
+        });
+        env.storage()
+            .persistent()
+            .set(&DataKey::RotationHistory, &history);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingAdminAddress);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AdminAddressRotationRequestedAt);
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("rot_ok")),
+            (old_admin, new_admin, now),
+        );
+        Ok(())
+    }
+
+    /// Cancels a pending admin address rotation during the time-lock window.
+    /// Only the current admin can cancel.
+    pub fn cancel_admin_rotation(env: Env, caller: Address) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        if !env.storage().persistent().has(&DataKey::PendingAdminAddress) {
+            return Err(ContractError::NoRotationPending);
+        }
+
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingAdminAddress);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AdminAddressRotationRequestedAt);
+
+        let now = env.ledger().timestamp();
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("rot_cncl")),
+            (caller, now),
+        );
+        Ok(())
+    }
+
+    /// Returns the pending admin rotation proposal, if one exists.
+    pub fn get_pending_admin_rotation(env: Env) -> Option<AdminRotationProposal> {
+        let new_admin: Option<Address> =
+            env.storage().persistent().get(&DataKey::PendingAdminAddress);
+        let proposed_at: Option<u64> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AdminAddressRotationRequestedAt);
+        match (new_admin, proposed_at) {
+            (Some(a), Some(t)) => Some(AdminRotationProposal {
+                new_admin: a,
+                proposed_at: t,
+                execute_after: t + ADMIN_ROTATION_TIME_LOCK,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Stores the SHA-256 hash of a recovery secret. The secret itself must
+    /// be kept off-chain and used only for emergency rotation.
+    pub fn set_recovery_key_hash(
+        env: Env,
+        caller: Address,
+        key_hash: BytesN<32>,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecoveryKeyHash, &key_hash);
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecoveryKeyUsed, &false);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("rky_set")),
+            (caller, env.ledger().timestamp()),
+        );
+        Ok(())
+    }
+
+    /// Rotates the admin address immediately, bypassing the time lock.
+    /// Requires the pre-registered recovery secret (SHA-256 must match stored hash).
+    /// The recovery secret is consumed after one use.
+    pub fn emergency_admin_rotation(
+        env: Env,
+        caller: Address,
+        new_admin: Address,
+        recovery_key: Bytes,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+
+        let stored_hash: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecoveryKeyHash)
+            .ok_or(ContractError::InvalidRecoveryKey)?;
+
+        let already_used: bool = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecoveryKeyUsed)
+            .unwrap_or(false);
+        if already_used {
+            return Err(ContractError::RecoveryKeyConsumed);
+        }
+
+        let provided_hash = env.crypto().sha256(&recovery_key);
+        if provided_hash != stored_hash {
+            return Err(ContractError::InvalidRecoveryKey);
+        }
+
+        let old_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(ContractError::NotInitialized)?;
+        if new_admin == old_admin {
+            return Err(ContractError::SameAdmin);
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecoveryKeyUsed, &true);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::PendingAdminAddress);
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AdminAddressRotationRequestedAt);
+
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+
+        let now = env.ledger().timestamp();
+        let mut history: Vec<RotationRecord> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RotationHistory)
+            .unwrap_or(Vec::new(&env));
+        history.push_back(RotationRecord {
+            old_admin: old_admin.clone(),
+            new_admin: new_admin.clone(),
+            rotated_at: now,
+        });
+        env.storage()
+            .persistent()
+            .set(&DataKey::RotationHistory, &history);
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("emg_rot")),
+            (old_admin, new_admin, now),
+        );
+        Ok(())
+    }
+
+    // ── Permission delegation (issue #125) ────────────────────────────────
+
+    /// Grants a specific permission to a delegate address.
+    /// The admin retains full control; delegations can be revoked at any time.
+    pub fn delegate_permission(
+        env: Env,
+        caller: Address,
+        delegate: Address,
+        permission: DelegatedPermission,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Delegation(delegate.clone(), permission.clone()), &true);
+        let now = env.ledger().timestamp();
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("dlg"), symbol_short!("grant")),
+            (caller, delegate, now),
+        );
+        Ok(())
+    }
+
+    /// Revokes a previously granted permission from a delegate.
+    pub fn revoke_delegation(
+        env: Env,
+        caller: Address,
+        delegate: Address,
+        permission: DelegatedPermission,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Delegation(delegate.clone(), permission.clone()));
+        let now = env.ledger().timestamp();
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("dlg"), symbol_short!("revoke")),
+            (caller, delegate, now),
+        );
+        Ok(())
+    }
+
+    /// Returns `true` if `delegate` currently holds the given `permission`.
+    pub fn has_delegation(
+        env: Env,
+        delegate: Address,
+        permission: DelegatedPermission,
+    ) -> bool {
+        env.storage()
+            .persistent()
+            .get::<DataKey, bool>(&DataKey::Delegation(delegate, permission))
+            .unwrap_or(false)
+    }
+
+    // ── Successor delegation & emergency contact (issue #125) ─────────────
+
+    /// Sets an emergency contact address that can be used to propose rotation
+    /// if the admin becomes unresponsive.
+    pub fn set_emergency_contact(
+        env: Env,
+        caller: Address,
+        contact: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        env.storage()
+            .persistent()
+            .set(&DataKey::EmergencyContact, &contact);
+        let now = env.ledger().timestamp();
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("ec_set")),
+            (caller, contact, now),
+        );
+        Ok(())
+    }
+
+    /// Returns the current emergency contact, if set.
+    pub fn get_emergency_contact(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::EmergencyContact)
+    }
+
+    /// Designates a successor who may take over if the admin is inactive for
+    /// 365 consecutive days.
+    pub fn set_successor(
+        env: Env,
+        caller: Address,
+        successor: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(ContractError::NotInitialized)?;
+        if successor == admin {
+            return Err(ContractError::SameAdmin);
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::Successor, &successor);
+        let now = env.ledger().timestamp();
+        env.storage()
+            .persistent()
+            .set(&DataKey::SuccessorSetAt, &now);
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("succ_set")),
+            (caller, successor, now),
+        );
+        Ok(())
+    }
+
+    /// Returns the designated successor address, if set.
+    pub fn get_successor(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::Successor)
+    }
+
+    /// Revokes the successor designation. Only the current admin can revoke.
+    pub fn revoke_successor(env: Env, caller: Address) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        if !env.storage().persistent().has(&DataKey::Successor) {
+            return Err(ContractError::NoSuccessorSet);
+        }
+        env.storage().persistent().remove(&DataKey::Successor);
+        env.storage().persistent().remove(&DataKey::SuccessorSetAt);
+        let now = env.ledger().timestamp();
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("succ_rev")),
+            (caller, now),
+        );
+        Ok(())
+    }
+
+    /// Called by the designated successor to take over admin control.
+    /// Succeeds only if admin has been inactive for at least 365 days.
+    pub fn confirm_succession(env: Env, caller: Address) -> Result<(), ContractError> {
+        caller.require_auth();
+
+        let successor: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Successor)
+            .ok_or(ContractError::NoSuccessorSet)?;
+        if caller != successor {
+            return Err(ContractError::NotSuccessor);
+        }
+
+        let last_activity: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::LastAdminActivity)
+            .unwrap_or(0);
+        let now = env.ledger().timestamp();
+        if now.saturating_sub(last_activity) < ADMIN_INACTIVITY_THRESHOLD {
+            return Err(ContractError::AdminStillActive);
+        }
+
+        let old_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(ContractError::NotInitialized)?;
+
+        env.storage().instance().set(&DataKey::Admin, &caller);
+
+        let mut history: Vec<RotationRecord> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RotationHistory)
+            .unwrap_or(Vec::new(&env));
+        history.push_back(RotationRecord {
+            old_admin: old_admin.clone(),
+            new_admin: caller.clone(),
+            rotated_at: now,
+        });
+        env.storage()
+            .persistent()
+            .set(&DataKey::RotationHistory, &history);
+        env.storage().persistent().remove(&DataKey::Successor);
+        env.storage().persistent().remove(&DataKey::SuccessorSetAt);
+        Self::update_admin_activity(&env, now);
+        env.events().publish(
+            (symbol_short!("adm"), symbol_short!("succ_ok")),
+            (old_admin, caller, now),
+        );
+        Ok(())
+    }
+
+    /// Lets the admin prove they are active, resetting the inactivity clock
+    /// used by the successor takeover mechanism.
+    pub fn ping_admin(env: Env, caller: Address) -> Result<(), ContractError> {
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+        Self::update_admin_activity(&env, env.ledger().timestamp());
+        Ok(())
+    }
+
+    /// Returns the timestamp of the admin's last recorded activity.
+    pub fn get_last_admin_activity(env: Env) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::LastAdminActivity)
+            .unwrap_or(0)
+    }
+
     pub fn get_admin(env: Env) -> Option<Address> {
         env.storage().instance().get(&DataKey::Admin)
     }
@@ -2112,6 +2604,12 @@ impl AnonVoteContract {
     fn is_zero_key(key: &BytesN<32>) -> bool {
         let arr = key.to_array();
         arr.iter().all(|&b| b == 0)
+    }
+
+    fn update_admin_activity(env: &Env, timestamp: u64) {
+        env.storage()
+            .persistent()
+            .set(&DataKey::LastAdminActivity, &timestamp);
     }
 }
 
@@ -3230,5 +3728,401 @@ mod tests {
         let (env, client, _admin) = setup();
         let key = String::from_str(&env, "unknown");
         assert_eq!(client.get_cross_contract_record(&key), None);
+    }
+
+    // ── Issue #125: Admin address rotation with time-lock ─────────────────
+
+    fn setup_rotation() -> (Env, AnonVoteContractClient<'static>, Address, Address, Address) {
+        setup()
+    }
+
+    #[test]
+    fn test_admin_propose_rotation_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        let proposal = client.get_pending_admin_rotation().unwrap();
+        assert_eq!(proposal.new_admin, new_admin);
+        assert!(proposal.execute_after > proposal.proposed_at);
+    }
+
+    #[test]
+    fn test_admin_propose_rotation_same_admin_rejected() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_admin_propose_rotation(&a1, &a1),
+            Err(Ok(ContractError::SameAdmin))
+        );
+    }
+
+    #[test]
+    fn test_admin_propose_rotation_duplicate_rejected() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        let another = Address::generate(&env);
+        assert_eq!(
+            client.try_admin_propose_rotation(&a1, &another),
+            Err(Ok(ContractError::RotationAlreadyPending))
+        );
+    }
+
+    #[test]
+    fn test_admin_propose_rotation_unauthorized_rejected() {
+        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        assert_eq!(
+            client.try_admin_propose_rotation(&a2, &new_admin),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn test_execute_admin_rotation_before_timelock_fails() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        assert_eq!(
+            client.try_execute_admin_rotation(),
+            Err(Ok(ContractError::AddressRotationTooSoon))
+        );
+    }
+
+    #[test]
+    fn test_execute_admin_rotation_after_timelock_succeeds() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        env.ledger().with_mut(|l| {
+            l.timestamp += ADMIN_ROTATION_TIME_LOCK + 1;
+        });
+        client.execute_admin_rotation();
+        assert_eq!(client.get_admin().unwrap(), new_admin);
+        assert!(client.get_pending_admin_rotation().is_none());
+    }
+
+    #[test]
+    fn test_execute_admin_rotation_appends_history() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        env.ledger().with_mut(|l| {
+            l.timestamp += ADMIN_ROTATION_TIME_LOCK + 1;
+        });
+        client.execute_admin_rotation();
+        let history = client.get_rotation_history();
+        assert_eq!(history.len(), 1);
+        let record = history.get(0).unwrap();
+        assert_eq!(record.old_admin, a1);
+        assert_eq!(record.new_admin, new_admin);
+    }
+
+    #[test]
+    fn test_execute_admin_rotation_no_pending_fails() {
+        let (_env, client, _a1, _a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_execute_admin_rotation(),
+            Err(Ok(ContractError::NoRotationPending))
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_rotation_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        client.cancel_admin_rotation(&a1);
+        assert!(client.get_pending_admin_rotation().is_none());
+        assert_eq!(client.get_admin().unwrap(), a1);
+    }
+
+    #[test]
+    fn test_cancel_admin_rotation_no_pending_fails() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_cancel_admin_rotation(&a1),
+            Err(Ok(ContractError::NoRotationPending))
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_rotation_unauthorized_fails() {
+        let (env, client, a1, a2, _a3) = setup_rotation();
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        assert_eq!(
+            client.try_cancel_admin_rotation(&a2),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn test_set_recovery_key_hash_success() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        let key_hash = BytesN::from_array(&_env, &[0xABu8; 32]);
+        client.set_recovery_key_hash(&a1, &key_hash);
+    }
+
+    #[test]
+    fn test_emergency_rotation_with_valid_key_succeeds() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let secret = Bytes::from_array(&env, &[0x42u8; 32]);
+        let key_hash = env.crypto().sha256(&secret);
+        client.set_recovery_key_hash(&a1, &key_hash);
+        let new_admin = Address::generate(&env);
+        client.emergency_admin_rotation(&a1, &new_admin, &secret);
+        assert_eq!(client.get_admin().unwrap(), new_admin);
+    }
+
+    #[test]
+    fn test_emergency_rotation_wrong_key_fails() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let secret = Bytes::from_array(&env, &[0x42u8; 32]);
+        let key_hash = env.crypto().sha256(&secret);
+        client.set_recovery_key_hash(&a1, &key_hash);
+        let wrong = Bytes::from_array(&env, &[0xFFu8; 32]);
+        let new_admin = Address::generate(&env);
+        assert_eq!(
+            client.try_emergency_admin_rotation(&a1, &new_admin, &wrong),
+            Err(Ok(ContractError::InvalidRecoveryKey))
+        );
+    }
+
+    #[test]
+    fn test_emergency_rotation_consumed_key_fails() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let secret = Bytes::from_array(&env, &[0x42u8; 32]);
+        let key_hash = env.crypto().sha256(&secret);
+        client.set_recovery_key_hash(&a1, &key_hash);
+        let new_admin = Address::generate(&env);
+        client.emergency_admin_rotation(&a1, &new_admin, &secret);
+        let another = Address::generate(&env);
+        assert_eq!(
+            client.try_emergency_admin_rotation(&new_admin, &another, &secret),
+            Err(Ok(ContractError::RecoveryKeyConsumed))
+        );
+    }
+
+    #[test]
+    fn test_emergency_rotation_cancels_pending_rotation() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let pending = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &pending);
+        let secret = Bytes::from_array(&env, &[0x99u8; 32]);
+        let key_hash = env.crypto().sha256(&secret);
+        client.set_recovery_key_hash(&a1, &key_hash);
+        let emergency_admin = Address::generate(&env);
+        client.emergency_admin_rotation(&a1, &emergency_admin, &secret);
+        assert!(client.get_pending_admin_rotation().is_none());
+        assert_eq!(client.get_admin().unwrap(), emergency_admin);
+    }
+
+    // ── Issue #125: Permission delegation ─────────────────────────────────
+
+    #[test]
+    fn test_delegate_permission_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let delegate = Address::generate(&env);
+        client.delegate_permission(&a1, &delegate, &DelegatedPermission::PauseContract);
+        assert!(client.has_delegation(&delegate, &DelegatedPermission::PauseContract));
+    }
+
+    #[test]
+    fn test_delegate_permission_unauthorized_fails() {
+        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let delegate = Address::generate(&env);
+        assert_eq!(
+            client.try_delegate_permission(&a2, &delegate, &DelegatedPermission::PauseContract),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn test_revoke_delegation_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let delegate = Address::generate(&env);
+        client.delegate_permission(&a1, &delegate, &DelegatedPermission::RotateKey);
+        assert!(client.has_delegation(&delegate, &DelegatedPermission::RotateKey));
+        client.revoke_delegation(&a1, &delegate, &DelegatedPermission::RotateKey);
+        assert!(!client.has_delegation(&delegate, &DelegatedPermission::RotateKey));
+    }
+
+    #[test]
+    fn test_has_delegation_returns_false_without_grant() {
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let stranger = Address::generate(&env);
+        assert!(!client.has_delegation(&stranger, &DelegatedPermission::ChangeThreshold));
+    }
+
+    #[test]
+    fn test_multiple_permissions_independent() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let delegate = Address::generate(&env);
+        client.delegate_permission(&a1, &delegate, &DelegatedPermission::PauseContract);
+        assert!(client.has_delegation(&delegate, &DelegatedPermission::PauseContract));
+        assert!(!client.has_delegation(&delegate, &DelegatedPermission::ChangeThreshold));
+        assert!(!client.has_delegation(&delegate, &DelegatedPermission::RotateKey));
+    }
+
+    // ── Issue #125: Successor delegation ──────────────────────────────────
+
+    #[test]
+    fn test_set_successor_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        assert_eq!(client.get_successor().unwrap(), successor);
+    }
+
+    #[test]
+    fn test_set_successor_same_as_admin_fails() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_set_successor(&a1, &a1),
+            Err(Ok(ContractError::SameAdmin))
+        );
+    }
+
+    #[test]
+    fn test_revoke_successor_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        client.revoke_successor(&a1);
+        assert!(client.get_successor().is_none());
+    }
+
+    #[test]
+    fn test_revoke_successor_no_successor_fails() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_revoke_successor(&a1),
+            Err(Ok(ContractError::NoSuccessorSet))
+        );
+    }
+
+    #[test]
+    fn test_confirm_succession_admin_still_active_fails() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        assert_eq!(
+            client.try_confirm_succession(&successor),
+            Err(Ok(ContractError::AdminStillActive))
+        );
+    }
+
+    #[test]
+    fn test_confirm_succession_after_inactivity_succeeds() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        env.ledger().with_mut(|l| {
+            l.timestamp += ADMIN_INACTIVITY_THRESHOLD + 1;
+        });
+        client.confirm_succession(&successor);
+        assert_eq!(client.get_admin().unwrap(), successor);
+        assert!(client.get_successor().is_none());
+    }
+
+    #[test]
+    fn test_confirm_succession_appends_history() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        env.ledger().with_mut(|l| {
+            l.timestamp += ADMIN_INACTIVITY_THRESHOLD + 1;
+        });
+        client.confirm_succession(&successor);
+        let history = client.get_rotation_history();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history.get(0).unwrap().old_admin, a1);
+        assert_eq!(history.get(0).unwrap().new_admin, successor);
+    }
+
+    #[test]
+    fn test_confirm_succession_wrong_caller_fails() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let successor = Address::generate(&env);
+        client.set_successor(&a1, &successor);
+        env.ledger().with_mut(|l| {
+            l.timestamp += ADMIN_INACTIVITY_THRESHOLD + 1;
+        });
+        let impostor = Address::generate(&env);
+        assert_eq!(
+            client.try_confirm_succession(&impostor),
+            Err(Ok(ContractError::NotSuccessor))
+        );
+    }
+
+    #[test]
+    fn test_confirm_succession_no_successor_fails() {
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let stranger = Address::generate(&env);
+        assert_eq!(
+            client.try_confirm_succession(&stranger),
+            Err(Ok(ContractError::NoSuccessorSet))
+        );
+    }
+
+    // ── Issue #125: Emergency contact ─────────────────────────────────────
+
+    #[test]
+    fn test_set_emergency_contact_success() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let contact = Address::generate(&env);
+        client.set_emergency_contact(&a1, &contact);
+        assert_eq!(client.get_emergency_contact().unwrap(), contact);
+    }
+
+    #[test]
+    fn test_get_emergency_contact_none_by_default() {
+        let (_env, client, _a1, _a2, _a3) = setup_rotation();
+        assert!(client.get_emergency_contact().is_none());
+    }
+
+    #[test]
+    fn test_set_emergency_contact_unauthorized_fails() {
+        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let contact = Address::generate(&env);
+        assert_eq!(
+            client.try_set_emergency_contact(&a2, &contact),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    // ── Issue #125: Activity tracking ─────────────────────────────────────
+
+    #[test]
+    fn test_ping_admin_updates_activity() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        env.ledger().with_mut(|l| { l.timestamp = 1_000_000; });
+        client.ping_admin(&a1);
+        assert_eq!(client.get_last_admin_activity(), 1_000_000);
+    }
+
+    #[test]
+    fn test_ping_admin_unauthorized_fails() {
+        let (_env, client, _a1, a2, _a3) = setup_rotation();
+        assert_eq!(
+            client.try_ping_admin(&a2),
+            Err(Ok(ContractError::AdminUnauthorized))
+        );
+    }
+
+    #[test]
+    fn test_initialize_seeds_admin_activity() {
+        let (_env, client, _a1, _a2, _a3) = setup_rotation();
+        assert!(client.get_last_admin_activity() > 0);
+    }
+
+    #[test]
+    fn test_propose_rotation_updates_activity() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let before = client.get_last_admin_activity();
+        env.ledger().with_mut(|l| { l.timestamp = before + 500; });
+        let new_admin = Address::generate(&env);
+        client.admin_propose_rotation(&a1, &new_admin);
+        assert_eq!(client.get_last_admin_activity(), before + 500);
     }
 }
