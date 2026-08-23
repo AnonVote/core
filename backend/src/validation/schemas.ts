@@ -12,6 +12,8 @@ import { ValidationSchema } from "../middleware/validate";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+// 64-char lowercase hex — the output of randomBytes(32).toString("hex")
+const TOKEN_HEX_RE = /^[0-9a-f]{64}$/i;
 
 function isIsoDate(value: unknown): string | null {
   if (typeof value !== "string") return null; // type check already handles this
@@ -216,8 +218,9 @@ export const submitVoteSchema: ValidationSchema = {
   voterToken: {
     required: true,
     type: "string",
-    min: 1,
-    max: 512,
+    min: 64,
+    max: 64,
+    pattern: TOKEN_HEX_RE,
     label: "voterToken",
   },
   optionId: {
@@ -255,7 +258,7 @@ export const issueTokenSchema: ValidationSchema = {
     required: true,
     type: "string",
     min: 1,
-    max: 256,
+    max: 500,
     label: "voterIdentifier",
   },
 };
