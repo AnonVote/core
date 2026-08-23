@@ -1,49 +1,41 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { submitVote } from "../services/privacyEngine";
 import { checkVoteRateLimits } from "../services/voteRateLimiter";
-import { badRequest, rateLimitExceeded } from "../utils/errors";
+import { rateLimitExceeded } from "../utils/errors";
 import { prisma } from "../prisma/client";
-import { strictRateLimiter } from "../middleware/rateLimiter";
-import { AppError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { validate } from "../middleware/validate";
+import { submitVoteSchema } from "../validation/schemas";
 
 const router = Router();
 
+// Normalise legacy snake_case / alternate field names sent by older clients.
+// `validate(submitVoteSchema)` expects camelCase, so we copy before it runs.
+function normaliseVoteBody(req: Request, _res: Response, next: NextFunction): void {
+  const b = req.body as Record<string, unknown>;
+  if (b.ballot_id !== undefined && b.ballotId === undefined) b.ballotId = b.ballot_id;
+  if (b.option_id !== undefined && b.optionId === undefined) b.optionId = b.option_id;
+  // "token" is the legacy name; "voterToken" is the schema-canonical name
+  if (b.token !== undefined && b.voterToken === undefined) b.voterToken = b.token;
+  next();
+}
+
 // POST /api/votes — Submit an anonymous vote
+// Middleware order is critical for DDoS protection:
+// 1. Circuit breaker - fail fast if system is overloaded
+// 2. Validation - reject malformed requests early
+// 3. Rate limiting - enforce per-IP, per-ballot, per-token limits
 router.post(
   "/",
+  normaliseVoteBody,
+  validate(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const ballotId = req.body.ballot_id ?? req.body.ballotId;
-      const token = req.body.token ?? req.body.voterToken;
-      const optionId = req.body.option_id ?? req.body.optionId;
+      const ballotId = (req.body.ballotId as string).trim();
+      const token = (req.body.voterToken as string).trim();
+      const optionId = (req.body.optionId as string).trim();
       const weight = req.body.weight ?? 1;
       const rank = req.body.rank;
-
-      const fieldErrors: Record<string, string> = {};
-      if (!ballotId || typeof ballotId !== "string" || !ballotId.trim()) {
-        fieldErrors.ballot_id = "ballot_id is required and must be a non-empty string";
-      }
-      if (!token || typeof token !== "string" || !token.trim()) {
-        fieldErrors.token = "token is required and must be a non-empty string";
-      }
-      if (!optionId || typeof optionId !== "string" || !optionId.trim()) {
-        fieldErrors.option_id = "option_id is required and must be a non-empty string";
-      }
-      if (weight !== undefined && weight !== null && typeof weight !== "number" && isNaN(Number(weight))) {
-        fieldErrors.weight = "weight must be a valid number";
-      }
-      if (rank !== undefined && rank !== null && typeof rank !== "number" && isNaN(Number(rank))) {
-        fieldErrors.rank = "rank must be a valid number";
-      }
-
-      if (Object.keys(fieldErrors).length > 0) {
-        throw new AppError(
-          `Validation failed: ${Object.values(fieldErrors).join("; ")}`,
-          400,
-          "VALIDATION_ERROR"
-        );
-      }
 
       // Derive the real IP (respects X-Forwarded-For when behind a proxy)
       const ip =
@@ -52,7 +44,7 @@ router.post(
           .trim() ?? req.socket.remoteAddress ?? "unknown";
 
       // Check all three rate-limit dimensions before processing the vote
-      const rlResult = await checkVoteRateLimits(ip, ballotId, token.trim());
+      const rlResult = await checkVoteRateLimits(ip, ballotId, token);
 
       if (!rlResult.allowed) {
         // Log violation to audit table (best-effort, non-blocking)
@@ -70,14 +62,7 @@ router.post(
         return next(err);
       }
 
-
-      const result = await submitVote(
-        ballotId.trim(),
-        token.trim(),
-        optionId.trim(),
-        weight,
-        rank
-      );
+      const result = await submitVote(ballotId, token, optionId, weight, rank);
 
       res.status(200).json(result);
     } catch (err) {

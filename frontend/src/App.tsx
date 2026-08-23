@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PageLoader from "./components/PageLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import OfflineBanner from "./components/OfflineBanner";
 import { NotificationProvider } from "./context/NotificationContext";
 
 // Lazy-loaded pages — each chunk only downloads when the route is visited
@@ -33,64 +34,65 @@ export default function App() {
   return (
     <ErrorBoundary>
       <NotificationProvider>
+        <OfflineBanner />
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminDashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ballots/new"
-                element={
-                  <ProtectedRoute>
-                    <CreateBallotPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <SettingsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ballots/:ballotId/edit"
-                element={
-                  <ProtectedRoute>
-                    <EditBallotPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vote/:ballotId/token"
-                element={<TokenRequestPage />}
-              />
-              <Route
-                path="/ballot/:ballotId/claim-token"
-                element={<ClaimTokenPage />}
-              />
-              <Route path="/vote/:ballotId" element={<VotePage />} />
-              <Route path="/ballot/:ballotId/vote" element={<VotePage />} />
-              <Route path="/results/:ballotId" element={<ResultsPage />} />
-              <Route path="/audit/:ballotId" element={<AuditPage />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ballots/new"
+              element={
+                <ProtectedRoute>
+                  <CreateBallotPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ballots/:ballotId/edit"
+              element={
+                <ProtectedRoute>
+                  <EditBallotPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vote/:ballotId/token"
+              element={<TokenRequestPage />}
+            />
+            <Route
+              path="/ballot/:ballotId/claim-token"
+              element={<ClaimTokenPage />}
+            />
+            <Route path="/vote/:ballotId" element={<VotePage />} />
+            <Route path="/ballot/:ballotId/vote" element={<VotePage />} />
+            <Route path="/results/:ballotId" element={<ResultsPage />} />
+            <Route path="/audit/:ballotId" element={<AuditPage />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

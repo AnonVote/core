@@ -1,5 +1,4 @@
-import { Component, type ReactNode } from "react";
-import { AlertTriangle, Home, RefreshCw } from "lucide-react";
+import { Component, type ReactNode, type ErrorInfo } from "react";
 
 interface Props {
   children: ReactNode;
@@ -15,116 +14,121 @@ interface State {
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
+this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
-    return {
-      hasError: true,
-      error,
-    };
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Error caught by boundary:", error, errorInfo);
-    
-    this.setState({
-      errorInfo: errorInfo.componentStack || null,
-    });
-
-    // Log to error tracking service if available
-    if (window.location.hostname !== "localhost") {
-      try {
-        console.log("[ErrorBoundary] Logging error:", {
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
-        });
-      } catch (e) {
-        console.error("Failed to log error:", e);
-      }
-    }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[ErrorBoundary] Uncaught error:", error, info.componentStack);
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    });
-  };
-
-  handleGoHome = () => {
-    window.location.href = "/";
+    this.setState({ hasError: false });
   };
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
+      if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-red-100 rounded-full">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Something went wrong
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  The application encountered an unexpected error
-                </p>
-              </div>
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+            background: "var(--surface-base, #f9fafb)",
+          }}
+          data-testid="error-boundary-fallback"
+        >
+          <div
+            style={{
+              maxWidth: "420px",
+              width: "100%",
+              padding: "2rem",
+              borderRadius: "1rem",
+              border: "1px solid var(--border-soft, #e5e7eb)",
+              background: "var(--surface-raised, #ffffff)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "50%",
+                background: "var(--semantic-error-bg, #fee2e2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 1rem",
+                fontSize: "1.5rem",
+              }}
+            >
+              ⚠
             </div>
-
-            {this.state.error && (
-              <div className="mb-6">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">
-                    Error Details:
-                  </p>
-                  <p className="text-sm text-gray-600 font-mono break-all">
-                    {this.state.error.message}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
+            <h2
+              style={{
+                fontFamily: "var(--font-display, inherit)",
+                fontWeight: 700,
+                fontSize: "1.25rem",
+                marginBottom: "0.5rem",
+                color: "var(--ink-primary, #111827)",
+              }}
+            >
+              Something went wrong
+            </h2>
+            <p
+              style={{
+                color: "var(--ink-secondary, #6b7280)",
+                fontSize: "0.875rem",
+                marginBottom: "1.5rem",
+                lineHeight: 1.6,
+              }}
+            >
+              An unexpected error occurred. Your data is safe — reload the page to try again.
+            </p>
+            <div
+              style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}
+            >
               <button
+                type="button"
                 onClick={this.handleReset}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                style={{
+                  padding: "0.5rem 1.25rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid var(--border-soft, #e5e7eb)",
+                  background: "var(--surface-raised, #fff)",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  color: "var(--ink-primary, #111827)",
+                }}
+                data-testid="error-boundary-retry"
               >
-                <RefreshCw className="w-5 h-5" />
                 Try Again
               </button>
               <button
-                onClick={this.handleGoHome}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                type="button"
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: "0.5rem 1.25rem",
+                  borderRadius: "0.5rem",
+                  background: "var(--brand-primary, #4f46e5)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                }}
+                data-testid="error-boundary-reload"
               >
-                <Home className="w-5 h-5" />
-                Go to Home
+                Reload Page
               </button>
             </div>
-
-            {import.meta.env.DEV && this.state.errorInfo && (
-              <details className="mt-6">
-                <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800 font-medium">
-                  Component Stack (Development Only)
-                </summary>
-                <pre className="mt-3 text-xs text-gray-600 bg-gray-50 p-4 rounded-lg overflow-auto max-h-64 border border-gray-200">
-                  {this.state.errorInfo}
-                </pre>
-              </details>
-            )}
           </div>
         </div>
       );
