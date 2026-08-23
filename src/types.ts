@@ -125,6 +125,19 @@ export interface EncryptedPayload {
   authTag: string;
 }
 
+/**
+ * Encrypted payload extended with a reference to the key version used.
+ *
+ * Store this alongside the ciphertext so the correct historical key can be
+ * retrieved for decryption even after a key rotation.
+ */
+export interface EncryptedPayloadWithKeyRef extends EncryptedPayload {
+  /** Key family identifier (matches `KeyMetadata.id`). */
+  keyId: string;
+  /** Key version number (matches `KeyMetadata.version`). */
+  keyVersion: number;
+}
+
 // ── Organization ──────────────────────────────────────────────────────────────
 
 export interface Organization {
@@ -226,10 +239,22 @@ export interface RetryConfig {
 
 /**
  * Configuration options for the AnonVoteClient.
+ *
+ * Supports two modes:
+ * - **Legacy**: supply `encryptionKey` as a 64-char hex string (unchanged behavior).
+ * - **Managed**: supply a `KeyManager` instance for versioned key rotation.
+ *
+ * When `keyManager` is present it takes precedence over `encryptionKey`.
  */
 export interface ClientConfig {
   /** The encryption key used for vote encryption (64-char hex string). */
   encryptionKey?: string;
+  /**
+   * A `KeyManager` for versioned key derivation and rotation.
+   * When provided, takes precedence over `encryptionKey`.
+   * Import `SimpleKeyManager` from `@anonvote/crypto` for an in-process implementation.
+   */
+  keyManager?: import("./keyManagement").KeyManager;
   /** Optional retry configuration. Defaults are applied for any omitted fields. */
   retryConfig?: Partial<RetryConfig>;
 }

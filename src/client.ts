@@ -2,6 +2,7 @@ import { getRandomBytes, bytesToHex } from "./random";
 import { encryptVote, decryptVote } from "./crypto";
 import { ValidationError } from "./errors";
 import { withRetry, resolveRetryConfig } from "./retry";
+import { getCurrentKeyHex, lookupKeyVersion } from "./keyManagement";
 import type {
   Election,
   ElectionOption,
@@ -11,7 +12,9 @@ import type {
   CreateElectionParams,
   CastVoteParams,
   EncryptedPayload,
+  EncryptedPayloadWithKeyRef,
 } from "./types";
+import type { KeyManager } from "./keyManagement";
 
 /**
  * Serialized election payload suitable for APIs or blockchain transactions.
@@ -273,10 +276,21 @@ export class AnonVoteClient {
       throw new ValidationError("voteOption is required");
     }
 
-    const encryptionKey = params.encryptionKey || this.config.encryptionKey;
+    // Resolve encryption key: KeyManager takes precedence over raw key.
+    let encryptionKey: string;
+    let keyRef: { keyId: string; keyVersion: number } | undefined;
+
+    if (this.config.keyManager) {
+      const kv = this.config.keyManager.getCurrentKey();
+      encryptionKey = kv.keyHex;
+      keyRef = { keyId: kv.metadata.id, keyVersion: kv.metadata.version };
+    } else {
+      encryptionKey = params.encryptionKey || this.config.encryptionKey || "";
+    }
+
     if (!encryptionKey) {
       throw new ValidationError(
-        "encryptionKey is required either in params or client config",
+        "encryptionKey is required either in params, client config, or via a KeyManager",
       );
     }
 
@@ -286,11 +300,16 @@ export class AnonVoteClient {
     const id = this.generateId("receipt");
     const castAt = new Date().toISOString();
 
+    const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+      keyRef
+        ? { ...encryptedVote, keyId: keyRef.keyId, keyVersion: keyRef.keyVersion }
+        : encryptedVote;
+
     return {
       id,
       electionId: params.ballotId,
       ballotId: params.ballotId,
-      encryptedPayload: encryptedVote,
+      encryptedPayload,
       castAt,
       verified: false,
     };
@@ -329,7 +348,30 @@ export class AnonVoteClient {
       return false;
     }
 
-    const key = encryptionKey || this.config.encryptionKey;
+    // If the payload carries a key reference and we have a KeyManager,
+    // retrieve the exact historical key version used at encryption time.
+    const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    if (
+      this.config.keyManager &&
+      payloadWithRef.keyId !== undefined &&
+      payloadWithRef.keyVersion !== undefined
+    ) {
+      try {
+        const kv = lookupKeyVersion(
+          this.config.keyManager,
+          payloadWithRef.keyId,
+          payloadWithRef.keyVersion,
+        );
+        const decrypted = decryptVote(encryptedPayload, kv.keyHex);
+        return typeof decrypted === "string" && decrypted.length > 0;
+      } catch {
+        return false;
+      }
+    }
+
+    const key = encryptionKey || getCurrentKeyHex(
+      this.config.keyManager ?? { getCurrentKey: () => ({ keyHex: this.config.encryptionKey ?? "", metadata: { id: "", version: 0, derivedAt: "" } }), getKeyVersion: () => null }
+    ) || this.config.encryptionKey;
     if (!key) {
       return false;
     }
