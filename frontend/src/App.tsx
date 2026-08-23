@@ -2,6 +2,8 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PageLoader from "./components/PageLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
+import OfflineBanner from "./components/OfflineBanner";
 import { NotificationProvider } from "./context/NotificationContext";
 
 // Lazy-loaded pages — each chunk only downloads when the route is visited
@@ -30,10 +32,12 @@ export default function App() {
   if (loading) return <PageLoader />;
 
   return (
-    <NotificationProvider>
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <OfflineBanner />
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -89,9 +93,10 @@ export default function App() {
             <Route path="/ballot/:ballotId/vote" element={<VotePage />} />
             <Route path="/results/:ballotId" element={<ResultsPage />} />
             <Route path="/audit/:ballotId" element={<AuditPage />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </NotificationProvider>
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 }
