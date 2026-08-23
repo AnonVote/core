@@ -21,6 +21,10 @@ function normaliseVoteBody(req: Request, _res: Response, next: NextFunction): vo
 }
 
 // POST /api/votes — Submit an anonymous vote
+// Middleware order is critical for DDoS protection:
+// 1. Circuit breaker - fail fast if system is overloaded
+// 2. Validation - reject malformed requests early
+// 3. Rate limiting - enforce per-IP, per-ballot, per-token limits
 router.post(
   "/",
   normaliseVoteBody,

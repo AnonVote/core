@@ -15,14 +15,32 @@ import { hashToken } from "../utils/crypto";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-export const VOTE_IP_LIMIT = 10;
-export const VOTE_IP_WINDOW_MS = 60 * 1000; // 1 minute
+export const VOTE_IP_LIMIT = parseInt(
+  process.env.VOTE_RATE_LIMIT_PER_IP || "10",
+  10
+);
+export const VOTE_IP_WINDOW_MS = parseInt(
+  process.env.VOTE_RATE_LIMIT_IP_WINDOW_MS || "60000",
+  10
+);
 
-export const VOTE_BALLOT_LIMIT = 100;
-export const VOTE_BALLOT_WINDOW_MS = 60 * 1000; // 1 minute
+export const VOTE_BALLOT_LIMIT = parseInt(
+  process.env.VOTE_RATE_LIMIT_PER_BALLOT || "100",
+  10
+);
+export const VOTE_BALLOT_WINDOW_MS = parseInt(
+  process.env.VOTE_RATE_LIMIT_BALLOT_WINDOW_MS || "60000",
+  10
+);
 
-export const VOTE_TOKEN_LIMIT = 3;
-export const VOTE_TOKEN_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+export const VOTE_TOKEN_LIMIT = parseInt(
+  process.env.VOTE_RATE_LIMIT_PER_TOKEN || "3",
+  10
+);
+export const VOTE_TOKEN_WINDOW_MS = parseInt(
+  process.env.VOTE_RATE_LIMIT_TOKEN_WINDOW_MS || "3600000",
+  10
+);
 
 // ── Core upsert helper ───────────────────────────────────────────────────────
 
