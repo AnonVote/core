@@ -87,9 +87,10 @@ pub enum ContractError {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BallotState {
-    Active,
-    Expired,
-    ResultPublished,
+    Created,
+    Voting,
+    Closed,
+    Tallied,
 }
 
 #[contracttype]
@@ -851,7 +852,7 @@ impl AnonVoteContract {
                 created_at: now,
                 expiration_time: 0,
                 limits,
-                state: BallotState::Active,
+                state: BallotState::Created,
                 state_updated_at: now,
             };
             env.storage().persistent().set(&metadata_key, &metadata);
@@ -893,7 +894,7 @@ impl AnonVoteContract {
             created_at: now,
             expiration_time: 0,
             limits,
-            state: BallotState::Active,
+            state: BallotState::Created,
             state_updated_at: now,
         };
         env.storage().persistent().set(&metadata_key, &metadata);
@@ -913,6 +914,69 @@ impl AnonVoteContract {
         Ok(())
     }
 
+    /// Transitions a ballot from Created to Voting state.
+    ///
+    /// Only the admin can start voting. Once started, tokens and votes can be recorded.
+    /// Cannot transition if the ballot is already in Voting, Closed, or Tallied state.
+    pub fn start_voting(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+    ) -> Result<(), ContractError> {
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
+        let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Created {
+            return Err(ContractError::InvalidStateTransition);
+        }
+
+        metadata.state = BallotState::Voting;
+        metadata.state_updated_at = env.ledger().timestamp();
+        env.storage().persistent().set(&metadata_key, &metadata);
+
+        env.events().publish(
+            (symbol_short!("ballot"), symbol_short!("voting")),
+            (ballot_id_hash, metadata.state_updated_at, caller),
+        );
+        Ok(())
+    }
+
+    /// Transitions a ballot from Voting to Closed state.
+    ///
+    /// Only the admin can close voting. Once closed, no more tokens or votes can be recorded,
+    /// but the result can be tallied.
+    /// Cannot transition if the ballot is not in Voting state.
+    pub fn close_voting(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+    ) -> Result<(), ContractError> {
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
+        caller.require_auth();
+        Self::require_admin(&env, &caller)?;
+
+        let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
+        let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::InvalidStateTransition);
+        }
+
+        metadata.state = BallotState::Closed;
+        metadata.state_updated_at = env.ledger().timestamp();
+        env.storage().persistent().set(&metadata_key, &metadata);
+
+        env.events().publish(
+            (symbol_short!("ballot"), symbol_short!("closed")),
+            (ballot_id_hash, metadata.state_updated_at, caller),
+        );
+        Ok(())
+    }
+
     pub fn record_token(
         env: Env,
         caller: Address,
@@ -922,7 +986,11 @@ impl AnonVoteContract {
         caller.require_auth();
         Self::require_not_paused(&env)?;
         Self::require_admin(&env, &caller)?;
-        let metadata = Self::require_ballot_metadata_and_not_expired(&env, &ballot_id_hash)?;
+        let metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::BallotNotInVotingState);
+        }
 
         let key = DataKey::TokensIssued(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
@@ -951,7 +1019,11 @@ impl AnonVoteContract {
         caller.require_auth();
         Self::require_not_paused(&env)?;
         Self::require_admin(&env, &caller)?;
-        let metadata = Self::require_ballot_metadata_and_not_expired(&env, &ballot_id_hash)?;
+        let metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
+
+        if metadata.state != BallotState::Voting {
+            return Err(ContractError::BallotNotInVotingState);
+        }
 
         let key = DataKey::VotesCast(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
@@ -981,11 +1053,12 @@ impl AnonVoteContract {
         Self::require_admin(&env, &caller)?;
         let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
         let mut metadata = Self::require_ballot_metadata(&env, &ballot_id_hash)?;
-        if metadata.state != BallotState::Active {
+        
+        if metadata.state != BallotState::Voting {
             return Err(ContractError::BallotExpired);
         }
 
-        metadata.state = BallotState::Expired;
+        metadata.state = BallotState::Closed;
         metadata.state_updated_at = env.ledger().timestamp();
         env.storage().persistent().set(&metadata_key, &metadata);
 
@@ -2358,10 +2431,21 @@ impl AnonVoteContract {
                     }
                     return Err(ContractError::ResultAlreadyPublished);
                 }
-                env.storage().persistent().set(&result_key, result_hash);
+
+                // Validate state transition: result can only be published from Closed state
                 let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
                 let mut metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-                metadata.state = BallotState::ResultPublished;
+
+                if metadata.state != BallotState::Closed {
+                    return Err(ContractError::BallotNotInClosedState);
+                }
+
+                if metadata.state == BallotState::Tallied {
+                    return Err(ContractError::BallotAlreadyTallied);
+                }
+
+                env.storage().persistent().set(&result_key, result_hash);
+                metadata.state = BallotState::Tallied;
                 metadata.state_updated_at = env.ledger().timestamp();
                 env.storage().persistent().set(&metadata_key, &metadata);
                 env.events().publish(
@@ -2595,7 +2679,7 @@ impl AnonVoteContract {
         ballot_id_hash: &String,
     ) -> Result<BallotMetadata, ContractError> {
         let metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-        if metadata.state == BallotState::Expired {
+        if metadata.state == BallotState::Closed || metadata.state == BallotState::Tallied {
             return Err(ContractError::BallotExpired);
         }
         Ok(metadata)
