@@ -1,3 +1,4 @@
+use soroban_sdk::{Env, String};
 use crate::ContractError;
 use soroban_sdk::{BytesN, Env, String};
 
@@ -19,15 +20,4 @@ pub fn validate_hex_hash(
         }
     }
     Ok(())
-}
-
-/// Returns `true` if the `BytesN<32>` key is all-zero bytes (considered unset / invalid).
-pub fn is_zero_admin_key(key: &BytesN<32>) -> bool {
-    let arr = key.to_array();
-    arr.iter().all(|&b| b == 0)
-}
-
-/// Returns `true` if two `BytesN<32>` keys are equal.
-pub fn admin_keys_equal(a: &BytesN<32>, b: &BytesN<32>) -> bool {
-    a == b
 }

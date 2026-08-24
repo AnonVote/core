@@ -1323,6 +1323,24 @@ function normalizeForHash(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Compute a deterministic SHA-256 hash of a local tally result.
+ *
+ * Object keys are sorted recursively before serialization so the hash is
+ * stable regardless of the property insertion order in the payload. This
+ * canonical hash is the value passed to `sorobanRecordResult` / `tally` and
+ * stored alongside the ballot record so the published on-chain commitment can
+ * be re-verified independently at any time.
+ *
+ * @param localResult - The tally result payload to hash.
+ * @returns Lowercase hex SHA-256 digest (64 characters).
+ *
+ * @example
+ * ```ts
+ * const resultHash = hashTallyResult({ yesVotes: 42, noVotes: 8, abstain: 0 });
+ * await sorobanRecordResult(config, ballotIdHash, resultHash);
+ * ```
+ */
 export function hashTallyResult(localResult: TallyResultPayload): string {
   const canonical = JSON.stringify(normalizeForHash(localResult));
   return createHash("sha256").update(canonical).digest("hex");
@@ -2189,5 +2207,14 @@ export function createSorobanService(config: SorobanConfig) {
 
     sorobanGetPendingUpgrade: () =>
       sorobanGetPendingUpgrade(config),
+
+    sorobanGetVersion: () =>
+      sorobanGetVersion(config),
+
+    verifyBallotConsistency: (ballotIdHash: string, databaseVoteCount?: number) =>
+      verifyBallotConsistency(config, ballotIdHash, databaseVoteCount),
+
+    hashTallyResult: (localResult: TallyResultPayload) =>
+      hashTallyResult(localResult),
   };
 }
