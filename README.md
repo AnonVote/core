@@ -21,6 +21,43 @@ All inputs use SHA-256 hashes of ballot UUIDs — no raw IDs stored on-chain.
 
 ---
 
+## Contract Limits
+
+Production contracts must keep storage bounded and tally computation fast, and
+the `u32` counters must never overflow. AnonVote enforces the following
+contract-wide caps (issue #105). They are exposed on-chain via the
+`get_contract_limits()` view function and enforced at ballot creation and vote
+recording time.
+
+| Limit | Value | Enforced on-chain |
+| --- | --- | --- |
+| Maximum options per ballot | 100 | No (options live in the off-chain ballot content; enforced by the backend) |
+| Maximum voters (tokens issued) per ballot | 100,000 | Yes (`TooManyVoters`) |
+| Maximum votes per ballot | 1,000,000 | Yes (`BallotFull`) |
+| Maximum ballots | 10,000 | Yes (`LimitExceeded`) |
+
+```rust
+// lib.rs — rationale for each cap
+const MAX_OPTIONS_PER_BALLOT: u32 = 100;     // beyond 100, the UI and tally become unwieldy
+const MAX_VOTERS_PER_BALLOT: u32 = 100_000;  // bounds token-issuance work and per-ballot storage
+const MAX_VOTES_PER_BALLOT: u32 = 1_000_000; // keeps tally fast; u32 overflow becomes impossible
+const MAX_BALLOTS: u32 = 10_000;             // prevents unbounded storage growth
+```
+
+These limits ensure:
+
+- Storage stays bounded
+- Tally computation completes in reasonable time
+- Vote counter overflow is impossible (all increments use `checked_add`, and
+  the caps are far below the `u32` boundary)
+- The system remains usable under load
+
+Ballots that exceed a cap — or that have zero capacity — are rejected at
+creation with a descriptive error (`TooManyVoters`, `BallotFull`, `EmptyOptions`),
+and vote/token recording stops with the same errors once a ballot's cap is hit.
+
+---
+
 ## Deployed contract (testnet)
 
 **Status:** ✅ Deployed & initialized on Stellar **testnet**.

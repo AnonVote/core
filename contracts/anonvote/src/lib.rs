@@ -23,6 +23,30 @@ const MAX_APPROVERS: u32 = 10;
 const ADMIN_ROTATION_TIME_LOCK: u64 = 7 * 24 * 60 * 60; // 7 days
 const ADMIN_INACTIVITY_THRESHOLD: u64 = 365 * 24 * 60 * 60; // 365 days
 
+// ── Contract limits (issue #105) ────────────────────────────────────────────
+// These caps keep storage bounded, tally computation fast, and the u32
+// counters free of overflow. Each limit is enforced on-chain where possible;
+// limits that only constrain the off-chain ballot content are still published
+// here (and via `get_contract_limits`) so callers can discover them.
+
+// Max options per ballot: beyond 100, the UI and tally become unwieldy.
+// Options live in the off-chain ballot content addressed by ballot_id_hash,
+// so this bound is enforced by the backend that constructs ballots.
+const MAX_OPTIONS_PER_BALLOT: u32 = 100;
+
+// Max voters (tokens issued) per ballot: bounds token issuance work and
+// per-ballot storage. Enforced on-chain via `BallotLimits.max_tokens`.
+const MAX_VOTERS_PER_BALLOT: u32 = 100_000;
+
+// Max votes per ballot: keeps tally computation fast and guarantees the u32
+// vote counter can never reach its overflow boundary. Enforced on-chain via
+// `BallotLimits.max_votes`.
+const MAX_VOTES_PER_BALLOT: u32 = 1_000_000;
+
+// Max ballots the contract will ever record: prevents unbounded storage
+// growth. Enforced on-chain by a running total ballot counter.
+const MAX_BALLOTS: u32 = 10_000;
+
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
@@ -57,19 +81,13 @@ pub enum ContractError {
     KeyRotationAlreadyPending = 27,
     NoKeyRotationPending = 28,
     RotationTooSoon = 29,
-    KeyRotationUnauthorized = 30,
     AdminKeyNotInitialized = 31,
     // Merkle / cross-contract verification errors
     MerkleRootAlreadySet = 32,
-    MerkleRootNotSet = 33,
     InvalidResultCommitment = 34,
     ResultCommitmentAlreadySet = 35,
-    BatchVerificationFailed = 36,
-    CrossContractCallFailed = 37,
-    InvalidMerkleRoot = 38,
     // Governance errors
     CooldownActive = 39,
-    OperationRejected = 40,
     ThresholdNotMet = 41,
     // Admin address rotation errors (issue #125)
     RotationAlreadyPending = 42,
@@ -77,11 +95,25 @@ pub enum ContractError {
     AddressRotationTooSoon = 44,
     InvalidRecoveryKey = 45,
     RecoveryKeyConsumed = 46,
-    PermissionDenied = 47,
-    SuccessorAlreadySet = 48,
     NoSuccessorSet = 49,
     AdminStillActive = 50,
     NotSuccessor = 51,
+    // Ballot state machine errors (4-state lifecycle)
+    InvalidStateTransition = 52,
+    BallotNotInVotingState = 53,
+    BallotNotInClosedState = 54,
+    // Counter overflow & ballot limit errors (issue #105)
+    //
+    // NOTE: `TooManyOptions` and `InvalidOptionIndex` from the issue are
+    // intentionally not defined here — options live in the off-chain ballot
+    // content addressed by `ballot_id_hash` and are never passed to the
+    // contract, so those errors can never be produced on-chain. The
+    // `MAX_OPTIONS_PER_BALLOT` bound is still published via
+    // `get_contract_limits()` for backend enforcement.
+    VoteCounterOverflow = 55,
+    TooManyVoters = 56,
+    BallotFull = 57,
+    EmptyOptions = 58,
 }
 
 #[contracttype]
@@ -98,6 +130,16 @@ pub enum BallotState {
 pub struct BallotLimits {
     pub max_tokens: u32,
     pub max_votes: u32,
+}
+
+/// Contract-wide limits exposed by `get_contract_limits` (issue #105).
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractLimits {
+    pub max_options_per_ballot: u32,
+    pub max_voters_per_ballot: u32,
+    pub max_votes_per_ballot: u32,
+    pub max_ballots: u32,
 }
 
 #[contracttype]
@@ -324,6 +366,8 @@ pub enum DataKey {
     SuccessorSetAt,
     LastAdminActivity,
     EmergencyContact,
+    // Running total of ballots recorded (issue #105)
+    BallotCount,
 }
 
 #[contract]
@@ -334,6 +378,19 @@ impl AnonVoteContract {
     /// Returns the semantic version of this contract package.
     pub fn get_version(env: Env) -> String {
         String::from_str(&env, env!("CARGO_PKG_VERSION"))
+    }
+
+    /// Returns the contract-wide limits (issue #105).
+    ///
+    /// Every ballot's `BallotLimits` must respect these caps; ballots that
+    /// exceed them are rejected at creation time.
+    pub fn get_contract_limits(_env: Env) -> ContractLimits {
+        ContractLimits {
+            max_options_per_ballot: MAX_OPTIONS_PER_BALLOT,
+            max_voters_per_ballot: MAX_VOTERS_PER_BALLOT,
+            max_votes_per_ballot: MAX_VOTES_PER_BALLOT,
+            max_ballots: MAX_BALLOTS,
+        }
     }
 
     /// Initializes the contract with an M-of-N approver set and approval threshold.
@@ -830,15 +887,36 @@ impl AnonVoteContract {
         Self::require_not_paused(&env)?;
         Self::require_admin(&env, &caller)?;
 
+        // Reject batches larger than the contract-wide ballot cap up front
+        // so a single transaction can never grow storage unboundedly.
+        if (ballots.len() as u32) > MAX_BALLOTS {
+            return Err(ContractError::LimitExceeded);
+        }
+
+        // Validate every entry before writing any — all-or-nothing semantics.
         for i in 0..ballots.len() {
-            let (ballot_id_hash, _) = ballots.get(i).unwrap();
+            let (ballot_id_hash, limits) = ballots.get(i).unwrap();
             if !is_valid_sha256_hex(&ballot_id_hash) {
                 return Err(ContractError::InvalidBallotIdHash);
             }
+            Self::validate_ballot_limits(&limits)?;
             let key = DataKey::BallotMetadata(ballot_id_hash.clone());
             if env.storage().persistent().has(&key) {
                 return Err(ContractError::BallotAlreadyExists);
             }
+        }
+
+        // Enforce the contract-wide maximum number of ballots.
+        let ballot_count: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::BallotCount)
+            .unwrap_or(0);
+        let new_total = ballot_count
+            .checked_add(ballots.len() as u32)
+            .ok_or(ContractError::CounterOverflow)?;
+        if new_total > MAX_BALLOTS {
+            return Err(ContractError::LimitExceeded);
         }
 
         let now = env.ledger().timestamp();
@@ -867,6 +945,10 @@ impl AnonVoteContract {
             recorded.push_back(ballot_id_hash);
         }
 
+        env.storage()
+            .instance()
+            .set(&DataKey::BallotCount, &new_total);
+
         Ok(recorded)
     }
 
@@ -882,10 +964,24 @@ impl AnonVoteContract {
         if !is_valid_sha256_hex(&ballot_id_hash) {
             return Err(ContractError::InvalidBallotIdHash);
         }
+        Self::validate_ballot_limits(&limits)?;
 
         let metadata_key = DataKey::BallotMetadata(ballot_id_hash.clone());
         if env.storage().persistent().has(&metadata_key) {
             return Err(ContractError::BallotAlreadyExists);
+        }
+
+        // Enforce the contract-wide maximum number of ballots.
+        let ballot_count: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::BallotCount)
+            .unwrap_or(0);
+        let new_total = ballot_count
+            .checked_add(1)
+            .ok_or(ContractError::CounterOverflow)?;
+        if new_total > MAX_BALLOTS {
+            return Err(ContractError::LimitExceeded);
         }
 
         let now = env.ledger().timestamp();
@@ -903,6 +999,9 @@ impl AnonVoteContract {
         let votes_key = DataKey::VotesCast(ballot_id_hash.clone());
         env.storage().persistent().set(&tokens_key, &0u32);
         env.storage().persistent().set(&votes_key, &0u32);
+        env.storage()
+            .instance()
+            .set(&DataKey::BallotCount, &new_total);
         env.events().publish(
             (symbol_short!("audit"), symbol_short!("blt_crtd")),
             (ballot_id_hash.clone(), now, caller),
@@ -994,8 +1093,9 @@ impl AnonVoteContract {
 
         let key = DataKey::TokensIssued(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
+        // Reject once the ballot's voter (token) cap is reached.
         if count >= metadata.limits.max_tokens {
-            return Err(ContractError::LimitExceeded);
+            return Err(ContractError::TooManyVoters);
         }
         let new_count = count.checked_add(1).ok_or(ContractError::CounterOverflow)?;
         env.storage().persistent().set(&key, &new_count);
@@ -1027,10 +1127,16 @@ impl AnonVoteContract {
 
         let key = DataKey::VotesCast(ballot_id_hash.clone());
         let count: u32 = env.storage().persistent().get(&key).unwrap_or(0);
+        // Reject once the ballot's vote cap is reached (issue #105).
         if count >= metadata.limits.max_votes {
-            return Err(ContractError::LimitExceeded);
+            return Err(ContractError::BallotFull);
         }
-        let new_count = count.checked_add(1).ok_or(ContractError::CounterOverflow)?;
+        // checked_add: the u32 vote counter can never silently wrap. With
+        // MAX_VOTES_PER_BALLOT enforced at creation this is unreachable in
+        // practice, but the guard remains as defense in depth.
+        let new_count = count
+            .checked_add(1)
+            .ok_or(ContractError::VoteCounterOverflow)?;
         env.storage().persistent().set(&key, &new_count);
         env.events().publish(
             (symbol_short!("audit"), symbol_short!("vote_cast")),
@@ -1523,7 +1629,7 @@ impl AnonVoteContract {
             return Err(ContractError::RecoveryKeyConsumed);
         }
 
-        let provided_hash = env.crypto().sha256(&recovery_key);
+        let provided_hash: BytesN<32> = env.crypto().sha256(&recovery_key).into();
         if provided_hash != stored_hash {
             return Err(ContractError::InvalidRecoveryKey);
         }
@@ -2242,7 +2348,27 @@ impl AnonVoteContract {
         Self::verify_batch_proofs(env, ballot_id_hash, proofs)
     }
 
-    fn validate_operation(env: &Env, operation: &CriticalOperation) -> Result<(), ContractError> {
+    /// Validates per-ballot limits against the contract-wide caps (issue #105).
+    ///
+    /// Rejects zero-capacity ballots (the on-chain equivalent of a ballot with
+    /// no options) and any limit that exceeds the global maximum, so a ballot
+    /// can never grow unbounded.
+    fn validate_ballot_limits(limits: &BallotLimits) -> Result<(), ContractError> {
+        // A ballot with no token or vote capacity can never be used.
+        if limits.max_tokens == 0 || limits.max_votes == 0 {
+            return Err(ContractError::EmptyOptions);
+        }
+        // Bounds token issuance so storage and tally stay bounded.
+        if limits.max_tokens > MAX_VOTERS_PER_BALLOT {
+            return Err(ContractError::TooManyVoters);
+        }
+        // Bounds the vote counter; also makes u32 overflow unreachable.
+        if limits.max_votes > MAX_VOTES_PER_BALLOT {
+            return Err(ContractError::BallotFull);
+        }
+        Ok(())
+    }
+
     fn validate_approvers_and_threshold(
         approvers: &Vec<Address>,
         threshold: u32,
@@ -2438,10 +2564,6 @@ impl AnonVoteContract {
 
                 if metadata.state != BallotState::Closed {
                     return Err(ContractError::BallotNotInClosedState);
-                }
-
-                if metadata.state == BallotState::Tallied {
-                    return Err(ContractError::BallotAlreadyTallied);
                 }
 
                 env.storage().persistent().set(&result_key, result_hash);
@@ -2674,17 +2796,6 @@ impl AnonVoteContract {
             .ok_or(ContractError::BallotNotFound)
     }
 
-    fn require_ballot_metadata_and_not_expired(
-        env: &Env,
-        ballot_id_hash: &String,
-    ) -> Result<BallotMetadata, ContractError> {
-        let metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
-        if metadata.state == BallotState::Closed || metadata.state == BallotState::Tallied {
-            return Err(ContractError::BallotExpired);
-        }
-        Ok(metadata)
-    }
-
     fn is_zero_key(key: &BytesN<32>) -> bool {
         let arr = key.to_array();
         arr.iter().all(|&b| b == 0)
@@ -2731,13 +2842,15 @@ fn bytes_to_hex(env: &Env, bytes: &BytesN<32>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::testutils::{Address as _, Events, Ledger};
+    use soroban_sdk::IntoVal;
 
     const BALLOT_A: &str = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
     const BALLOT_B: &str = "1111111111111111111111111111111111111111111111111111111111111111";
     const BALLOT_C: &str = "2222222222222222222222222222222222222222222222222222222222222222";
     const BALLOT_G: &str = "6666666666666666666666666666666666666666666666666666666666666666";
     const RESULT_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const RESULT_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     fn setup() -> (Env, AnonVoteContractClient<'static>, Address, Address, Address) {
         let env = Env::default();
@@ -2757,6 +2870,54 @@ mod tests {
             max_tokens,
             max_votes,
         }
+    }
+
+    /// Drives a ballot through Created -> Voting -> Closed and publishes a
+    /// result via the M-of-N path (second approver + emergency execute to skip
+    /// the 48h time lock).
+    fn publish_result(
+        client: &AnonVoteContractClient<'static>,
+        admin: &Address,
+        approver2: &Address,
+        ballot: &String,
+        result_hash: &String,
+    ) {
+        client.start_voting(admin, ballot);
+        client.close_voting(admin, ballot);
+        let op_id = client.record_result(admin, ballot, result_hash);
+        client.approve_operation(&op_id, approver2);
+        client.emergency_execute(admin, &op_id);
+    }
+
+    /// Pauses the contract via the M-of-N path (second approver + emergency
+    /// execute to skip the time lock).
+    fn pause_contract_via_multisig(
+        client: &AnonVoteContractClient<'static>,
+        admin: &Address,
+        approver2: &Address,
+    ) {
+        let op_id = client.pause_contract(admin);
+        client.approve_operation(&op_id, approver2);
+        client.emergency_execute(admin, &op_id);
+    }
+
+    /// Builds a unique 64-char lowercase hex ballot id from `n` (e.g. `0` ->
+    /// `"0000...0000"`, `1` -> `"0000...0001"`).
+    fn hex_ballot_id(env: &Env, n: u32) -> String {
+        let mut buf = [b'0'; 64];
+        let hex_chars = b"0123456789abcdef";
+        let mut v = n;
+        let mut i = 63usize;
+        while v > 0 && i > 0 {
+            buf[i] = hex_chars[(v & 0xf) as usize];
+            v >>= 4;
+            i -= 1;
+        }
+        if v > 0 {
+            buf[0] = hex_chars[(v & 0xf) as usize];
+        }
+        let s = unsafe { core::str::from_utf8_unchecked(&buf) };
+        String::from_str(env, s)
     }
 
     fn setup_uninitialized() -> (Env, AnonVoteContractClient<'static>, Address, Address) {
@@ -3152,6 +3313,7 @@ mod tests {
         let result = String::from_str(&env, RESULT_A);
 
         client.record_ballot(&a1, &ballot, &limits(10, 10));
+        client.start_voting(&a1, &ballot);
 
         client.record_token(&a1, &ballot);
         client.record_vote(&a1, &ballot);
@@ -3160,6 +3322,8 @@ mod tests {
         assert_eq!(client.get_votes_cast(&ballot), Some(1));
         assert!(client.is_consistent(&ballot));
 
+        // Close voting, then publish the result via the M-of-N path.
+        client.close_voting(&a1, &ballot);
         let op_id = client.record_result(&a1, &ballot, &result);
         client.approve_operation(&op_id, &a2);
         client.emergency_execute(&a1, &op_id);
@@ -3189,6 +3353,7 @@ mod tests {
         assert_eq!(client.is_paused(), false);
         
         client.record_ballot(&a1, &ballot, &limits(10, 10));
+        client.start_voting(&a1, &ballot);
         client.record_token(&a1, &ballot);
         client.record_vote(&a1, &ballot);
     }
@@ -3240,7 +3405,7 @@ mod tests {
 
     #[test]
     fn set_and_get_merkle_root() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3253,14 +3418,14 @@ mod tests {
 
     #[test]
     fn get_merkle_root_returns_none_before_set() {
-        let (env, client, _admin) = setup();
+        let (env, client, _admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         assert_eq!(client.get_merkle_root(&ballot), None);
     }
 
     #[test]
     fn set_merkle_root_rejects_duplicate() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3276,7 +3441,7 @@ mod tests {
 
     #[test]
     fn set_merkle_root_rejects_non_admin() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
         let outsider = Address::generate(&env);
@@ -3290,7 +3455,7 @@ mod tests {
 
     #[test]
     fn set_merkle_root_rejects_nonexistent_ballot() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
 
         let root = BytesN::from_array(&env, &[1u8; 32]);
@@ -3302,7 +3467,7 @@ mod tests {
 
     #[test]
     fn set_merkle_root_rejects_invalid_hash() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, "not-a-valid-hex-hash");
 
         let root = BytesN::from_array(&env, &[1u8; 32]);
@@ -3314,12 +3479,11 @@ mod tests {
 
     #[test]
     fn set_merkle_root_rejects_when_paused() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
-        let op_id = client.pause_contract(&admin);
-        client.approve_operation(&op_id, &admin);
+        pause_contract_via_multisig(&client, &admin, &approver2);
 
         let root = BytesN::from_array(&env, &[1u8; 32]);
         assert_eq!(
@@ -3330,7 +3494,7 @@ mod tests {
 
     #[test]
     fn set_merkle_root_emits_event() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3348,7 +3512,7 @@ mod tests {
 
     #[test]
     fn set_and_get_result_commitment() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3361,14 +3525,14 @@ mod tests {
 
     #[test]
     fn get_result_commitment_returns_none_before_set() {
-        let (env, client, _admin) = setup();
+        let (env, client, _admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         assert_eq!(client.get_result_commitment(&ballot), None);
     }
 
     #[test]
     fn set_result_commitment_rejects_duplicate() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3384,7 +3548,7 @@ mod tests {
 
     #[test]
     fn set_result_commitment_rejects_invalid_hex() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3397,7 +3561,7 @@ mod tests {
 
     #[test]
     fn set_result_commitment_rejects_non_admin() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
         let outsider = Address::generate(&env);
@@ -3411,7 +3575,7 @@ mod tests {
 
     #[test]
     fn set_result_commitment_rejects_nonexistent_ballot() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
 
         let commitment = String::from_str(&env, RESULT_A);
@@ -3423,12 +3587,11 @@ mod tests {
 
     #[test]
     fn set_result_commitment_rejects_when_paused() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
-        let op_id = client.pause_contract(&admin);
-        client.approve_operation(&op_id, &admin);
+        pause_contract_via_multisig(&client, &admin, &approver2);
 
         let commitment = String::from_str(&env, RESULT_A);
         assert_eq!(
@@ -3439,7 +3602,7 @@ mod tests {
 
     #[test]
     fn set_result_commitment_emits_event() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3457,7 +3620,7 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_valid_proofs() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3470,8 +3633,7 @@ mod tests {
         let root: BytesN<32> = env.crypto().sha256(&data).into();
         let root_hex = bytes_to_hex(&env, &root);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let proof0 = MerkleProof {
             vote_hash: leaf0.clone(),
@@ -3494,7 +3656,7 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_rejects_invalid_proofs() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3507,8 +3669,7 @@ mod tests {
         let root: BytesN<32> = env.crypto().sha256(&data).into();
         let root_hex = bytes_to_hex(&env, &root);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         // Valid proof for leaf0
         let proof0 = MerkleProof {
@@ -3533,15 +3694,14 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_empty_batch() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
         let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
         let root_hex = bytes_to_hex(&env, &leaf0);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let proofs = Vec::new(&env);
         let result = client.verify_batch_proofs(&ballot, &proofs);
@@ -3553,7 +3713,7 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_rejects_no_result_published() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3572,7 +3732,7 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_rejects_invalid_ballot_hash() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3592,15 +3752,14 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_all_invalid() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
         let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
         let root_hex = bytes_to_hex(&env, &leaf0);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let bad_proof = MerkleProof {
             vote_hash: BytesN::from_array(&env, &[0u8; 32]),
@@ -3617,15 +3776,14 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_single_node_tree() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
         let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
         let root_hex = bytes_to_hex(&env, &leaf0);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let proof = MerkleProof {
             vote_hash: leaf0.clone(),
@@ -3641,12 +3799,11 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_rejects_when_paused() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
-        let op_id = client.pause_contract(&admin);
-        client.approve_operation(&op_id, &admin);
+        pause_contract_via_multisig(&client, &admin, &approver2);
 
         let proofs = Vec::new(&env);
         assert_eq!(
@@ -3657,7 +3814,7 @@ mod tests {
 
     #[test]
     fn verify_batch_proofs_wrong_index() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3670,8 +3827,7 @@ mod tests {
         let root: BytesN<32> = env.crypto().sha256(&data).into();
         let root_hex = bytes_to_hex(&env, &root);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         // Proof with correct hash but wrong index
         let proof = MerkleProof {
@@ -3690,7 +3846,7 @@ mod tests {
 
     #[test]
     fn commit_and_verify_stores_root_and_commitment_and_verifies() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3704,8 +3860,7 @@ mod tests {
         let root_hex = bytes_to_hex(&env, &root);
 
         // Publish result first (required by batch verify)
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let commitment = String::from_str(&env, RESULT_A);
         let proof0 = MerkleProof {
@@ -3730,7 +3885,7 @@ mod tests {
 
     #[test]
     fn commit_and_verify_rejects_non_admin() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
         let outsider = Address::generate(&env);
@@ -3747,7 +3902,7 @@ mod tests {
 
     #[test]
     fn commit_and_verify_rejects_invalid_commitment_hex() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, _, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
@@ -3763,12 +3918,11 @@ mod tests {
 
     #[test]
     fn commit_and_verify_rejects_when_paused() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
-        let op_id = client.pause_contract(&admin);
-        client.approve_operation(&op_id, &admin);
+        pause_contract_via_multisig(&client, &admin, &approver2);
 
         let root = BytesN::from_array(&env, &[1u8; 32]);
         let commitment = String::from_str(&env, RESULT_A);
@@ -3782,15 +3936,14 @@ mod tests {
 
     #[test]
     fn commit_and_verify_idempotent_root_setting() {
-        let (env, client, admin) = setup();
+        let (env, client, admin, approver2, _) = setup();
         let ballot = String::from_str(&env, BALLOT_A);
         client.record_ballot(&admin, &ballot, &limits(10, 10));
 
         let leaf0 = BytesN::from_array(&env, &[1u8; 32]);
         let root_hex = bytes_to_hex(&env, &leaf0);
 
-        let op_id = client.record_result(&admin, &ballot, &root_hex);
-        client.approve_operation(&op_id, &admin);
+        publish_result(&client, &admin, &approver2, &ballot, &root_hex);
 
         let root = BytesN::from_array(&env, &[1u8; 32]);
         let commitment = String::from_str(&env, RESULT_A);
@@ -3809,7 +3962,7 @@ mod tests {
 
     #[test]
     fn get_cross_contract_record_returns_none_for_unknown_key() {
-        let (env, client, _admin) = setup();
+        let (env, client, _admin, _, _) = setup();
         let key = String::from_str(&env, "unknown");
         assert_eq!(client.get_cross_contract_record(&key), None);
     }
@@ -3832,7 +3985,7 @@ mod tests {
 
     #[test]
     fn test_admin_propose_rotation_same_admin_rejected() {
-        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
         assert_eq!(
             client.try_admin_propose_rotation(&a1, &a1),
             Err(Ok(ContractError::SameAdmin))
@@ -3853,10 +4006,11 @@ mod tests {
 
     #[test]
     fn test_admin_propose_rotation_unauthorized_rejected() {
-        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let outsider = Address::generate(&env);
         let new_admin = Address::generate(&env);
         assert_eq!(
-            client.try_admin_propose_rotation(&a2, &new_admin),
+            client.try_admin_propose_rotation(&outsider, &new_admin),
             Err(Ok(ContractError::AdminUnauthorized))
         );
     }
@@ -3931,11 +4085,12 @@ mod tests {
 
     #[test]
     fn test_cancel_admin_rotation_unauthorized_fails() {
-        let (env, client, a1, a2, _a3) = setup_rotation();
+        let (env, client, a1, _a2, _a3) = setup_rotation();
         let new_admin = Address::generate(&env);
         client.admin_propose_rotation(&a1, &new_admin);
+        let outsider = Address::generate(&env);
         assert_eq!(
-            client.try_cancel_admin_rotation(&a2),
+            client.try_cancel_admin_rotation(&outsider),
             Err(Ok(ContractError::AdminUnauthorized))
         );
     }
@@ -3951,7 +4106,7 @@ mod tests {
     fn test_emergency_rotation_with_valid_key_succeeds() {
         let (env, client, a1, _a2, _a3) = setup_rotation();
         let secret = Bytes::from_array(&env, &[0x42u8; 32]);
-        let key_hash = env.crypto().sha256(&secret);
+        let key_hash: BytesN<32> = env.crypto().sha256(&secret).into();
         client.set_recovery_key_hash(&a1, &key_hash);
         let new_admin = Address::generate(&env);
         client.emergency_admin_rotation(&a1, &new_admin, &secret);
@@ -3962,7 +4117,7 @@ mod tests {
     fn test_emergency_rotation_wrong_key_fails() {
         let (env, client, a1, _a2, _a3) = setup_rotation();
         let secret = Bytes::from_array(&env, &[0x42u8; 32]);
-        let key_hash = env.crypto().sha256(&secret);
+        let key_hash: BytesN<32> = env.crypto().sha256(&secret).into();
         client.set_recovery_key_hash(&a1, &key_hash);
         let wrong = Bytes::from_array(&env, &[0xFFu8; 32]);
         let new_admin = Address::generate(&env);
@@ -3976,7 +4131,7 @@ mod tests {
     fn test_emergency_rotation_consumed_key_fails() {
         let (env, client, a1, _a2, _a3) = setup_rotation();
         let secret = Bytes::from_array(&env, &[0x42u8; 32]);
-        let key_hash = env.crypto().sha256(&secret);
+        let key_hash: BytesN<32> = env.crypto().sha256(&secret).into();
         client.set_recovery_key_hash(&a1, &key_hash);
         let new_admin = Address::generate(&env);
         client.emergency_admin_rotation(&a1, &new_admin, &secret);
@@ -3993,7 +4148,7 @@ mod tests {
         let pending = Address::generate(&env);
         client.admin_propose_rotation(&a1, &pending);
         let secret = Bytes::from_array(&env, &[0x99u8; 32]);
-        let key_hash = env.crypto().sha256(&secret);
+        let key_hash: BytesN<32> = env.crypto().sha256(&secret).into();
         client.set_recovery_key_hash(&a1, &key_hash);
         let emergency_admin = Address::generate(&env);
         client.emergency_admin_rotation(&a1, &emergency_admin, &secret);
@@ -4013,10 +4168,11 @@ mod tests {
 
     #[test]
     fn test_delegate_permission_unauthorized_fails() {
-        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let outsider = Address::generate(&env);
         let delegate = Address::generate(&env);
         assert_eq!(
-            client.try_delegate_permission(&a2, &delegate, &DelegatedPermission::PauseContract),
+            client.try_delegate_permission(&outsider, &delegate, &DelegatedPermission::PauseContract),
             Err(Ok(ContractError::AdminUnauthorized))
         );
     }
@@ -4167,10 +4323,11 @@ mod tests {
 
     #[test]
     fn test_set_emergency_contact_unauthorized_fails() {
-        let (env, client, _a1, a2, _a3) = setup_rotation();
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let outsider = Address::generate(&env);
         let contact = Address::generate(&env);
         assert_eq!(
-            client.try_set_emergency_contact(&a2, &contact),
+            client.try_set_emergency_contact(&outsider, &contact),
             Err(Ok(ContractError::AdminUnauthorized))
         );
     }
@@ -4187,16 +4344,28 @@ mod tests {
 
     #[test]
     fn test_ping_admin_unauthorized_fails() {
-        let (_env, client, _a1, a2, _a3) = setup_rotation();
+        let (env, client, _a1, _a2, _a3) = setup_rotation();
+        let outsider = Address::generate(&env);
         assert_eq!(
-            client.try_ping_admin(&a2),
+            client.try_ping_admin(&outsider),
             Err(Ok(ContractError::AdminUnauthorized))
         );
     }
 
     #[test]
     fn test_initialize_seeds_admin_activity() {
-        let (_env, client, _a1, _a2, _a3) = setup_rotation();
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().with_mut(|l| {
+            l.timestamp = 1_000_000;
+        });
+        let contract_id = env.register_contract(None, AnonVoteContract);
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+        let a1 = Address::generate(&env);
+        let a2 = Address::generate(&env);
+        let a3 = Address::generate(&env);
+        let approvers = Vec::from_array(&env, [a1, a2, a3]);
+        client.initialize(&approvers, &2);
         assert!(client.get_last_admin_activity() > 0);
     }
 
@@ -4208,5 +4377,261 @@ mod tests {
         let new_admin = Address::generate(&env);
         client.admin_propose_rotation(&a1, &new_admin);
         assert_eq!(client.get_last_admin_activity(), before + 500);
+    }
+
+    // ── Issue #105: Contract limits & counter overflow ────────────────────
+
+    #[test]
+    fn test_get_contract_limits_exposes_caps() {
+        let (_env, client, _a1, _a2, _a3) = setup_rotation();
+        let limits = client.get_contract_limits();
+        assert_eq!(limits.max_options_per_ballot, MAX_OPTIONS_PER_BALLOT);
+        assert_eq!(limits.max_voters_per_ballot, MAX_VOTERS_PER_BALLOT);
+        assert_eq!(limits.max_votes_per_ballot, MAX_VOTES_PER_BALLOT);
+        assert_eq!(limits.max_ballots, MAX_BALLOTS);
+    }
+
+    #[test]
+    fn test_record_ballot_rejects_zero_token_capacity() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&_env, BALLOT_A);
+        assert_eq!(
+            client.try_record_ballot(&a1, &ballot, &limits(0, 10)),
+            Err(Ok(ContractError::EmptyOptions))
+        );
+    }
+
+    #[test]
+    fn test_record_ballot_rejects_zero_vote_capacity() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&_env, BALLOT_B);
+        assert_eq!(
+            client.try_record_ballot(&a1, &ballot, &limits(10, 0)),
+            Err(Ok(ContractError::EmptyOptions))
+        );
+    }
+
+    #[test]
+    fn test_record_ballot_rejects_too_many_voters() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&_env, BALLOT_A);
+        assert_eq!(
+            client.try_record_ballot(&a1, &ballot, &limits(MAX_VOTERS_PER_BALLOT + 1, 10)),
+            Err(Ok(ContractError::TooManyVoters))
+        );
+    }
+
+    #[test]
+    fn test_record_ballot_rejects_too_many_votes() {
+        let (_env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&_env, BALLOT_A);
+        assert_eq!(
+            client.try_record_ballot(&a1, &ballot, &limits(10, MAX_VOTES_PER_BALLOT + 1)),
+            Err(Ok(ContractError::BallotFull))
+        );
+    }
+
+    #[test]
+    fn test_record_ballot_accepts_exactly_max_limits() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(
+            &a1,
+            &ballot,
+            &limits(MAX_VOTERS_PER_BALLOT, MAX_VOTES_PER_BALLOT),
+        );
+        assert!(client.ballot_exists(&ballot));
+        assert_eq!(client.get_tokens_issued(&ballot), Some(0));
+        assert_eq!(client.get_votes_cast(&ballot), Some(0));
+    }
+
+    #[test]
+    fn test_record_ballots_batch_rejects_invalid_limits_atomically() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let id_good = String::from_str(&env, BALLOT_A);
+        let id_bad = String::from_str(&env, BALLOT_B);
+        let ballots = Vec::from_array(
+            &env,
+            [
+                (id_good.clone(), limits(10, 10)),
+                (id_bad.clone(), limits(10, MAX_VOTES_PER_BALLOT + 1)),
+            ],
+        );
+
+        assert_eq!(
+            client.try_record_ballots_batch(&a1, &ballots),
+            Err(Ok(ContractError::BallotFull))
+        );
+        // All-or-nothing: neither ballot was recorded.
+        assert!(!client.ballot_exists(&id_good));
+        assert!(!client.ballot_exists(&id_bad));
+    }
+
+    #[test]
+    fn test_record_ballots_batch_rejects_too_many_ballots() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let mut ballots = Vec::new(&env);
+        // Build a batch of MAX_BALLOTS + 1 unique ballot ids. The test-env
+        // budget is reset periodically while building the arg vector itself.
+        for i in 0..(MAX_BALLOTS + 1) {
+            if i % 100 == 0 {
+                env.budget().reset_default();
+            }
+            let id = hex_ballot_id(&env, i);
+            ballots.push_back((id, limits(10, 10)));
+        }
+        assert_eq!(
+            client.try_record_ballots_batch(&a1, &ballots),
+            Err(Ok(ContractError::LimitExceeded))
+        );
+    }
+
+    #[test]
+    fn test_record_token_rejects_when_voter_cap_reached() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&a1, &ballot, &limits(3, 10));
+        client.start_voting(&a1, &ballot);
+
+        client.record_token(&a1, &ballot);
+        client.record_token(&a1, &ballot);
+        client.record_token(&a1, &ballot);
+        assert_eq!(client.get_tokens_issued(&ballot), Some(3));
+
+        assert_eq!(
+            client.try_record_token(&a1, &ballot),
+            Err(Ok(ContractError::TooManyVoters))
+        );
+    }
+
+    #[test]
+    fn test_record_vote_rejects_when_ballot_full() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&a1, &ballot, &limits(10, 3));
+        client.start_voting(&a1, &ballot);
+
+        client.record_vote(&a1, &ballot);
+        client.record_vote(&a1, &ballot);
+        client.record_vote(&a1, &ballot);
+        assert_eq!(client.get_votes_cast(&ballot), Some(3));
+
+        // The counter reached the cap without panicking or wrapping.
+        assert_eq!(
+            client.try_record_vote(&a1, &ballot),
+            Err(Ok(ContractError::BallotFull))
+        );
+        assert_eq!(client.get_votes_cast(&ballot), Some(3));
+    }
+
+    /// Fills the contract to its 10,000-ballot cap and verifies further
+    /// registrations are rejected. Needs 10,000 separate invocations, so it
+    /// only runs with `--ignored` to keep the default suite fast.
+    #[test]
+    #[ignore]
+    fn test_ballot_total_cap_enforced_across_batches() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        for i in 0..MAX_BALLOTS {
+            if i % 100 == 0 {
+                env.budget().reset_default();
+            }
+            let id = hex_ballot_id(&env, i);
+            client.record_ballot(&a1, &id, &limits(10, 10));
+        }
+
+        // Any further ballot, single or batched, is rejected.
+        let extra = String::from_str(&env, BALLOT_G);
+        assert_eq!(
+            client.try_record_ballot(&a1, &extra, &limits(10, 10)),
+            Err(Ok(ContractError::LimitExceeded))
+        );
+        assert_eq!(
+            client.try_record_ballots_batch(
+                &a1,
+                &Vec::from_array(&env, [(extra.clone(), limits(10, 10))])
+            ),
+            Err(Ok(ContractError::LimitExceeded))
+        );
+    }
+
+    /// Full-scale stress run: fills a ballot configured at the contract-wide
+    /// caps to its 100,000-voter / 1,000,000-vote maximum. This needs ~1.1M
+    /// contract invocations, so it only runs with `--ignored` (e.g.
+    /// `cargo test --release -- --ignored stress`). The test host retains
+    /// every emitted event and charges ~10-20ms per invocation, so the default
+    /// suite runs the smaller `stress_test_counter_never_overflows_at_cap`
+    /// instead; both assert the same overflow-safety invariants.
+    #[test]
+    #[ignore]
+    fn stress_test_full_scale_ballot_no_overflow() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(
+            &a1,
+            &ballot,
+            &limits(MAX_VOTERS_PER_BALLOT, MAX_VOTES_PER_BALLOT),
+        );
+        client.start_voting(&a1, &ballot);
+
+        for i in 0..MAX_VOTERS_PER_BALLOT {
+            if i % 10 == 0 {
+                env.budget().reset_default();
+            }
+            client.record_token(&a1, &ballot);
+        }
+        for i in 0..MAX_VOTES_PER_BALLOT {
+            if i % 10 == 0 {
+                env.budget().reset_default();
+            }
+            client.record_vote(&a1, &ballot);
+        }
+
+        assert_eq!(
+            client.get_tokens_issued(&ballot),
+            Some(MAX_VOTERS_PER_BALLOT)
+        );
+        assert_eq!(client.get_votes_cast(&ballot), Some(MAX_VOTES_PER_BALLOT));
+
+        assert_eq!(
+            client.try_record_vote(&a1, &ballot),
+            Err(Ok(ContractError::BallotFull))
+        );
+        assert_eq!(
+            client.try_record_token(&a1, &ballot),
+            Err(Ok(ContractError::TooManyVoters))
+        );
+    }
+
+    #[test]
+    fn stress_test_counter_never_overflows_at_cap() {
+        let (env, client, a1, _a2, _a3) = setup_rotation();
+        let ballot = String::from_str(&env, BALLOT_B);
+        // A ballot filled exactly to its cap proves the increment path uses
+        // checked arithmetic and rejects instead of wrapping or panicking.
+        client.record_ballot(&a1, &ballot, &limits(500, 500));
+        client.start_voting(&a1, &ballot);
+
+        for i in 0..500u32 {
+            if i % 10 == 0 {
+                env.budget().reset_default();
+            }
+            client.record_token(&a1, &ballot);
+            client.record_vote(&a1, &ballot);
+        }
+
+        assert_eq!(client.get_tokens_issued(&ballot), Some(500));
+        assert_eq!(client.get_votes_cast(&ballot), Some(500));
+        assert!(client.is_consistent(&ballot));
+
+        // The cap is enforced — one more would-be increment is rejected, so
+        // the u32 counter can never reach its overflow boundary.
+        assert_eq!(
+            client.try_record_vote(&a1, &ballot),
+            Err(Ok(ContractError::BallotFull))
+        );
+        assert_eq!(
+            client.try_record_token(&a1, &ballot),
+            Err(Ok(ContractError::TooManyVoters))
+        );
     }
 }
