@@ -1,11 +1,20 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getResult, getBallot, getAudit } from "../api/client";
+import { getResultsSummary, getAuditTrail } from "../api/client";
 import Navbar from "../components/Navbar";
 import ResultChart from "../components/ResultChart";
 import VerifyWidget from "../components/VerifyWidget";
 import { useCountdown } from "../hooks/useCountdown";
-import type { Ballot, Result, AuditCounts } from "../types";
+import type { Result, AuditTrail } from "../types";
+
+// Lightweight ballot shape used on this page — sourced from the
+// results-summary endpoint rather than a separate ballot fetch.
+interface ResultsBallotInfo {
+  id: string;
+  topic: string;
+  status: string;
+  deadline: string;
+}
 
 // ── Countdown Banner ─────────────────────────────────────────────────────────
 function CountdownBanner({ deadline }: { deadline: string }) {
@@ -192,22 +201,25 @@ function AnchorCard({ label, txId, explorerUrl }: { label: string; txId: string;
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const { ballotId } = useParams<{ ballotId: string }>();
-  const [ballot, setBallot] = useState<Ballot | null>(null);
+  const [ballot, setBallot] = useState<ResultsBallotInfo | null>(null);
   const [result, setResult] = useState<Result | null>(null);
-  const [audit, setAudit] = useState<AuditCounts | null>(null);
+  const [audit, setAudit] = useState<AuditTrail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   const fetchData = useCallback(() => {
     if (!ballotId) return;
     Promise.all([
-      getBallot(ballotId).catch(() => null),
-      getResult(ballotId).catch(() => null),
-      getAudit(ballotId).catch(() => null),
-    ]).then(([b, r, a]) => {
-      if (b) setBallot(b.data.data);
-      if (r) setResult(r.data.data);
-      else setNotFound(true);
+      getResultsSummary(ballotId).catch(() => null),
+      getAuditTrail(ballotId).catch(() => null),
+    ]).then(([summary, a]) => {
+      if (summary) {
+        setBallot(summary.data.data.ballot);
+        if (summary.data.data.result) setResult(summary.data.data.result);
+        else setNotFound(true);
+      } else {
+        setNotFound(true);
+      }
       if (a) setAudit(a.data.data);
       setLoading(false);
     });
@@ -322,19 +334,7 @@ export default function ResultsPage() {
               >
                 Vote Breakdown
               </h2>
-              <ResultChart
-                entries={
-                  result.options ??
-                  (() => {
-                    const tally: Record<string, number> = JSON.parse(result.tallyJson);
-                    return (ballot?.options ?? []).map((opt) => {
-                      const count = tally[opt.id] ?? 0;
-                      const pct = result.totalVotes > 0 ? (count / result.totalVotes) * 100 : 0;
-                      return { optionId: opt.id, optionText: opt.text, count, percentage: pct };
-                    });
-                  })()
-                }
-              />
+              <ResultChart entries={result.options ?? []} />
               <div
                 style={{
                   marginTop: "var(--space-4)",

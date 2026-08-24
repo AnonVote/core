@@ -1,28 +1,26 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getAudit, getBallot } from "../api/client";
+import { getAuditTrail } from "../api/client";
 import Navbar from "../components/Navbar";
 import AuditTable from "../components/AuditTable";
-import type { AuditCounts, Ballot } from "../types";
+import type { AuditTrail } from "../types";
 
 export default function AuditPage() {
   const { ballotId } = useParams<{ ballotId: string }>();
-  const [audit, setAudit] = useState<AuditCounts | null>(null);
-  const [ballot, setBallot] = useState<Ballot | null>(null);
+  const [audit, setAudit] = useState<AuditTrail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!ballotId) return;
-    Promise.all([
-      getAudit(ballotId).catch(() => null),
-      getBallot(ballotId).catch(() => null),
-    ]).then(([a, b]) => {
-      if (a) setAudit(a.data.data);
-      else setError("No audit data found for this ballot.");
-      if (b) setBallot(b.data.data);
-      setLoading(false);
-    });
+    getAuditTrail(ballotId)
+      .then((res) => {
+        setAudit(res.data.data);
+      })
+      .catch(() => {
+        setError("No audit data found for this ballot.");
+      })
+      .finally(() => setLoading(false));
   }, [ballotId]);
 
   return (
@@ -61,7 +59,7 @@ export default function AuditPage() {
           )}
         </div>
 
-        {ballot && (
+        {audit && (
           <p
             style={{
               color: "var(--ink-muted)",
@@ -69,7 +67,7 @@ export default function AuditPage() {
               marginBottom: "var(--space-8)",
             }}
           >
-            {ballot.topic}
+            {audit.topic}
           </p>
         )}
 

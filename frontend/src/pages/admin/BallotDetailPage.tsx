@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getBallot, tallyBallot } from "../../api/client";
+import { getBallotSummary, tallyBallot } from "../../api/client";
 import Navbar from "../../components/Navbar";
-import type { Ballot } from "../../types";
+import type { BallotSummary } from "../../types";
 
 export default function BallotDetailPage() {
   const { ballotId } = useParams<{ ballotId: string }>();
   const navigate = useNavigate();
-  const [ballot, setBallot] = useState<Ballot | null>(null);
+  const [ballot, setBallot] = useState<BallotSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [countdown, setCountdown] = useState("");
   const [error, setError] = useState("");
@@ -15,7 +15,7 @@ export default function BallotDetailPage() {
   const fetchBallot = async () => {
     if (!ballotId) return;
     try {
-      const res = await getBallot(ballotId);
+      const res = await getBallotSummary(ballotId);
       setBallot(res.data.data);
     } catch {
       setError("Ballot not found");

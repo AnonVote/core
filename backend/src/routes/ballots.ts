@@ -6,10 +6,13 @@ import {
   createBallot,
   getBallotsByOrg,
   getBallotById,
+  getBallotSummary,
   updateBallot,
   deleteBallot,
   retryBallotAnchor,
 } from "../services/ballotEngine";
+import { getResultsSummary } from "../services/resultEngine";
+import { getAuditTrail } from "./audit";
 import { badRequest, ballotNotEditable } from "../utils/errors";
 import { hashToken } from "../utils/crypto";
 import { prisma } from "../prisma/client";
@@ -86,6 +89,48 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     next(err);
   }
 });
+
+// GET /api/ballots/:id/summary — Public: aggregated ballot + options + stats
+// in a single call (options, eligible voters, tokens issued, votes cast).
+router.get(
+  "/:id/summary",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const summary = await getBallotSummary(req.params.id);
+      res.status(200).json({ data: summary });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/ballots/:id/results-summary — Public: aggregated ballot + tally +
+// participation + on-chain verification in a single call.
+router.get(
+  "/:id/results-summary",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const summary = await getResultsSummary(req.params.id);
+      res.status(200).json({ data: summary });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/ballots/:id/audit-trail — Public: aggregated ballot info + token
+// and vote counts + full event log in a single call.
+router.get(
+  "/:id/audit-trail",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const trail = await getAuditTrail(req.params.id);
+      res.status(200).json({ data: trail });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // PATCH /api/ballots/:id — Edit a ballot
 router.patch(
