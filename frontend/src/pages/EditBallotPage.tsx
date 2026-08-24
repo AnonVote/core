@@ -103,7 +103,9 @@ export default function EditBallotPage() {
     }
   };
 
-  const minDeadline = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
+  const minDeadline = new Date(Date.now() + 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
 
   if (loadError) {
     return (

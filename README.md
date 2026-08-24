@@ -152,8 +152,8 @@ Anyone can visit `/results/:ballotId` and independently confirm the outcome via 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Just-Bamford/AnonVote.git
-cd AnonVote
+git clone https://github.com/AnonVote/core.git
+cd core
 ```
 
 ### 2. Configure environment variables
@@ -168,11 +168,12 @@ Open `.env` and fill in your values:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/anonvote
 JWT_SECRET=your-secret-here
 STELLAR_SECRET_KEY=your-stellar-secret-key
-BALLOT_ENCRYPTION_KEY=your-32-byte-hex-key
+SOROBAN_CONTRACT_ID=your-testnet-contract-id
+DATA_ENCRYPTION_KEY=your-32-byte-hex-key
 NODE_ENV=development
 ```
 
-> **Tip:** Generate a secure encryption key with `openssl rand -hex 32`
+> **Tip:** Generate a secure app encryption key with `openssl rand -hex 32`
 
 ### 3. Start the database
 
@@ -301,6 +302,14 @@ STELLAR_SECRET_KEY=your-mainnet-secret-key
 STELLAR_NETWORK=mainnet
 ```
 
+**Soroban Contract ID**
+
+AnonVote also requires a `SOROBAN_CONTRACT_ID` environment variable to interact with the deployed Soroban smart contract.
+
+For local development, use the published Testnet contract ID.
+
+When deploying to Mainnet, replace it with the deployed Mainnet contract ID.
+
 ---
 
 ## Running Tests
@@ -349,9 +358,38 @@ Coverage includes: crypto utilities, organization registration and login, token 
 
 ---
 
+## Milestones
+
+AnonVote development is organized into three milestones. Each issue is tagged with which milestone it belongs to.
+
+### Milestone 1 — Foundation
+
+Everything works end-to-end on testnet. A real admin can create a ballot, upload voters, issue tokens, collect votes, tally, and verify the result on Stellar. No manual database steps.
+
+**Status:** In progress
+**Focus:** Core voting flow, Soroban integration, vote encryption, public verification
+
+### Milestone 2 — Hardening
+
+The system is production-safe. Per-ballot encryption keys, rate limiting, error handling, retry queues, no raw identifiers anywhere, Soroban fully wired not stubbed.
+
+**Status:** Planned
+**Focus:** Security hardening, production readiness, reliability, scalability
+
+### Milestone 3 — Ecosystem
+
+@anonvote/crypto published on npm, docs repo complete, contracts deployed on mainnet, third party developers can build on top of AnonVote using the JS SDK.
+
+**Status:** Planned
+**Focus:** SDK release, third-party integrations, documentation
+
+---
+
 ## Contributing
 
 Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
+
+Issues are labeled with their corresponding milestone so you can see what stage of development they belong to.
 
 ---
 

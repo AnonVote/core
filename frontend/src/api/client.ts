@@ -5,6 +5,7 @@ import type {
   Result,
   AuditCounts,
   ApiResponse,
+  AdminBallotSummary,
 } from "../types";
 
 const api = axios.create({
@@ -16,6 +17,7 @@ const api = axios.create({
 // Public voter routes — never redirect to login from these
 const PUBLIC_PATHS = [
   "/vote/",
+  "/ballot/",
   "/results/",
   "/audit/",
   "/login",
@@ -23,15 +25,22 @@ const PUBLIC_PATHS = [
   "/",
 ];
 
-// Redirect to login on 401 — but only from protected admin pages
+// Redirect to login on 401 or SESSION_EXPIRED — but only from protected admin pages
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (
+      err.response?.status === 401 ||
+      err.response?.data?.error === "SESSION_EXPIRED"
+    ) {
       const path = window.location.pathname;
       const isPublicPath = PUBLIC_PATHS.some((p) => path.includes(p));
       if (!isPublicPath) {
-        window.location.href = "/login";
+        const message =
+          err.response?.data?.error === "SESSION_EXPIRED"
+            ? "session_expired"
+            : "";
+        window.location.href = `/login${message ? `?reason=${message}` : ""}`;
       }
     }
     return Promise.reject(err);
@@ -52,6 +61,8 @@ export const loginOrg = (data: { name: string; password: string }) =>
   );
 
 export const logoutOrg = () => api.post("/organizations/logout");
+
+export const refreshSession = () => api.post("/organizations/refresh");
 
 export const getMe = () =>
   api.get<ApiResponse<Organization>>("/organizations/me");
@@ -80,11 +91,13 @@ export const deleteBallot = (id: string) =>
 export const createBallot = (data: {
   topic: string;
   options: string[];
-  eligibilityListId: string;
+  eligibilityListId?: string;
   deadline: string;
   allowWeightedVoting?: boolean;
   allowRankedChoice?: boolean;
   maxRankings?: number;
+  startTime?: string;
+  autoFinalise?: boolean;
 }) => api.post<ApiResponse<Ballot>>("/ballots", data);
 
 export const updateBallot = (
@@ -121,15 +134,22 @@ export const reissueToken = (data: {
 
 // Votes
 export const submitVote = (data: {
-  ballotId: string;
-  voterToken: string;
-  optionId: string;
+  ballot_id?: string;
+  ballotId?: string;
+  token?: string;
+  voterToken?: string;
+  option_id?: string;
+  optionId?: string;
   weight?: number;
+  rank?: number;
 }) =>
-  api.post<ApiResponse<{ message: string; voteId: string; ballotId: string }>>(
-    "/votes",
-    data,
-  );
+  api.post<{
+    status: string;
+    stellar_tx_id: string | null;
+    anchor_status: string;
+    explorer_url?: string;
+    voteId?: string;
+  }>("/votes", data);
 
 // Results
 export const getResult = (ballotId: string) =>
@@ -143,6 +163,11 @@ export const getAudit = (ballotId: string) =>
   api.get<ApiResponse<AuditCounts>>(`/audit/${ballotId}`);
 
 // Admin
+export const getAdminBallots = () => api.get<ApiResponse<Ballot[]>>("/admin/ballots");
+
+export const getAdminBallotSummary = () =>
+  api.get<ApiResponse<AdminBallotSummary[]>>("/admin/ballots/summary");
+
 export const getRateLimitSettings = () =>
   api.get<
     ApiResponse<{
@@ -161,5 +186,19 @@ export const updateRateLimitSettings = (preset: string) =>
 
 export const getTotalTokensIssued = () =>
   api.get<ApiResponse<{ tokensIssued: number }>>("/admin/tokens-issued");
+
+// Post-ballot: finalise (admin, idempotent)
+export const finalise = (ballotId: string) =>
+  api.post<ApiResponse<Result>>(`/results/${ballotId}/finalise`);
+
+// Post-ballot: self-verification (public, returns boolean only)
+export const verifyToken = (ballotId: string, token: string) =>
+  api.post<{ confirmed: boolean }>(`/ballots/${ballotId}/verify`, { token });
+
+// Post-ballot: admin audit export
+export const getAdminAudit = (
+  ballotId: string,
+  format: "json" | "csv" = "json",
+) => api.get(`/admin/audit/${ballotId}?format=${format}`, { responseType: "blob" });
 
 export default api;

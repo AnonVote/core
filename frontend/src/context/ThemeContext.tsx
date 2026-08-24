@@ -79,7 +79,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
+    return {
+      theme: "dark" as Theme,
+      toggleTheme: () => undefined,
+      setTheme: () => undefined,
+      userId: null,
+      setUserId: () => undefined,
+    };
   }
   return context;
 }

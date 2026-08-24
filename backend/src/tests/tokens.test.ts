@@ -8,10 +8,15 @@ let eligibilityListId: string;
 const VOTER_ID = "voter@test.com";
 
 beforeAll(async () => {
+  await prisma.reissueRateLimit.deleteMany();
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
   await prisma.voterToken.deleteMany();
   await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
   await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
@@ -42,7 +47,7 @@ beforeAll(async () => {
       topic: "Test Ballot",
       options: ["Yes", "No"],
       eligibilityListId,
-      deadline: new Date(Date.now() + 3600_000).toISOString(),
+      deadline: new Date(Date.now() + 7200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
 });
@@ -62,7 +67,7 @@ describe("POST /api/tokens", () => {
     const res = await request(app)
       .post("/api/tokens")
       .send({ ballotId, voterIdentifier: VOTER_ID });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/already been issued/i);
   });
 
@@ -88,7 +93,85 @@ describe("POST /api/tokens", () => {
     // Reopen for other tests
     await prisma.ballot.update({
       where: { id: ballotId },
-      data: { status: "OPEN" },
+      data: { status: "ACTIVE" },
     });
   });
 });
+
+describe("POST /api/tokens/reissue", () => {
+  it("handles race condition: two concurrent reissue requests result in exactly one new token and one invalidated old token", async () => {
+    const raceVoter = "race_voter@test.com";
+    await prisma.eligibilityEntry.create({
+      data: { eligibilityListId, identifierHash: hashIdentifier(raceVoter) },
+    });
+
+    // Issue initial token
+    const initialRes = await request(app)
+      .post("/api/tokens")
+      .send({ ballotId, voterIdentifier: raceVoter });
+    expect(initialRes.status).toBe(200);
+
+    // Fire 2 concurrent reissue requests
+    const [res1, res2] = await Promise.all([
+      request(app)
+        .post("/api/tokens/reissue")
+        .send({ ballotId, voterIdentifier: raceVoter }),
+      request(app)
+        .post("/api/tokens/reissue")
+        .send({ ballotId, voterIdentifier: raceVoter }),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    expect(statuses).toEqual([200, 200]);
+
+    // Check DB state for voter tokens
+    const unusedTokens = await prisma.voterToken.findMany({
+      where: { ballotId, used: false },
+    });
+    const usedTokens = await prisma.voterToken.findMany({
+      where: { ballotId, used: true },
+    });
+
+    // Exactly 2 new active tokens and 2 invalidated old tokens (since both requests succeeded)
+    expect(unusedTokens.length).toBe(2);
+    expect(usedTokens.length).toBe(2);
+  });
+
+  it("blocks a fourth reissue request within 24 hours with REISSUE_LIMIT_EXCEEDED (429)", async () => {
+    process.env.ENABLE_RATE_LIMITS = "true";
+    const rateLimitVoter = "ratelimit_voter@test.com";
+    await prisma.eligibilityEntry.create({
+      data: { eligibilityListId, identifierHash: hashIdentifier(rateLimitVoter) },
+    });
+
+    // Issue initial token
+    await request(app)
+      .post("/api/tokens")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+
+    // Request 1st, 2nd, 3rd reissues
+    const r1 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r1.status).toBe(200);
+
+    const r2 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r2.status).toBe(200);
+
+    const r3 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+    expect(r3.status).toBe(200);
+
+    // 4th reissue attempt should be rate-limited
+    const r4 = await request(app)
+      .post("/api/tokens/reissue")
+      .send({ ballotId, voterIdentifier: rateLimitVoter });
+
+    expect(r4.status).toBe(429);
+    expect(r4.body.error).toBe("REISSUE_LIMIT_EXCEEDED");
+  });
+});
+

@@ -2,6 +2,8 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PageLoader from "./components/PageLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
+import OfflineBanner from "./components/OfflineBanner";
 import { NotificationProvider } from "./context/NotificationContext";
 
 // Lazy-loaded pages — each chunk only downloads when the route is visited
@@ -9,6 +11,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboard"));
 const CreateBallotPage = lazy(() => import("./pages/CreateBallotPage"));
 const EditBallotPage = lazy(() => import("./pages/EditBallotPage"));
 const TokenRequestPage = lazy(() => import("./pages/TokenRequestPage"));
@@ -16,6 +19,7 @@ const VotePage = lazy(() => import("./pages/VotePage"));
 const ResultsPage = lazy(() => import("./pages/ResultsPage"));
 const AuditPage = lazy(() => import("./pages/AuditPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ClaimTokenPage = lazy(() => import("./pages/ClaimTokenPage"));
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -28,10 +32,12 @@ export default function App() {
   if (loading) return <PageLoader />;
 
   return (
-    <NotificationProvider>
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <OfflineBanner />
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -40,6 +46,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboardPage />
                 </ProtectedRoute>
               }
             />
@@ -71,12 +85,18 @@ export default function App() {
               path="/vote/:ballotId/token"
               element={<TokenRequestPage />}
             />
+            <Route
+              path="/ballot/:ballotId/claim-token"
+              element={<ClaimTokenPage />}
+            />
             <Route path="/vote/:ballotId" element={<VotePage />} />
+            <Route path="/ballot/:ballotId/vote" element={<VotePage />} />
             <Route path="/results/:ballotId" element={<ResultsPage />} />
             <Route path="/audit/:ballotId" element={<AuditPage />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </NotificationProvider>
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 }

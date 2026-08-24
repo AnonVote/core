@@ -4,58 +4,62 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../prisma/client";
 import { config } from "../config";
 import { requireAuth } from "../middleware/auth";
+import { validate } from "../middleware/validate";
+import {
+  createOrganizationSchema,
+  loginOrganizationSchema,
+  updateOrganizationSchema,
+  changePasswordSchema,
+} from "../validation/schemas";
 import { badRequest, unauthorized, notFound } from "../utils/errors";
 import {
   updateOrg,
   changeOrgPassword,
   deleteOrgAccount,
 } from "../services/organizationService";
+import { shouldRefreshToken, SESSION_EXPIRY_SECONDS } from "../middleware/auth";
 
 const router = Router();
 
 // POST /api/organizations — Register a new organization
-router.post("/", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { name, email, password } = req.body;
+router.post(
+  "/",
+  validate(createOrganizationSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      const missing = ["name", "email", "password"].filter((f) => !req.body[f]);
-      throw badRequest(`Missing required fields: ${missing.join(", ")}`);
+      const existing = await prisma.organization.findUnique({ where: { name } });
+      if (existing) {
+        throw badRequest(`Organization name "${name}" is already taken`);
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const org = await prisma.organization.create({
+        data: { name, email, passwordHash },
+      });
+
+      res.status(201).json({
+        data: {
+          id: org.id,
+          name: org.name,
+          email: org.email,
+          createdAt: org.createdAt,
+        },
+      });
+    } catch (err) {
+      next(err);
     }
-
-    const existing = await prisma.organization.findUnique({ where: { name } });
-    if (existing) {
-      throw badRequest(`Organization name "${name}" is already taken`);
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const org = await prisma.organization.create({
-      data: { name, email, passwordHash },
-    });
-
-    res.status(201).json({
-      data: {
-        id: org.id,
-        name: org.name,
-        email: org.email,
-        createdAt: org.createdAt,
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+  },
+);
 
 // POST /api/organizations/login — Admin login
 router.post(
   "/login",
+  validate(loginOrganizationSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, password } = req.body;
-
-      if (!name || !password) {
-        throw unauthorized("Invalid credentials");
-      }
 
       const org = await prisma.organization.findUnique({ where: { name } });
       if (!org) {
@@ -125,6 +129,70 @@ router.post(
   },
 );
 
+// POST /api/organizations/refresh — Refresh session token
+// Issues a new token if the current one is valid and within 1 hour of expiry.
+// Does NOT accept an already-expired token.
+router.post(
+  "/refresh",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = req.cookies?.session;
+      if (!token) {
+        throw unauthorized("No session token provided");
+      }
+
+      // requireAuth already verified the token is valid and not expired.
+      // Only refresh if within the refresh window.
+      if (!shouldRefreshToken(token)) {
+        res.status(200).json({
+          data: { message: "Token is still valid, no refresh needed" },
+        });
+        return;
+      }
+
+      const org = req.organization!;
+
+      // Delete old session
+      await prisma.session.deleteMany({ where: { token } });
+
+      // Create new session
+      const expiresAt = new Date(Date.now() + SESSION_EXPIRY_SECONDS * 1000);
+      const session = await prisma.session.create({
+        data: {
+          organizationId: org.id,
+          token: "",
+          expiresAt,
+        },
+      });
+
+      const newToken = jwt.sign(
+        { sessionId: session.id, orgId: org.id },
+        config.jwtSecret,
+        { expiresIn: "8h" },
+      );
+
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { token: newToken },
+      });
+
+      res.cookie("session", newToken, {
+        httpOnly: true,
+        sameSite: config.nodeEnv === "production" ? "none" : "strict",
+        secure: config.nodeEnv === "production",
+        maxAge: SESSION_EXPIRY_SECONDS * 1000,
+      });
+
+      res.status(200).json({
+        data: { organizationId: org.id, name: org.name },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /api/organizations/me — Get current org (used by frontend auth check)
 router.get("/me", requireAuth, (req: Request, res: Response) => {
   const org = req.organization!;
@@ -137,6 +205,7 @@ router.get("/me", requireAuth, (req: Request, res: Response) => {
 router.patch(
   "/me",
   requireAuth,
+  validate(updateOrganizationSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, email } = req.body;
@@ -152,18 +221,10 @@ router.patch(
 router.patch(
   "/password",
   requireAuth,
+  validate(changePasswordSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { currentPassword, newPassword } = req.body;
-
-      if (!currentPassword || !newPassword) {
-        throw badRequest("Both passwords required");
-      }
-
-      if (newPassword.length < 8) {
-        throw badRequest("Min 8 characters");
-      }
-
       await changeOrgPassword(
         req.organization!.id,
         currentPassword,

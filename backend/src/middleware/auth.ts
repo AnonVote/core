@@ -12,6 +12,19 @@ declare global {
   }
 }
 
+// 8-hour session expiry (in seconds)
+const SESSION_EXPIRY_SECONDS = 8 * 60 * 60;
+
+// Refresh window: 1 hour before expiry
+const REFRESH_WINDOW_SECONDS = 60 * 60;
+
+interface JwtPayload {
+  sessionId: string;
+  orgId: string;
+  iat: number;
+  exp: number;
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,
@@ -26,14 +39,34 @@ export async function requireAuth(
       return;
     }
 
-    let payload: { sessionId: string };
+    let payload: JwtPayload;
     try {
-      payload = jwt.verify(token, config.jwtSecret) as { sessionId: string };
-    } catch {
-      res
-        .status(401)
-        .json({ error: "Unauthorized", message: "Invalid or expired session" });
+      payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    } catch (err: any) {
+      if (err.name === "TokenExpiredError") {
+        res.status(401).json({
+          error: "SESSION_EXPIRED",
+          message: "Your session has expired. Please login again.",
+        });
+      } else {
+        res.status(401).json({
+          error: "Unauthorized",
+          message: "Invalid session",
+        });
+      }
       return;
+    }
+
+    // Enforce JWT expiry — reject tokens older than 8 hours
+    if (payload.iat) {
+      const tokenAgeSeconds = Math.floor(Date.now() / 1000) - payload.iat;
+      if (tokenAgeSeconds > SESSION_EXPIRY_SECONDS) {
+        res.status(401).json({
+          error: "SESSION_EXPIRED",
+          message: "Your session has expired. Please login again.",
+        });
+        return;
+      }
     }
 
     const session = await prisma.session.findUnique({
@@ -41,13 +74,19 @@ export async function requireAuth(
       include: { organization: true },
     });
 
-    if (!session || session.expiresAt < new Date()) {
-      res
-        .status(401)
-        .json({
-          error: "Unauthorized",
-          message: "Session expired or not found",
-        });
+    if (!session) {
+      res.status(401).json({
+        error: "Unauthorized",
+        message: "Session not found",
+      });
+      return;
+    }
+
+    if (session.expiresAt < new Date()) {
+      res.status(401).json({
+        error: "SESSION_EXPIRED",
+        message: "Your session has expired. Please login again.",
+      });
       return;
     }
 
@@ -57,3 +96,24 @@ export async function requireAuth(
     next(err);
   }
 }
+
+/**
+ * Check if a JWT is within the refresh window (last 1 hour before expiry).
+ * Returns true if the token should be refreshed.
+ */
+export function shouldRefreshToken(token: string): boolean {
+  try {
+    const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    if (!payload.exp || !payload.iat) return false;
+
+    const now = Math.floor(Date.now() / 1000);
+    const secondsUntilExpiry = payload.exp - now;
+
+    // Refresh if within 1 hour of expiry
+    return secondsUntilExpiry <= REFRESH_WINDOW_SECONDS && secondsUntilExpiry > 0;
+  } catch {
+    return false;
+  }
+}
+
+export { SESSION_EXPIRY_SECONDS, REFRESH_WINDOW_SECONDS };
