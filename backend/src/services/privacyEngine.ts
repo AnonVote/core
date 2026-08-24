@@ -34,15 +34,7 @@ export async function submitVote(
     throw badRequest("Invalid token for this ballot.");
   }
 
-  if (voterToken.used) {
-    // Record duplicate attempt — no token value stored
-    await prisma.auditEvent.create({
-      data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
-    });
-    throw badRequest("This token has already been used to cast a vote.");
-  }
-
-  // Validate ballot is open
+  // Validate ballot is open (fetch early for organizationId)
   const ballot = await prisma.ballot.findUnique({
     where: { id: ballotId },
     include: { options: true },
@@ -50,6 +42,18 @@ export async function submitVote(
 
   if (!ballot || ballot.status === "CLOSED") {
     throw badRequest("This ballot is not currently accepting votes.");
+  }
+
+  if (voterToken.used) {
+    // Record duplicate attempt — no token value stored
+    await prisma.auditEvent.create({
+      data: { 
+        ballotId, 
+        organizationId: ballot.organizationId,
+        eventType: "DUPLICATE_VOTE_ATTEMPT" 
+      },
+    });
+    throw badRequest("This token has already been used to cast a vote.");
   }
 
   // Validate option belongs to ballot
@@ -75,7 +79,11 @@ export async function submitVote(
 
     // Audit event — no token value stored
     const auditEvent = await tx.auditEvent.create({
-      data: { ballotId, eventType: "VOTE_CAST" },
+      data: { 
+        ballotId, 
+        organizationId: ballot.organizationId,
+        eventType: "VOTE_CAST" 
+      },
     });
 
     return { voteId: newVote.id, auditEventId: auditEvent.id };
