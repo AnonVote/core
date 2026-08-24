@@ -46,19 +46,51 @@ model Ballot {
   votes               Vote[]
   result              Result?
   auditEvents         AuditEvent[]
+  id                String          @id @default(uuid())
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id])
+  topic             String
+  status            BallotStatus    @default(DRAFT)
+  deadline          DateTime
+  startTime         DateTime?
+  eligibilityListId String
+  eligibilityList   EligibilityList @relation(fields: [eligibilityListId], references: [id])
+  allowWeightedVoting Boolean       @default(false)
+  allowRankedChoice Boolean       @default(false)
+  maxRankings       Int?           // Max number of rankings allowed (for ranked-choice)
+  autoFinalise      Boolean         @default(false)
+  optionCount       Int             @default(0)
+  createdAt         DateTime        @default(now())
+  deletedAt         DateTime?
+  options           Option[]
+  votes             Vote[]
+  result            Result?
+  auditEvents       AuditEvent[]
+  stellarTxId       String?
+  anchorStatus      AnchorStatus    @default(PENDING)
+  tokenDeliveryRetries TokenDeliveryRetry[]
+  ballotKey         BallotKey?
+  anchorRetries     BallotAnchorRetry[]
 }
 
 enum BallotStatus {
-  OPEN
+  DRAFT
+  ACTIVE
   CLOSED
+  FINALISED
+}
+
+enum AnchorStatus {
+  PENDING
+  ANCHORED
+  FAILED
 }
 
 model Option {
   id       String @id @default(uuid())
   ballotId String
-  ballot   Ballot @relation(fields: [ballotId], references: [id])
+  ballot   Ballot @relation(fields: [ballotId], references: [id], onDelete: Cascade)
   text     String
-  votes    Vote[]
 }
 
 model EligibilityList {
@@ -101,6 +133,57 @@ model Vote {
   rank             Int? // For ranked-choice: 1 = first choice, 2 = second, etc.
   stellarTxId      String?
   submittedAt      DateTime @default(now())
+  delegatedFrom String?   // If set, this token was delegated to by another token
+  delegatedTo   String?   // If set, this token delegates its vote to another token
+  deliveryRetry TokenDeliveryRetry?
+}
+
+model BallotKey {
+  id        String   @id @default(uuid())
+  ballotId  String   @unique
+  ballot    Ballot   @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  key       String
+  previousKey String?
+  rotatedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("ballot_keys")
+}
+
+model Vote {
+  id              String             @id @default(uuid())
+  ballotId        String
+  ballot          Ballot             @relation(fields: [ballotId], references: [id])
+  encryptedOption String             @map("encrypted_option")
+  weight          Int                @default(1)
+  rank            Int?               // For ranked-choice: 1 = first choice, 2 = second, etc.
+  stellarTxId     String?            @map("stellar_tx_id")
+  sorobanTxId     String?            @map("soroban_tx_id")
+  anchorStatus    AnchorStatus       @default(PENDING) @map("anchor_status")
+  submittedAt     DateTime           @default(now())
+  retryQueue      StellarRetryQueue?
+}
+
+model StellarRetryQueue {
+  id         String   @id @default(uuid())
+  voteId     String   @unique @map("vote_id")
+  vote       Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  retryCount Int      @default(0) @map("retry_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("stellar_retry_queue")
+}
+
+model BallotAnchorRetry {
+  id         String   @id @default(uuid())
+  ballotId   String   @unique
+  ballot     Ballot   @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  retryCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ballot_anchor_retry_queue")
 }
 
 model Result {
@@ -112,6 +195,10 @@ model Result {
   isConsistent    Boolean
   stellarTxId     String?
   stellarLedgerAt DateTime? // Stellar network consensus timestamp
+  sorobanTxId     String?   // Soroban contract record_result tx hash
+  verifiedOnChain Boolean?  // Result of post-finalisation Soroban is_consistent() check (null = not yet checked)
+  finalised       Boolean   @default(false)
+  finalisedAt     DateTime?
   publishedAt     DateTime  @default(now())
 }
 
@@ -129,8 +216,24 @@ model AuditEvent {
   @@index([organizationId])
 }
 
+model TokenDeliveryRetry {
+  id                 String          @id @default(uuid())
+  ballotId           String
+  voterTokenId       String          @unique
+  recipientEncrypted String
+  attempts           Int             @default(0)
+  nextAttemptAt      DateTime        @default(now())
+  lastError          String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  ballot            Ballot          @relation(fields: [ballotId], references: [id])
+  voterToken        VoterToken      @relation(fields: [voterTokenId], references: [id])
+}
+
 enum AuditEventType {
   TOKEN_ISSUED
+  TOKEN_DELIVERY_FAILED
   VOTE_CAST
   RESULT_PUBLISHED
   DUPLICATE_TOKEN_ATTEMPT
@@ -165,3 +268,14 @@ model OrganizationKey {
   @@unique([organizationId, keyVersion])
   @@index([organizationId, isActive])
 }
+model ReissueRateLimit {
+  id             String   @id @default(uuid())
+  identifierHash String   @unique @map("identifier_hash")
+  attempts       Int      @default(1)
+  windowStart    DateTime @default(now()) @map("window_start")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("reissue_rate_limits")
+}
+

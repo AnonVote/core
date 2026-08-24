@@ -17,16 +17,39 @@ function validateConfig(): void {
     errors.push("STELLAR_SECRET_KEY is required");
   }
 
-  if (!process.env.BALLOT_ENCRYPTION_KEY) {
-    errors.push("BALLOT_ENCRYPTION_KEY is required");
-  } else if (process.env.BALLOT_ENCRYPTION_KEY.length !== 64) {
-    errors.push("BALLOT_ENCRYPTION_KEY must be 64 characters (32 bytes hex)");
+  const dataEncryptionKey = process.env.DATA_ENCRYPTION_KEY || "";
+  if (dataEncryptionKey && dataEncryptionKey.length !== 64) {
+    errors.push(
+      "DATA_ENCRYPTION_KEY must be 64 characters (32 bytes hex)",
+    );
+  }
+
+  if (process.env.SOROBAN_SERVER_URL) {
+    try {
+      new URL(process.env.SOROBAN_SERVER_URL);
+    } catch {
+      errors.push("SOROBAN_SERVER_URL must be a valid URL");
+    }
+  }
+
+  const validLogLevels = new Set(["debug", "info", "warn", "error"]);
+  const logLevel = process.env.LOG_LEVEL || "info";
+  if (!validLogLevels.has(logLevel.toLowerCase())) {
+    errors.push("LOG_LEVEL must be one of: debug, info, warn, error");
   }
 
   if (errors.length > 0) {
     console.error("[Config] Missing or invalid environment variables:");
     errors.forEach((e) => console.error(`  - ${e}`));
     process.exit(1);
+  }
+
+  if (!process.env.SOROBAN_CONTRACT_ID) {
+    console.warn(
+      "[Config] WARNING: SOROBAN_CONTRACT_ID is not set. " +
+        "Blockchain audit trail is INACTIVE — all on-chain audit calls will be skipped. " +
+        "See contracts/README.md to deploy the contract and set SOROBAN_CONTRACT_ID.",
+    );
   }
 }
 
@@ -40,8 +63,12 @@ export const config = {
   jwtExpiresIn: "8h",
   stellarSecretKey: process.env.STELLAR_SECRET_KEY || "",
   stellarNetwork: process.env.STELLAR_NETWORK || "testnet",
-  ballotEncryptionKey: process.env.BALLOT_ENCRYPTION_KEY || "",
+  dataEncryptionKey: process.env.DATA_ENCRYPTION_KEY || "",
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "AnonVote <noreply@anonvote.app>",
+  sorobanContractId: process.env.SOROBAN_CONTRACT_ID || "",
+  sorobanServerUrl: process.env.SOROBAN_SERVER_URL || "",
+  logLevel: process.env.LOG_LEVEL || "info",
+  logSkipPaths: process.env.LOG_SKIP_PATHS || "/health,/healthz,/api/health",
 };

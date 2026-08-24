@@ -1,12 +1,18 @@
-import { getOpenExpiredBallots, closeBallot } from "../services/ballotEngine";
+import {
+  getDraftBallotsToActivate,
+  getActiveExpiredBallots,
+  closeBallot,
+  finaliseBallot,
+  processPendingAnchors,
+} from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
 import { prisma } from "../prisma/client";
 import { purgeExpiredRateLimitEntries } from "../services/voteRateLimiter";
 
-async function getNextDeadline(): Promise<Date | null> {
+async function getNextActiveDeadline(): Promise<Date | null> {
   const ballot = await prisma.ballot.findFirst({
     where: {
-      status: "OPEN",
+      status: "ACTIVE",
       deadline: {
         gte: new Date(),
       },
@@ -22,49 +28,86 @@ async function getNextDeadline(): Promise<Date | null> {
 }
 
 export async function startScheduler(): Promise<void> {
-  async function processExpiredBallots(): Promise<void> {
+  // Background worker for Stellar anchoring — runs every 60 seconds
+  setInterval(async () => {
     try {
-      const expiredBallots = await getOpenExpiredBallots();
-      if (expiredBallots.length === 0) return;
+      await processPendingAnchors();
+    } catch (err) {
+      console.error("[Scheduler] Anchor worker error:", err);
+    }
+  }, 60_000);
 
-      console.log(
-        `[Scheduler] Closing ${expiredBallots.length} expired ballot(s)`,
-      );
+  async function processBallotStateTransitions(): Promise<void> {
+    try {
+      // 1. DRAFT → ACTIVE: start_time passed or null start_time
+      const draftsToActivate = await getDraftBallotsToActivate();
+      if (draftsToActivate.length > 0) {
+        console.log(
+          `[Scheduler] Activating ${draftsToActivate.length} draft ballot(s)`,
+        );
+        for (const ballot of draftsToActivate) {
+          try {
+            await prisma.ballot.update({
+              where: { id: ballot.id },
+              data: { status: "ACTIVE" },
+            });
+            console.log(`[Scheduler] Activated ballot ${ballot.id}`);
+          } catch (err) {
+            console.error(
+              `[Scheduler] Error activating ballot ${ballot.id}:`,
+              err,
+            );
+          }
+        }
+      }
 
-      for (const ballot of expiredBallots) {
-        try {
-          await closeBallot(ballot.id);
-          console.log(`[Scheduler] Closed ballot ${ballot.id}, tallying...`);
-          await tallyBallot(ballot.id);
-          console.log(`[Scheduler] Tally complete for ballot ${ballot.id}`);
-        } catch (err) {
-          console.error(
-            `[Scheduler] Error processing ballot ${ballot.id}:`,
-            err,
-          );
+      // 2. ACTIVE → CLOSED: deadline passed
+      const expiredBallots = await getActiveExpiredBallots();
+      if (expiredBallots.length > 0) {
+        console.log(
+          `[Scheduler] Closing ${expiredBallots.length} expired ballot(s)`,
+        );
+        for (const ballot of expiredBallots) {
+          try {
+            await closeBallot(ballot.id);
+            console.log(`[Scheduler] Closed ballot ${ballot.id}, tallying...`);
+            await tallyBallot(ballot.id);
+            console.log(`[Scheduler] Tally complete for ballot ${ballot.id}`);
+
+            // Auto-finalise if the flag is set
+            if (ballot.autoFinalise) {
+              await finaliseBallot(ballot.id);
+              console.log(`[Scheduler] Auto-finalised ballot ${ballot.id}`);
+            }
+          } catch (err) {
+            console.error(
+              `[Scheduler] Error processing ballot ${ballot.id}:`,
+              err,
+            );
+          }
         }
       }
     } catch (err) {
       console.error("[Scheduler] Poll error:", err);
     }
 
-    // Schedule next check
-    const nextDeadline = await getNextDeadline();
+    // Schedule next check based on next ACTIVE ballot deadline
+    const nextDeadline = await getNextActiveDeadline();
     if (nextDeadline) {
       const timeUntil = nextDeadline.getTime() - Date.now();
       const safeDelay = Math.max(1000, timeUntil);
       console.log(
-        `[Scheduler] Next ballot expires in ${Math.round(timeUntil / 1000)}s, scheduling check`,
+        `[Scheduler] Next active ballot expires in ${Math.round(timeUntil / 1000)}s, scheduling check`,
       );
-      setTimeout(processExpiredBallots, safeDelay);
+      setTimeout(processBallotStateTransitions, safeDelay);
     } else {
-      console.log("[Scheduler] No upcoming ballots, polling every 30 seconds");
-      setTimeout(processExpiredBallots, 30_000);
+      console.log("[Scheduler] No upcoming active ballots, polling every 30 seconds");
+      setTimeout(processBallotStateTransitions, 30_000);
     }
   }
 
   console.log("[Scheduler] Started — waiting for ballots to schedule checks");
-  processExpiredBallots();
+  processBallotStateTransitions();
 
   // Purge expired rate-limit entries every 10 minutes to keep the table lean
   setInterval(async () => {

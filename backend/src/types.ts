@@ -1,6 +1,6 @@
 // Shared types for AnonVote
 
-export type BallotStatus = "OPEN" | "CLOSED";
+export type BallotStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "FINALISED";
 
 export type AuditEventType =
   | "TOKEN_ISSUED"

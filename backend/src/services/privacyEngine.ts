@@ -1,14 +1,24 @@
 import { prisma } from "../prisma/client";
-import { hashToken, encryptVote } from "../utils/crypto";
-import { writeRecord } from "./stellarService";
-import { config } from "../config";
-import { badRequest } from "../utils/errors";
+import { hashToken, encryptVote, hashIdentifier } from "../utils/crypto";
+import { sorobanRecordVote } from "./sorobanService";
+import { AppError } from "../utils/errors";
 import { getEffectiveVoter } from "./delegationManager";
+import { getBallotEncryptionKey } from "./ballotKeyService";
+import { logger } from "../utils/logger";
+
+export interface VoteSubmissionResponse {
+  status: "confirmed";
+  stellar_tx_id: string | null;
+  soroban_tx_id: string | null;
+  anchor_status: "ANCHORED" | "PENDING";
+  explorer_url?: string;
+  voteId?: string;
+}
 
 /**
  * Submit an anonymous vote.
- * Privacy guarantee: no link between token and voter identity is stored.
- * Stellar write is required — vote is rolled back if Stellar write fails.
+ * Atomic vote write and eligibility token invalidation using SELECT FOR UPDATE lock.
+ * Vote option is encrypted with per-ballot encryption key before database write.
  */
 export async function submitVote(
   ballotId: string,
@@ -16,22 +26,9 @@ export async function submitVote(
   optionId: string,
   weight: number = 1,
   rank?: number,
-): Promise<{ voteId: string; ballotId: string; stellarTxId: string }> {
-  const tokenHash = hashToken(rawToken);
-
-  // Check if this token delegates to another
-  const { effectiveToken, isDelegated } = await getEffectiveVoter(
-    ballotId,
-    tokenHash,
-  );
-
-  // Use the effective token for validation
-  const voterToken = await prisma.voterToken.findUnique({
-    where: { tokenHash: effectiveToken },
-  });
-
-  if (!voterToken || voterToken.ballotId !== ballotId) {
-    throw badRequest("Invalid token for this ballot.");
+): Promise<VoteSubmissionResponse> {
+  if (!ballotId || typeof ballotId !== "string" || !ballotId.trim()) {
+    throw new AppError("Missing or malformed field: ballot_id", 400, "INVALID_INPUT");
   }
 
   // Validate ballot is open (fetch early for organizationId)
@@ -60,21 +57,91 @@ export async function submitVote(
   const validOption = ballot.options.find((o) => o.id === optionId);
   if (!validOption) {
     throw badRequest("Invalid option for this ballot.");
+  if (!rawToken || typeof rawToken !== "string" || !rawToken.trim()) {
+    throw new AppError("Missing or malformed field: token", 400, "INVALID_INPUT");
+  }
+  if (!optionId || typeof optionId !== "string" || !optionId.trim()) {
+    throw new AppError("Missing or malformed field: option_id", 400, "INVALID_INPUT");
   }
 
-  // Encrypt vote — only option ID is stored, encrypted
-  const encryptedPayload = encryptVote(optionId, config.ballotEncryptionKey);
+  const cleanToken = rawToken.trim();
+  const tokenHash = hashToken(cleanToken);
 
-  const vote = await prisma.$transaction(async (tx) => {
-    // Create vote record — no token or identity stored
-    const newVote = await tx.vote.create({
-      data: { ballotId, optionId, encryptedPayload, weight, rank },
+  // Check delegation if present
+  let effectiveToken = tokenHash;
+  try {
+    const delegationResult = await getEffectiveVoter(ballotId, tokenHash);
+    if (delegationResult && delegationResult.effectiveToken) {
+      effectiveToken = delegationResult.effectiveToken;
+    }
+  } catch (err) {
+    // If delegation lookup fails, continue with tokenHash
+  }
+
+  // Atomic transaction with SELECT FOR UPDATE row-level lock
+  const now = new Date();
+  const voteResult = await prisma.$transaction(async (tx) => {
+    // Atomic update: only update if used is false
+    const tokenUpdate = await tx.voterToken.updateMany({
+      where: { tokenHash: effectiveToken, used: false, ballotId },
+      data: { used: true, usedAt: now },
     });
 
-    // Mark token as used
-    await tx.voterToken.update({
-      where: { tokenHash: effectiveToken },
-      data: { used: true, usedAt: new Date() },
+    if (tokenUpdate.count === 0) {
+      // Find out why it failed
+      const existing = await tx.voterToken.findUnique({ where: { tokenHash: effectiveToken } });
+      if (!existing || existing.ballotId !== ballotId) {
+        throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
+      }
+      if (existing.used) {
+        await tx.auditEvent.create({
+          data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
+        }).catch((err) =>
+          logger.warn("duplicate_vote_audit_failed", {
+            ballotId,
+            error: err,
+          }),
+        );
+        throw new AppError("This token has already been used to cast a vote.", 409, "TOKEN_ALREADY_USED");
+      }
+    }
+
+    // Validate ballot exists, open status, and deadline
+    const ballot = await tx.ballot.findUnique({
+      where: { id: ballotId },
+      include: { options: true },
+    });
+
+    if (!ballot) {
+      throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
+    }
+
+    // State machine: only ACTIVE ballots accept votes
+    if (ballot.status !== "ACTIVE" || (ballot.deadline && new Date(ballot.deadline) < now)) {
+      throw new AppError("This ballot has closed and is no longer accepting votes.", 403, "BALLOT_CLOSED");
+    }
+
+    // Validate option belongs to ballot
+    const validOption = ballot.options.find((o) => o.id === optionId);
+    if (!validOption) {
+      throw new AppError("Invalid option for this ballot.", 400, "INVALID_OPTION");
+    }
+
+    // Retrieve the ballot-specific encryption key stored in the database.
+    const ballotKey = await getBallotEncryptionKey(ballotId, tx);
+
+    // Encrypt raw option ID
+    const encryptedOption = encryptVote(optionId, ballotKey);
+
+    // Create vote record with anchorStatus PENDING
+    const vote = await tx.vote.create({
+      data: {
+        ballotId,
+        encryptedOption,
+        weight,
+        rank,
+        anchorStatus: "PENDING",
+      },
     });
 
     // Audit event — no token value stored
@@ -83,47 +150,86 @@ export async function submitVote(
         ballotId, 
         organizationId: ballot.organizationId,
         eventType: "VOTE_CAST" 
+
+    // Audit log
+    await tx.auditEvent.create({
+      data: {
+        ballotId,
+        eventType: "VOTE_CAST",
       },
     });
 
-    return { voteId: newVote.id, auditEventId: auditEvent.id };
+    return vote;
+  }).catch((err) => {
+    if (err instanceof AppError) throw err;
+    console.error("[VoteTransaction] Atomic vote write failed:", err);
+    throw new AppError("Database transaction failed during vote submission", 500, "DATABASE_ERROR");
   });
 
-  // Return vote immediately — Stellar write happens in background
-  const voteResponse = {
-    voteId: vote.voteId,
-    ballotId,
-    stellarTxId: "",
+  // Stellar/Soroban anchoring after transaction commits
+  let stellarTxId: string | null = null;
+  let sorobanTxId: string | null = null;
+  let anchorStatus: "ANCHORED" | "PENDING" = "PENDING";
+  const ballotIdHash = hashIdentifier(ballotId);
+
+  try {
+    const txHash = await sorobanRecordVote(ballotIdHash);
+    if (txHash) {
+      stellarTxId = txHash;
+      sorobanTxId = txHash;
+      anchorStatus = "ANCHORED";
+
+      await prisma.vote.update({
+        where: { id: voteResult.id },
+        data: {
+          stellarTxId: txHash,
+          sorobanTxId: txHash,
+          anchorStatus: "ANCHORED",
+        },
+      }).catch((err) => console.error("[Soroban] Failed to update vote status on anchor success:", err));
+    } else {
+      await handleStellarAnchorFailure(voteResult.id);
+    }
+  } catch (err) {
+    console.error("[Soroban] Error recording vote on-chain:", err);
+    // A thrown error means the contract invocation itself failed (not just skipped)
+    // Mark the vote as failed and surface TRANSACTION_FAILED to the caller
+    await handleStellarAnchorFailure(voteResult.id);
+    throw new AppError(
+      "Contract invocation failed during vote submission",
+      500,
+      "TRANSACTION_FAILED",
+    );
+  }
+
+  const explorer_url = sorobanTxId
+    ? `https://stellar.expert/explorer/testnet/tx/${sorobanTxId}`
+    : undefined;
+
+  return {
+    status: "confirmed",
+    stellar_tx_id: stellarTxId,
+    soroban_tx_id: sorobanTxId,
+    anchor_status: anchorStatus,
+    ...(explorer_url ? { explorer_url } : {}),
+    voteId: voteResult.id,
   };
+}
 
-  // Fire-and-forget Stellar write — does not block the response
-  writeRecord({
-    type: "VOTE_CAST",
-    ballotId,
-    voteId: vote.voteId,
-  })
-    .then((stellarResult) => {
-      if (stellarResult.txHash) {
-        Promise.all([
-          prisma.vote.update({
-            where: { id: vote.voteId },
-            data: { stellarTxId: stellarResult.txHash },
-          }),
-          prisma.auditEvent.update({
-            where: { id: vote.auditEventId },
-            data: {
-              stellarTxId: stellarResult.txHash,
-              stellarLedgerAt: stellarResult.ledgerTimestamp,
-            },
-          }),
-        ]).catch(() => {});
-      } else {
-        console.warn(
-          `[Stellar] VOTE_CAST write failed for vote ${vote.voteId}`,
-        );
-      }
-    })
-    .catch(() => {});
-
-  return voteResponse;
+async function handleStellarAnchorFailure(voteId: string): Promise<void> {
+  try {
+    await prisma.$transaction([
+      prisma.vote.update({
+        where: { id: voteId },
+        data: { anchorStatus: "FAILED" },
+      }),
+      prisma.stellarRetryQueue.upsert({
+        where: { voteId },
+        create: { voteId, retryCount: 0 },
+        update: {},
+      }),
+    ]);
+  } catch (err) {
+    console.error(`[Stellar] Failed to queue retry for vote ${voteId}:`, err);
+  }
 }

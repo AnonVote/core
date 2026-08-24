@@ -5,8 +5,16 @@ import { prisma } from "../prisma/client";
 let ballotId: string;
 
 beforeAll(async () => {
+  await prisma.stellarRetryQueue.deleteMany();
   await prisma.auditEvent.deleteMany();
+  await prisma.voterToken.deleteMany();
+  await prisma.vote.deleteMany();
+  await prisma.ballotKey.deleteMany();
+  await prisma.result.deleteMany();
+  await prisma.option.deleteMany();
+  await prisma.tokenDeliveryRetry.deleteMany();
   await prisma.ballot.deleteMany();
+  await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
   await prisma.organization.deleteMany();
@@ -31,7 +39,7 @@ beforeAll(async () => {
       topic: "Audit Ballot",
       options: ["Yes", "No"],
       eligibilityListId: list.id,
-      deadline: new Date(Date.now() + 3600_000).toISOString(),
+      deadline: new Date(Date.now() + 7200_000).toISOString(),
     });
   ballotId = ballotRes.body.data.id;
 

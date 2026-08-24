@@ -18,3 +18,6 @@ bootstrap().catch((err) => {
   console.error("[Startup] Failed to start server:", err);
   process.exit(1);
 });
+import { startServer } from "./server";
+
+startServer();

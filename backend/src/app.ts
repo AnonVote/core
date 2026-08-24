@@ -2,6 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { config } from "./config";
+import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler } from "./middleware/errorHandler";
 import { setTenantContext } from "./middleware/tenantContext";
 import organizationsRouter from "./routes/organizations";
@@ -14,9 +15,11 @@ import auditRouter from "./routes/audit";
 import delegationsRouter from "./routes/delegations";
 import verificationRouter from "./routes/verification";
 import adminRouter from "./routes/admin";
+import healthRouter from "./routes/health";
 
 const app = express();
 
+app.use(requestLogger);
 app.use(
   cors({
     origin: config.frontendOrigin,
@@ -30,6 +33,9 @@ app.use(cookieParser());
 // This sets PostgreSQL session variable for RLS
 // Note: Must run AFTER cookieParser but can run before auth
 app.use(setTenantContext);
+// Health check must be publicly accessible (no auth) and registered before any
+// authenticated routes so monitoring systems and load balancers can probe it.
+app.use("/api/health", healthRouter);
 
 app.use("/api/organizations", organizationsRouter);
 app.use("/api/ballots", ballotsRouter);

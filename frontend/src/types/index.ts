@@ -1,6 +1,7 @@
 // Shared types for AnonVote
 
-export type BallotStatus = "OPEN" | "CLOSED";
+export type BallotStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "FINALISED";
+export type AnchorStatus = "PENDING" | "ANCHORED" | "FAILED";
 
 export type AuditEventType =
   | "TOKEN_ISSUED"
@@ -36,8 +37,21 @@ export interface Ballot {
   options: Option[];
   votesCast?: number;
   tokensIssued?: number;
+  stellarTxId?: string;
+  anchorStatus?: AnchorStatus;
   eligibleVoters?: number;
   result?: Result;
+}
+
+export interface AdminBallotSummary {
+  id: string;
+  topic: string;
+  status: BallotStatus;
+  deadline: string;
+  voterCount: number;
+  tokensIssued: number;
+  votesReceived: number;
+  tallyStatus: "PENDING" | "READY" | "FINALISED";
 }
 
 export interface EligibilityList {
@@ -74,7 +88,17 @@ export interface Result {
   totalVotes: number;
   isConsistent: boolean;
   stellarTxId?: string;
+  stellarLedgerAt?: string;
+  sorobanTxId?: string;
+  finalised: boolean;
+  finalisedAt?: string;
   publishedAt: string;
+  // Enriched fields returned by GET /api/results/:ballotId
+  options?: TallyEntry[];
+  participationRate?: number;
+  tokensIssued?: number;
+  explorerUrl?: string;
+  sorobanExplorerUrl?: string;
 }
 
 export interface AuditEvent {

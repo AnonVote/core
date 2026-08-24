@@ -2,20 +2,22 @@
 name = "anonvote"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-soroban-sdk = { version = "21.0.0", features = ["alloc"] }
+soroban-sdk = "22.0.0"
 
 [dev-dependencies]
-soroban-sdk = { version = "21.0.0", features = ["testutils"] }
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
+ed25519-dalek = "=2.1.1"
 
 [profile.release]
 opt-level = "z"
 overflow-checks = true
-debug = 0
+debug = false
 strip = "symbols"
 debug-assertions = false
 panic = "abort"

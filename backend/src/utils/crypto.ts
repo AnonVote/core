@@ -71,3 +71,54 @@ export function decryptVote(payload: string, ballotKey: string): string {
 
   return decipher.update(ciphertext).toString("utf8") + decipher.final("utf8");
 }
+
+/**
+ * Decrypt a vote payload using the first key that succeeds.
+ * Used for ballot key rotation, where the previous key remains valid for
+ * decrypting votes cast before the rotation.
+ */
+export function decryptVoteWithKeys(
+  payload: string,
+  ballotKeys: Array<string | null | undefined>,
+): string {
+  let lastError: unknown;
+
+  for (const ballotKey of ballotKeys) {
+    if (!ballotKey) continue;
+    try {
+      return decryptVote(payload, ballotKey);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error("Unable to decrypt vote payload with available keys");
+}
+
+/**
+ * Encrypt an arbitrary string (used for recipient encryption in retries).
+ * Returns base64 string in format iv:authTag:ciphertext
+ */
+export function encryptString(plain: string, hexKey: string): string {
+  const key = Buffer.from(hexKey, "hex");
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return [iv.toString("base64"), authTag.toString("base64"), encrypted.toString("base64")].join(":");
+}
+
+export function decryptString(payload: string, hexKey: string): string {
+  const [ivB64, authTagB64, ciphertextB64] = payload.split(":");
+  const key = Buffer.from(hexKey, "hex");
+  const iv = Buffer.from(ivB64, "base64");
+  const authTag = Buffer.from(authTagB64, "base64");
+  const ciphertext = Buffer.from(ciphertextB64, "base64");
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(authTag);
+  return decipher.update(ciphertext).toString("utf8") + decipher.final("utf8");
+}
