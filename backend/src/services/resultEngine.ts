@@ -80,7 +80,11 @@ export async function tallyBallot(
 
   // Audit event
   const auditEvent = await prisma.auditEvent.create({
-    data: { ballotId, eventType: "RESULT_PUBLISHED" },
+    data: { 
+      ballotId, 
+      organizationId: ballot.organizationId,
+      eventType: "RESULT_PUBLISHED" 
+    },
   });
 
   // Write to Stellar manageData layer — non-blocking, result is published regardless

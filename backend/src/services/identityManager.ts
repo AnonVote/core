@@ -74,7 +74,11 @@ export async function issueToken(
 
     // Record duplicate attempt in audit log (no identifier stored)
     await prisma.auditEvent.create({
-      data: { ballotId, eventType: "DUPLICATE_TOKEN_ATTEMPT" },
+      data: { 
+        ballotId, 
+        organizationId: ballot.organizationId,
+        eventType: "DUPLICATE_TOKEN_ATTEMPT" 
+      },
     });
 
     if (usedTokenCount >= issuedCount) {
@@ -108,7 +112,11 @@ export async function issueToken(
 
     // Audit event — no voter identifier stored
     const auditEvent = await tx.auditEvent.create({
-      data: { ballotId, eventType: "TOKEN_ISSUED" },
+      data: { 
+        ballotId, 
+        organizationId: ballot.organizationId,
+        eventType: "TOKEN_ISSUED" 
+      },
     });
 
     return { auditEventId: auditEvent.id, weight: (entry as any).weight };
@@ -269,7 +277,11 @@ export async function reissueToken(
 
     // Audit event
     await tx.auditEvent.create({
-      data: { ballotId, eventType: "TOKEN_ISSUED" },
+      data: { 
+        ballotId, 
+        organizationId: ballot.organizationId,
+        eventType: "TOKEN_ISSUED" 
+      },
     });
 
     return { token: rawToken, weight: (entry as any).weight ?? 1 };

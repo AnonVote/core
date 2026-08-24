@@ -9,13 +9,15 @@ datasource db {
 }
 
 model Organization {
-  id           String    @id @default(uuid())
-  name         String    @unique
+  id           String            @id @default(uuid())
+  name         String            @unique
   email        String
   passwordHash String
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime          @default(now())
   sessions     Session[]
   ballots      Ballot[]
+  keys         OrganizationKey[]
+  auditEvents  AuditEvent[]
 }
 
 model Session {
@@ -28,6 +30,22 @@ model Session {
 }
 
 model Ballot {
+  id                  String          @id @default(uuid())
+  organizationId      String
+  organization        Organization    @relation(fields: [organizationId], references: [id])
+  topic               String
+  status              BallotStatus    @default(OPEN)
+  deadline            DateTime
+  eligibilityListId   String
+  eligibilityList     EligibilityList @relation(fields: [eligibilityListId], references: [id])
+  allowWeightedVoting Boolean         @default(false)
+  allowRankedChoice   Boolean         @default(false)
+  maxRankings         Int? // Max number of rankings allowed (for ranked-choice)
+  createdAt           DateTime        @default(now())
+  options             Option[]
+  votes               Vote[]
+  result              Result?
+  auditEvents         AuditEvent[]
   id                String          @id @default(uuid())
   organizationId    String
   organization      Organization    @relation(fields: [organizationId], references: [id])
@@ -100,6 +118,21 @@ model VoterToken {
   used          Boolean   @default(false)
   issuedAt      DateTime  @default(now())
   usedAt        DateTime?
+  delegatedFrom String? // If set, this token was delegated to by another token
+  delegatedTo   String? // If set, this token delegates its vote to another token
+}
+
+model Vote {
+  id               String   @id @default(uuid())
+  ballotId         String
+  ballot           Ballot   @relation(fields: [ballotId], references: [id])
+  optionId         String
+  option           Option   @relation(fields: [optionId], references: [id])
+  encryptedPayload String
+  weight           Int      @default(1)
+  rank             Int? // For ranked-choice: 1 = first choice, 2 = second, etc.
+  stellarTxId      String?
+  submittedAt      DateTime @default(now())
   delegatedFrom String?   // If set, this token was delegated to by another token
   delegatedTo   String?   // If set, this token delegates its vote to another token
   deliveryRetry TokenDeliveryRetry?
@@ -173,10 +206,14 @@ model AuditEvent {
   id              String         @id @default(uuid())
   ballotId        String
   ballot          Ballot         @relation(fields: [ballotId], references: [id])
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id])
   eventType       AuditEventType
   stellarTxId     String?
-  stellarLedgerAt DateTime?      // Stellar network consensus timestamp
+  stellarLedgerAt DateTime? // Stellar network consensus timestamp
   createdAt       DateTime       @default(now())
+
+  @@index([organizationId])
 }
 
 model TokenDeliveryRetry {
@@ -202,6 +239,34 @@ enum AuditEventType {
   DUPLICATE_TOKEN_ATTEMPT
   DUPLICATE_VOTE_ATTEMPT
   RATE_LIMIT_EXCEEDED
+}
+
+/// Persisted rate-limit counters — survives server restarts.
+/// key format: "ip:<ip>", "ballot:<ballotId>", "token:<tokenHash>"
+model RateLimitEntry {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([expiresAt])
+}
+
+/// Per-organization encryption keys for vote data isolation
+/// Each organization has its own key encrypted by a master key
+model OrganizationKey {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  keyVersion     Int          @default(1)
+  encryptedKey   String // Key encrypted with master key
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  rotatedAt      DateTime?
+
+  @@unique([organizationId, keyVersion])
+  @@index([organizationId, isActive])
 }
 
 /// Persisted rate-limit counters — survives server restarts.

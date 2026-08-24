@@ -4,6 +4,7 @@ import cors from "cors";
 import { config } from "./config";
 import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler } from "./middleware/errorHandler";
+import { setTenantContext } from "./middleware/tenantContext";
 import organizationsRouter from "./routes/organizations";
 import ballotsRouter from "./routes/ballots";
 import eligibilityRouter from "./routes/eligibility";
@@ -28,6 +29,10 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Apply tenant context middleware globally
+// This sets PostgreSQL session variable for RLS
+// Note: Must run AFTER cookieParser but can run before auth
+app.use(setTenantContext);
 // Health check must be publicly accessible (no auth) and registered before any
 // authenticated routes so monitoring systems and load balancers can probe it.
 app.use("/api/health", healthRouter);

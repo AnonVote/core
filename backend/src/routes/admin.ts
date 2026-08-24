@@ -11,6 +11,10 @@ import { validate } from "../middleware/validate";
 import { createBallotSchema } from "../validation/schemas";
 import { createBallot } from "../services/ballotEngine";
 import { badRequest } from "../utils/errors";
+import {
+  createOrganizationKey,
+  rotateOrganizationKey,
+} from "../services/organizationKeyService";
 import { adminAuditHandler } from "./audit";
 import multer from "multer";
 import {
@@ -363,6 +367,24 @@ router.patch(
   },
 );
 
+// POST /api/admin/organizations/:id/encryption-key — Create encryption key for organization
+router.post(
+  "/organizations/:id/encryption-key",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const orgId = req.params.id;
+      
+      // Validate organization can only manage their own key
+      if (orgId !== req.organization!.id) {
+        throw badRequest("You can only manage your own organization's encryption key");
+      }
+      
+      await createOrganizationKey(orgId);
+      
+      res.status(201).json({ 
+        message: "Encryption key created successfully",
+        data: { organizationId: orgId }
 // GET /api/admin/audit/:ballotId — Admin: full structured audit export (JSON or CSV)
 router.get("/audit/:ballotId", requireAuth, adminAuditHandler);
 
@@ -412,6 +434,24 @@ router.post(
   },
 );
 
+// POST /api/admin/organizations/:id/rotate-keys — Rotate encryption keys
+router.post(
+  "/organizations/:id/rotate-keys",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const orgId = req.params.id;
+      
+      // Validate organization can only rotate their own key
+      if (orgId !== req.organization!.id) {
+        throw badRequest("You can only rotate your own organization's encryption key");
+      }
+      
+      await rotateOrganizationKey(orgId);
+      
+      res.status(200).json({ 
+        message: "Encryption key rotated successfully",
+        data: { organizationId: orgId }
 // POST /api/admin/ballots/:ballotId/rotate-key — Rotate a ballot encryption key
 router.post(
   "/ballots/:ballotId/rotate-key",
@@ -435,6 +475,32 @@ router.post(
   },
 );
 
+// GET /api/admin/organizations/:id/encryption-keys — List encryption keys
+router.get(
+  "/organizations/:id/encryption-keys",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const orgId = req.params.id;
+      
+      // Validate organization can only view their own keys
+      if (orgId !== req.organization!.id) {
+        throw badRequest("You can only view your own organization's encryption keys");
+      }
+      
+      const keys = await prisma.organizationKey.findMany({
+        where: { organizationId: orgId },
+        select: {
+          id: true,
+          keyVersion: true,
+          isActive: true,
+          createdAt: true,
+          rotatedAt: true,
+        },
+        orderBy: { keyVersion: "desc" },
+      });
+      
+      res.status(200).json({ data: keys });
 
 // POST /api/admin/ballots — Create ballot as admin
 router.post(
