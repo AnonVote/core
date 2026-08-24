@@ -1,0 +1,52 @@
+feat: Implement multi-tenant organization isolation with RLS and per-org encryption (#76)
+
+Implements comprehensive multi-tenant isolation to prevent cross-organization
+data leaks through database-level Row-Level Security, per-organization
+encryption keys, and defense-in-depth security measures.
+
+BREAKING CHANGES: None. Backward compatible security enhancement.
+
+Features:
+- PostgreSQL Row-Level Security on all organization-scoped tables
+- Tenant context middleware setting session variables per request
+- Per-organization encryption keys with master key wrapping
+- Key rotation support with versioning
+- Audit trail segregation by organization
+- Defense-in-depth: RLS + app filters + encryption
+
+Security:
+- Protects against SQL injection cross-tenant access
+- Prevents application bugs exposing cross-org data
+- Isolates encryption keys per organization
+- Segregates audit logs by organization
+- Fail-secure error handling
+
+Testing:
+- 25+ tenant isolation test cases
+- 20+ encryption key test cases
+- Full coverage of cross-org access prevention
+- RLS enforcement verification
+- Key rotation and encryption validation
+
+Files Added:
+- backend/src/middleware/tenantContext.ts
+- backend/src/services/organizationKeyService.ts
+- backend/src/tests/tenantIsolation.test.ts
+- backend/src/tests/organizationKeys.test.ts
+- docs/TENANT_ISOLATION.md
+- backend/prisma/migrations/20260823212624_add_organization_keys_and_rls/migration.sql
+
+Files Modified:
+- backend/prisma/schema.prisma (added OrganizationKey model)
+- backend/src/app.ts (added tenant context middleware)
+- backend/src/index.ts (added key generation on startup)
+- backend/src/routes/admin.ts (added key management endpoints)
+
+API Endpoints:
+- POST /api/admin/organizations/:id/encryption-key
+- POST /api/admin/organizations/:id/rotate-keys
+- GET /api/admin/organizations/:id/encryption-keys
+
+Compliance: Supports GDPR, HIPAA, SOC 2, ISO 27001
+
+Closes #76

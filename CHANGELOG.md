@@ -4,6 +4,56 @@ All notable changes to AnonVote will be documented here.
 
 ---
 
+## v1.5.0 - Multi-Tenant Security Release
+
+### Added
+
+- **Multi-Tenant Organization Isolation (#76)**
+  - **Row-Level Security (RLS)**: PostgreSQL RLS policies on all organization-scoped tables
+  - **Tenant Context Middleware**: Sets `app.current_organization_id` session variable per request
+  - **Per-Organization Encryption Keys**: Each organization has unique encryption key for vote data
+  - **Key Rotation**: Support for rotating organization keys with versioning
+  - **Audit Segregation**: Audit logs isolated by organization with RLS enforcement
+  - **Defense-in-Depth**: Multiple security layers (RLS + app filters + encryption)
+  - Added `OrganizationKey` model for storing encrypted organization keys
+  - Added `organizationId` field to `AuditEvent` model
+  - Created `backend/src/middleware/tenantContext.ts` for tenant isolation
+  - Created `backend/src/services/organizationKeyService.ts` for key management
+  - Added 25+ tenant isolation tests in `backend/src/tests/tenantIsolation.test.ts`
+  - Added 20+ encryption key tests in `backend/src/tests/organizationKeys.test.ts`
+  - Comprehensive documentation in `docs/TENANT_ISOLATION.md`
+
+- **Encryption Key Management API**
+  - `POST /api/admin/organizations/:id/encryption-key` - Create organization encryption key
+  - `POST /api/admin/organizations/:id/rotate-keys` - Rotate organization encryption keys
+  - `GET /api/admin/organizations/:id/encryption-keys` - List organization encryption keys
+  - Organizations can only manage their own keys (enforced)
+
+### Security
+
+- **Database-Level Isolation**: RLS policies prevent cross-organization data access
+- **Encryption Isolation**: Compromising one org's key doesn't expose others' data
+- **SQL Injection Protection**: RLS blocks cross-tenant access even with SQL injection
+- **Fail-Secure Design**: Security failures block requests rather than allowing access
+- **Compliance Ready**: Supports GDPR, HIPAA, SOC 2, ISO 27001 requirements
+
+### Improved
+
+- **Startup Process**: Server now ensures all organizations have encryption keys on startup
+- **Security Architecture**: Multiple layers of protection (defense-in-depth)
+- **Test Coverage**: 45+ security-focused test cases for tenant isolation
+
+### Migration
+
+- Database migration `20260823212624_add_organization_keys_and_rls` adds:
+  - `OrganizationKey` table for per-organization encryption keys
+  - `organizationId` to `AuditEvent` (auto-populated from ballot relationship)
+  - RLS policies on 11 tables (`Ballot`, `Session`, `AuditEvent`, `OrganizationKey`, `Vote`, `Option`, `Result`, `VoterToken`, `EligibilityList`, `EligibilityEntry`)
+  - Public read policies for voter access where needed
+- Backward compatible - no breaking changes
+
+---
+
 ## v1.4.0
 
 ### Added

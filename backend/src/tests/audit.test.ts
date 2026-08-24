@@ -35,12 +35,18 @@ beforeAll(async () => {
     });
   ballotId = ballotRes.body.data.id;
 
+  // Get the ballot to extract organizationId for audit events
+  const ballot = await prisma.ballot.findUnique({
+    where: { id: ballotId },
+    select: { organizationId: true },
+  });
+
   // Seed some audit events
   await prisma.auditEvent.createMany({
     data: [
-      { ballotId, eventType: "TOKEN_ISSUED" },
-      { ballotId, eventType: "TOKEN_ISSUED" },
-      { ballotId, eventType: "VOTE_CAST" },
+      { ballotId, organizationId: ballot!.organizationId, eventType: "TOKEN_ISSUED" },
+      { ballotId, organizationId: ballot!.organizationId, eventType: "TOKEN_ISSUED" },
+      { ballotId, organizationId: ballot!.organizationId, eventType: "VOTE_CAST" },
     ],
   });
 });

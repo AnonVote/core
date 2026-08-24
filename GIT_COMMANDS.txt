@@ -1,0 +1,55 @@
+# Git Commands to Commit and Push Changes
+
+## Step 1: Stage all changes
+git add -A
+
+## Step 2: Check status
+git status
+
+## Step 3: Commit with detailed message
+git commit -F COMMIT_MSG.txt
+
+## Step 4: Push to remote branch
+git push -u origin feat/multi-tenant-isolation-issue-76
+
+## Step 5: Create Pull Request
+# Use GitHub CLI or web interface
+gh pr create --title "feat: Implement multi-tenant organization isolation with RLS and per-org encryption (#76)" --body-file PR_DESCRIPTION.md
+
+# Or manually create PR using the GitHub web interface
+# Use PR_DESCRIPTION.md content for the PR body
+
+## Files Changed Summary:
+# New Files:
+# - backend/src/middleware/tenantContext.ts
+# - backend/src/services/organizationKeyService.ts
+# - backend/src/tests/tenantIsolation.test.ts
+# - backend/src/tests/organizationKeys.test.ts
+# - docs/TENANT_ISOLATION.md
+# - backend/prisma/migrations/20260823212624_add_organization_keys_and_rls/migration.sql
+# - IMPLEMENTATION_SUMMARY.md
+# - PR_DESCRIPTION.md
+# - COMMIT_MSG.txt
+# - verify_implementation.sh
+# - GIT_COMMANDS.txt
+#
+# Modified Files:
+# - backend/prisma/schema.prisma
+# - backend/src/app.ts
+# - backend/src/index.ts
+# - backend/src/routes/admin.ts
+# - CHANGELOG.md
+
+## Verification Before Push:
+# 1. Ensure no TypeScript compilation errors
+# 2. Run tests: cd backend && npm test
+# 3. Verify migration is valid: cd backend && npx prisma validate
+# 4. Check branch: git branch --show-current
+# 5. Review changes: git diff HEAD
+
+## After Push:
+# 1. Create Pull Request
+# 2. Request security-focused code review
+# 3. Run CI/CD pipeline
+# 4. Deploy to staging for testing
+# 5. Perform security audit if available

@@ -26,10 +26,24 @@ router.post(
       const rlResult = await checkVoteRateLimits(ip, ballotId, voterToken.trim());
 
       if (!rlResult.allowed) {
+        // Fetch ballot for organizationId (for audit log)
+        const ballot = await prisma.ballot.findUnique({
+          where: { id: ballotId },
+          select: { organizationId: true },
+        });
+        
         // Log violation to audit table (best-effort, non-blocking)
-        prisma.auditEvent
-          .create({ data: { ballotId, eventType: "RATE_LIMIT_EXCEEDED" } })
-          .catch(() => {});
+        if (ballot) {
+          prisma.auditEvent
+            .create({ 
+              data: { 
+                ballotId, 
+                organizationId: ballot.organizationId,
+                eventType: "RATE_LIMIT_EXCEEDED" 
+              } 
+            })
+            .catch(() => {});
+        }
 
         const err = rateLimitExceeded(rlResult.retryAfterSeconds);
         res.setHeader("Retry-After", String(rlResult.retryAfterSeconds));
