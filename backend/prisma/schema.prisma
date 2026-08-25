@@ -124,11 +124,34 @@ model Vote {
   encryptedOption String             @map("encrypted_option")
   weight          Int                @default(1)
   rank            Int?               // For ranked-choice: 1 = first choice, 2 = second, etc.
+  // Deterministic idempotency key for on-chain anchoring:
+  //   HMAC-SHA256(DATA_ENCRYPTION_KEY, "<ballotId>:<tokenHash>")
+  // Keyed (not plain SHA-256) so a database-only leak cannot link a vote row
+  // back to its voter token hash. Unique — replays are rejected at the DB.
+  voteIdHash      String?            @unique @map("vote_id_hash")
   stellarTxId     String?            @map("stellar_tx_id")
   sorobanTxId     String?            @map("soroban_tx_id")
   anchorStatus    AnchorStatus       @default(PENDING) @map("anchor_status")
   submittedAt     DateTime           @default(now())
   retryQueue      StellarRetryQueue?
+  deadLetter      SorobanDeadLetter?
+}
+
+model SorobanDeadLetter {
+  id         String    @id @default(uuid())
+  voteId     String    @unique @map("vote_id")
+  vote       Vote      @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  ballotId   String    @map("ballot_id")
+  // Why anchoring permanently failed (last SorobanError kind + message).
+  reason     String
+  lastError  String?   @map("last_error")
+  attempts   Int       @default(0)
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([resolvedAt])
+  @@map("soroban_dead_letters")
 }
 
 model StellarRetryQueue {

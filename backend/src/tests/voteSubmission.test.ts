@@ -74,27 +74,28 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
   });
 
   it("submits a valid token + valid option → 200, encrypted payload, token used, audit row written", async () => {
-    // Spy sorobanRecordVote to simulate success
-    jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValueOnce("0xstellar123abc");
-
     const res = await request(app)
       .post("/api/votes")
       .send({ ballot_id: ballotId, token: validToken, option_id: optionId });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("confirmed");
-    expect(res.body.anchor_status).toBe("ANCHORED");
-    expect(res.body.stellar_tx_id).toBe("0xstellar123abc");
-    expect(res.body.soroban_tx_id).toBe("0xstellar123abc");
-    expect(res.body.explorer_url).toContain("0xstellar123abc");
+    // Anchoring is now ASYNC and batched (issue #77): the API confirms the
+    // vote immediately with anchor_status PENDING; the submission batcher
+    // anchors it to the Soroban contract in a later batch transaction.
+    expect(res.body.anchor_status).toBe("PENDING");
+    expect(res.body.stellar_tx_id).toBeNull();
+    expect(res.body.soroban_tx_id).toBeNull();
+    expect(res.body.voteId).toBeTruthy();
 
     // Check DB
     const votes = await prisma.vote.findMany({ where: { ballotId } });
     expect(votes.length).toBe(1);
     expect(votes[0].encryptedOption).toBeDefined();
-    expect(votes[0].stellarTxId).toBe("0xstellar123abc");
-    expect(votes[0].sorobanTxId).toBe("0xstellar123abc");
-    expect(votes[0].anchorStatus).toBe("ANCHORED");
+    expect(votes[0].anchorStatus).toBe("PENDING");
+    // Deterministic idempotency key stored for later batched anchoring.
+    expect(votes[0].voteIdHash).toBeTruthy();
+    expect(votes[0].sorobanTxId).toBeNull();
 
     // Token marked used with timestamp
     const tokenRecord = await prisma.voterToken.findUnique({
@@ -168,10 +169,9 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     expect(votes[0].encryptedOption).not.toBe(optionId);
   });
 
-  it("handles Soroban failure: returns PENDING, saves vote, inserts 1 entry in stellar_retry_queue", async () => {
-    // Simulate Soroban failure (returning empty string or throwing)
-    jest.spyOn(sorobanService, "sorobanRecordVote").mockResolvedValueOnce("");
-
+  it("handles Soroban unavailability: vote is still confirmed as PENDING with a stored idempotency key (async anchoring)", async () => {
+    // Anchoring is asynchronous — the contract layer being down never fails
+    // (or even delays) the vote confirmation. The batcher handles retries.
     const res = await request(app)
       .post("/api/votes")
       .send({ ballot_id: ballotId, token: validToken, option_id: optionId });
@@ -182,20 +182,24 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
     expect(res.body.stellar_tx_id).toBeNull();
     expect(res.body.soroban_tx_id).toBeNull();
 
-    // Check database vote row
+    // Check database vote row — PENDING, ready for batched anchoring.
     const votes = await prisma.vote.findMany({ where: { ballotId } });
     expect(votes.length).toBe(1);
-    expect(votes[0].anchorStatus).toBe("FAILED");
+    expect(votes[0].anchorStatus).toBe("PENDING");
+    expect(votes[0].voteIdHash).toBeTruthy();
 
-    // Check retry queue has 1 entry
+    // No legacy retry-queue row is inserted up front (retries happen inside
+    // the submission batcher / resilience layer).
     const retryEntries = await prisma.stellarRetryQueue.findMany({
       where: { voteId: votes[0].id },
     });
-    expect(retryEntries.length).toBe(1);
-    expect(retryEntries[0].retryCount).toBe(0);
+    expect(retryEntries.length).toBe(0);
   });
 
-  it("returns 500 TRANSACTION_FAILED when contract invocation throws", async () => {
+  it("never fails the vote when the contract invocation throws — confirmed as PENDING", async () => {
+    // A throwing contract call used to surface 500 TRANSACTION_FAILED; under
+    // batched async anchoring the vote is always confirmed and the failure is
+    // absorbed by the resilience/retry layer offline.
     jest.spyOn(sorobanService, "sorobanRecordVote").mockRejectedValueOnce(
       new Error("RPC connection refused"),
     );
@@ -204,12 +208,12 @@ describe("Vote Submission Pipeline (backend/src/tests/voteSubmission.test.ts)", 
       .post("/api/votes")
       .send({ ballot_id: ballotId, token: validToken, option_id: optionId });
 
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBe("TRANSACTION_FAILED");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("confirmed");
+    expect(res.body.anchor_status).toBe("PENDING");
 
-    // Vote should still be saved with FAILED anchor status
     const votes = await prisma.vote.findMany({ where: { ballotId } });
     expect(votes.length).toBe(1);
-    expect(votes[0].anchorStatus).toBe("FAILED");
+    expect(votes[0].anchorStatus).toBe("PENDING");
   });
 });

@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "../prisma/client";
 import { decryptVoteWithKeys, hashIdentifier } from "../utils/crypto";
-import { writeRecord } from "./stellarService";
 import { sorobanRecordResult, verifyBallotConsistency } from "./sorobanService";
 import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
@@ -83,69 +82,38 @@ export async function tallyBallot(
     data: { ballotId, eventType: "RESULT_PUBLISHED" },
   });
 
-  // Write to Stellar manageData layer — non-blocking, result is published regardless
-  const stellarResult = await writeRecord({
-    type: "RESULT_PUBLISHED",
-    ballotId: hashIdentifier(ballotId),
-    totalVotes: totalWeightedVotes,
-    isConsistent,
-  });
-
-  if (stellarResult.txHash) {
-    await prisma.result.update({
-      where: { id: result.id },
-      data: {
-        stellarTxId: stellarResult.txHash,
-        stellarLedgerAt: stellarResult.ledgerTimestamp,
-      },
-    });
-    await prisma.auditEvent.update({
-      where: { id: auditEvent.id },
-      data: {
-        stellarTxId: stellarResult.txHash,
-        stellarLedgerAt: stellarResult.ledgerTimestamp,
-      },
-    });
-  } else {
-    console.warn(
-      `[Stellar] RESULT_PUBLISHED write failed for ballot ${ballotId} — result still published`,
-    );
-  }
-
-  // Write to Soroban contract — non-blocking, result is published regardless
+  // Anchor result publication on-chain via Soroban (issue #77 — replaces the
+  // deprecated manageData write). Non-fatal: the result is published regardless.
   if (!opts.skipSoroban) {
     const tallyJson = JSON.stringify(tally);
     const resultHash = crypto
       .createHash("sha256")
       .update(tallyJson)
       .digest("hex");
-    const ballotIdHash = crypto
-      .createHash("sha256")
-      .update(ballotId)
-      .digest("hex");
+    const ballotIdHash = hashIdentifier(ballotId);
 
-    sorobanRecordResult(ballotIdHash, resultHash)
-      .then(async (sorobanTxId) => {
-        if (sorobanTxId) {
-          await prisma.result.update({
-            where: { id: result.id },
-            data: { sorobanTxId },
-          });
-          console.log(
-            `[Soroban] record_result anchored for ballot ${ballotId} — tx: ${sorobanTxId}`,
-          );
-        } else {
-          console.warn(
-            `[Soroban] record_result not anchored for ballot ${ballotId} — contract may not be deployed`,
-          );
-        }
-      })
-      .catch((err) => {
-        console.error(
-          `[Soroban] record_result error for ballot ${ballotId}:`,
-          err,
+    try {
+      const sorobanTxId = await sorobanRecordResult(ballotIdHash, resultHash);
+      if (sorobanTxId) {
+        await prisma.result.update({
+          where: { id: result.id },
+          data: { sorobanTxId },
+        });
+        console.log(
+          `[Soroban] record_result anchored for ballot ${ballotId} — tx: ${sorobanTxId}`,
         );
+      } else {
+        console.warn(
+          `[Soroban] record_result not anchored for ballot ${ballotId} — contract may not be deployed`,
+        );
+      }
+    } catch (err) {
+      // Resilience layer already retried; never fail the tally on anchor errors
+      logger.error("soroban_record_result_error", {
+        ballotId,
+        error: err instanceof Error ? err.message : err,
       });
+    }
   }
 
   // Post-finalisation on-chain consistency check (issue #68) — transparency

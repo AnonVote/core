@@ -71,4 +71,53 @@ export const config = {
   sorobanServerUrl: process.env.SOROBAN_SERVER_URL || "",
   logLevel: process.env.LOG_LEVEL || "info",
   logSkipPaths: process.env.LOG_SKIP_PATHS || "/health,/healthz,/api/health",
+
+  // ── Soroban transaction batching ───────────────────────────────────────────
+  // Votes are anchored in batches to amortise Stellar fees. A batch is
+  // submitted once it holds voteBatchSize votes OR voteBatchTimeoutMs has
+  // elapsed since the first queued vote — whichever comes first.
+  voteBatchSize: parsePositiveInt(process.env.VOTE_BATCH_SIZE, 100),
+  voteBatchTimeoutMs: parsePositiveInt(
+    process.env.VOTE_BATCH_TIMEOUT_MS,
+    30_000,
+  ),
+
+  // ── Soroban retry semantics ────────────────────────────────────────────────
+  // Exponential backoff: baseDelay * 2^attempt (1s, 2s, 4s, …) capped at
+  // sorobanMaxAttempts total tries. Only retry-safe errors are retried;
+  // permanent contract errors fail fast into the dead letter queue.
+  sorobanMaxAttempts: parsePositiveInt(process.env.SOROBAN_MAX_ATTEMPTS, 3),
+  sorobanRetryBaseDelayMs: parsePositiveInt(
+    process.env.SOROBAN_RETRY_BASE_DELAY_MS,
+    1000,
+  ),
+  sorobanCircuitBreakerThreshold: parsePositiveFloat(
+    process.env.SOROBAN_CIRCUIT_BREAKER_THRESHOLD,
+    0.5,
+  ),
+  sorobanCircuitBreakerDurationMs: parsePositiveInt(
+    process.env.SOROBAN_CIRCUIT_BREAKER_DURATION_MS,
+    15_000,
+  ),
+  sorobanCircuitBreakerSampleSize: parsePositiveInt(
+    process.env.SOROBAN_CIRCUIT_BREAKER_SAMPLE_SIZE,
+    20,
+  ),
+
+  // ── Contract state synchronisation ─────────────────────────────────────────
+  // Background job cadence for comparing contract counters against the DB.
+  contractStateSyncIntervalMs: parsePositiveInt(
+    process.env.CONTRACT_STATE_SYNC_INTERVAL_MS,
+    60_000,
+  ),
 };
+
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  const parsed = parseInt(raw || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parsePositiveFloat(raw: string | undefined, fallback: number): number {
+  const parsed = parseFloat(raw || "");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
