@@ -246,6 +246,7 @@ pub struct AdminKeyInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BallotEvent {
     BallotCreated(String, u64),
+    BallotActivated(String, u64),
     TokenRecorded(String, u32),
     VoteRecorded(String, u32),
     ResultPublished(String, String),
@@ -1163,6 +1164,9 @@ impl AnonVoteContract {
         if metadata.state != BallotState::Voting {
             return Err(ContractError::BallotExpired);
         }
+        if metadata.expiration_time != 0 && env.ledger().timestamp() < metadata.expiration_time {
+            return Err(ContractError::InvalidBallotState);
+        }
 
         metadata.state = BallotState::Closed;
         metadata.state_updated_at = env.ledger().timestamp();
@@ -1177,6 +1181,41 @@ impl AnonVoteContract {
             BallotEvent::BallotExpired(ballot_id_hash, metadata.state_updated_at),
         );
         Ok(())
+    }
+
+    /// Proposes a backwards-only ballot recovery. Execution still requires
+    /// approvals through the normal governance workflow, with a minimum
+    /// configuration of three approvals from at least five approvers.
+    pub fn admin_recover(
+        env: Env,
+        caller: Address,
+        ballot_id_hash: String,
+        target_state: BallotState,
+        reason: String,
+    ) -> Result<u64, ContractError> {
+        Self::require_not_paused(&env)?;
+        validate_hex_hash(&env, &ballot_id_hash, ContractError::InvalidBallotIdHash)?;
+        if reason.is_empty() {
+            return Err(ContractError::InvalidRecoveryTarget);
+        }
+        let approvers: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::Approvers)
+            .ok_or(ContractError::NotInitialized)?;
+        let threshold: u32 = env
+            .storage()
+            .instance()
+            .get(&DataKey::ApprovalThreshold)
+            .ok_or(ContractError::NotInitialized)?;
+        if approvers.len() < 5 || threshold < 3 {
+            return Err(ContractError::RecoveryRequiresThreeOfFive);
+        }
+        Self::create_operation(
+            env,
+            caller,
+            CriticalOperation::BallotRecovery(ballot_id_hash, target_state, reason),
+        )
     }
 
     pub fn cancel_upgrade(env: Env, caller: Address) -> Result<(), ContractError> {
@@ -1325,9 +1364,7 @@ impl AnonVoteContract {
         env.storage()
             .persistent()
             .set(&DataKey::AdminKey, &pending_key);
-        env.storage()
-            .persistent()
-            .remove(&DataKey::PendingAdminKey);
+        env.storage().persistent().remove(&DataKey::PendingAdminKey);
         env.storage()
             .persistent()
             .remove(&DataKey::KeyRotationRequestedAt);
@@ -1363,9 +1400,7 @@ impl AnonVoteContract {
             return Err(ContractError::NoKeyRotationPending);
         }
 
-        env.storage()
-            .persistent()
-            .remove(&DataKey::PendingAdminKey);
+        env.storage().persistent().remove(&DataKey::PendingAdminKey);
         env.storage()
             .persistent()
             .remove(&DataKey::KeyRotationRequestedAt);
@@ -1384,10 +1419,8 @@ impl AnonVoteContract {
             .get(&DataKey::AdminKey)
             .ok_or(ContractError::AdminKeyNotInitialized)?;
 
-        let opt_pending: Option<BytesN<32>> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::PendingAdminKey);
+        let opt_pending: Option<BytesN<32>> =
+            env.storage().persistent().get(&DataKey::PendingAdminKey);
 
         let rotation_count: u32 = env
             .storage()
@@ -2040,7 +2073,11 @@ impl AnonVoteContract {
         if !env.storage().persistent().has(&result_key) {
             return Err(ContractError::BallotNotFound);
         }
-        let stored_result_hash: String = env.storage().persistent().get(&result_key).ok_or(ContractError::InternalError)?;
+        let stored_result_hash: String = env
+            .storage()
+            .persistent()
+            .get(&result_key)
+            .ok_or(ContractError::InternalError)?;
 
         let mut current_hash = vote_merkle_proof.vote_hash;
         let mut idx = vote_merkle_proof.index;
@@ -2677,6 +2714,57 @@ impl AnonVoteContract {
                         upgrade.executable_at,
                     ),
                 );
+            }
+            CriticalOperation::BallotRecovery(ballot_id_hash, target_state, reason) => {
+                // Revalidate at execution time so approvals cannot race a state,
+                // age, or monthly-limit change.
+                Self::validate_operation(env, operation)?;
+                let key = DataKey::BallotMetadata(ballot_id_hash.clone());
+                let mut metadata = Self::require_ballot_metadata(env, ballot_id_hash)?;
+                let from_state = metadata.state.clone();
+                let now = env.ledger().timestamp();
+                metadata.state = target_state.clone();
+                metadata.state_updated_at = now;
+                env.storage().persistent().set(&key, &metadata);
+                if from_state == BallotState::ResultPublished {
+                    env.storage()
+                        .persistent()
+                        .remove(&DataKey::ResultHash(ballot_id_hash.clone()));
+                }
+                let admin: Address = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Admin)
+                    .ok_or(ContractError::NotInitialized)?;
+                let record = RecoveryRecord {
+                    ballot_id_hash: ballot_id_hash.clone(),
+                    from_state,
+                    to_state: target_state.clone(),
+                    admin: admin.clone(),
+                    timestamp: now,
+                    reason: reason.clone(),
+                };
+                let mut history: Vec<RecoveryRecord> = env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::RecoveryHistory)
+                    .unwrap_or(Vec::new(env));
+                history.push_back(record.clone());
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::RecoveryHistory, &history);
+                let month = now / RECOVERY_MONTH_SECONDS;
+                let count: u32 = env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::RecoveryCount(month))
+                    .unwrap_or(0);
+                let next = count.checked_add(1).ok_or(ContractError::CounterOverflow)?;
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::RecoveryCount(month), &next);
+                env.events()
+                    .publish((symbol_short!("audit"), symbol_short!("recovery")), record);
             }
         }
 
@@ -4632,6 +4720,180 @@ mod tests {
         assert_eq!(
             client.try_record_token(&a1, &ballot),
             Err(Ok(ContractError::TooManyVoters))
+        );
+    }
+
+    fn configure_three_of_five(
+        env: &Env,
+        client: &AnonVoteContractClient,
+        admin: &Address,
+    ) -> Vec<Address> {
+        let approvers = Vec::from_array(
+            env,
+            [
+                Address::generate(env),
+                Address::generate(env),
+                Address::generate(env),
+                Address::generate(env),
+                Address::generate(env),
+            ],
+        );
+        client.configure_approval_threshold(admin, &approvers, &3, &5);
+        approvers
+    }
+
+    #[test]
+    fn deadline_ballot_requires_activation() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot_with_deadline(&admin, &ballot, &limits(2, 2), &100);
+        assert_eq!(
+            client.get_ballot_state(&ballot).unwrap().state,
+            BallotState::Created
+        );
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotExpired))
+        );
+        client.activate_ballot(&admin, &ballot);
+        client.record_vote(&admin, &ballot);
+        assert_eq!(
+            client.get_ballot_state(&ballot).unwrap().state,
+            BallotState::Active
+        );
+    }
+
+    #[test]
+    fn deadline_is_exclusive_at_exact_boundary() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot_with_deadline(&admin, &ballot, &limits(2, 2), &100);
+        client.activate_ballot(&admin, &ballot);
+        env.ledger().with_mut(|ledger| ledger.timestamp = 99);
+        client.record_vote(&admin, &ballot);
+        env.ledger().with_mut(|ledger| ledger.timestamp = 100);
+        assert_eq!(
+            client.try_record_vote(&admin, &ballot),
+            Err(Ok(ContractError::BallotExpired))
+        );
+        client.expire_ballot(&admin, &ballot);
+        assert_eq!(client.get_votes_cast(&ballot), Some(1));
+    }
+
+    #[test]
+    fn result_requires_expired_state_and_is_final() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        let first = String::from_str(&env, RESULT_A);
+        let second = String::from_str(&env, RESULT_B);
+        client.record_ballot(&admin, &ballot, &limits(1, 1));
+        assert_eq!(
+            client.try_record_result(&admin, &ballot, &first),
+            Err(Ok(ContractError::InvalidBallotState))
+        );
+        client.expire_ballot(&admin, &ballot);
+        let operation = client.record_result(&admin, &ballot, &first);
+        client.approve_operation(&operation, &admin);
+        assert_eq!(
+            client.try_record_result(&admin, &ballot, &second),
+            Err(Ok(ContractError::ResultAlreadyPublished))
+        );
+    }
+
+    #[test]
+    fn recovery_requires_three_of_five_configuration() {
+        let (env, client, admin) = setup();
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(1, 1));
+        client.expire_ballot(&admin, &ballot);
+        assert_eq!(
+            client.try_admin_recover(
+                &admin,
+                &ballot,
+                &BallotState::Active,
+                &String::from_str(&env, "correction")
+            ),
+            Err(Ok(ContractError::RecoveryRequiresThreeOfFive))
+        );
+    }
+
+    #[test]
+    fn approved_recovery_moves_back_and_writes_audit_history() {
+        let (env, client, admin) = setup();
+        let approvers = configure_three_of_five(&env, &client, &admin);
+        let ballot = String::from_str(&env, BALLOT_A);
+        let reason = String::from_str(&env, "tally correction");
+        client.record_ballot(&admin, &ballot, &limits(2, 2));
+        client.expire_ballot(&admin, &ballot);
+        let operation = client.admin_recover(&admin, &ballot, &BallotState::Active, &reason);
+        assert!(!client.approve_operation(&operation, &approvers.get(0).unwrap()));
+        assert!(!client.approve_operation(&operation, &approvers.get(1).unwrap()));
+        assert!(client.approve_operation(&operation, &approvers.get(2).unwrap()));
+        assert_eq!(
+            client.get_ballot_state(&ballot).unwrap().state,
+            BallotState::Active
+        );
+        assert_eq!(client.get_recovery_history().len(), 1);
+        assert_eq!(client.get_current_month_recovery_count(), 1);
+    }
+
+    #[test]
+    fn recovery_rejects_forward_and_same_state_transitions() {
+        let (env, client, admin) = setup();
+        configure_three_of_five(&env, &client, &admin);
+        let ballot = String::from_str(&env, BALLOT_A);
+        let reason = String::from_str(&env, "invalid direction");
+        client.record_ballot(&admin, &ballot, &limits(1, 1));
+        assert_eq!(
+            client.try_admin_recover(&admin, &ballot, &BallotState::Expired, &reason),
+            Err(Ok(ContractError::InvalidRecoveryTarget))
+        );
+        assert_eq!(
+            client.try_admin_recover(&admin, &ballot, &BallotState::Active, &reason),
+            Err(Ok(ContractError::InvalidRecoveryTarget))
+        );
+    }
+
+    #[test]
+    fn ballots_thirty_days_old_are_not_recoverable() {
+        let (env, client, admin) = setup();
+        configure_three_of_five(&env, &client, &admin);
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(1, 1));
+        client.expire_ballot(&admin, &ballot);
+        env.ledger()
+            .with_mut(|ledger| ledger.timestamp = RECOVERY_WINDOW_SECONDS);
+        assert_eq!(
+            client.try_admin_recover(
+                &admin,
+                &ballot,
+                &BallotState::Active,
+                &String::from_str(&env, "too late")
+            ),
+            Err(Ok(ContractError::RecoveryTooOld))
+        );
+    }
+
+    #[test]
+    fn monthly_recovery_limit_blocks_eleventh_recovery() {
+        let (env, client, admin) = setup();
+        configure_three_of_five(&env, &client, &admin);
+        let ballot = String::from_str(&env, BALLOT_A);
+        client.record_ballot(&admin, &ballot, &limits(1, 1));
+        client.expire_ballot(&admin, &ballot);
+        env.as_contract(&client.address, || {
+            env.storage()
+                .persistent()
+                .set(&DataKey::RecoveryCount(0), &MAX_RECOVERIES_PER_MONTH);
+        });
+        assert_eq!(
+            client.try_admin_recover(
+                &admin,
+                &ballot,
+                &BallotState::Active,
+                &String::from_str(&env, "rate limited")
+            ),
+            Err(Ok(ContractError::RecoveryLimitExceeded))
         );
     }
 }
