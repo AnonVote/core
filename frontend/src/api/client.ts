@@ -6,6 +6,9 @@ import type {
   AuditCounts,
   ApiResponse,
   AdminBallotSummary,
+  BallotSummary,
+  ResultsSummary,
+  AuditTrail,
 } from "../types";
 
 const api = axios.create({
@@ -87,6 +90,21 @@ export const getBallot = (id: string) =>
 
 export const deleteBallot = (id: string) =>
   api.delete<ApiResponse<{ message: string }>>(`/ballots/${id}`);
+
+// Aggregated ballot detail — ballot + options + eligible voters + tokens
+// issued + votes cast in a single request (replaces getBallot + getAudit).
+export const getBallotSummary = (id: string) =>
+  api.get<ApiResponse<BallotSummary>>(`/ballots/${id}/summary`);
+
+// Aggregated results — ballot + tally + participation + on-chain
+// verification in a single request (replaces getBallot + getResult).
+export const getResultsSummary = (id: string) =>
+  api.get<ApiResponse<ResultsSummary>>(`/ballots/${id}/results-summary`);
+
+// Aggregated audit trail — ballot info + token/vote counts + full event
+// log in a single request (replaces getBallot + getAudit).
+export const getAuditTrail = (id: string) =>
+  api.get<ApiResponse<AuditTrail>>(`/ballots/${id}/audit-trail`);
 
 export const createBallot = (data: {
   topic: string;

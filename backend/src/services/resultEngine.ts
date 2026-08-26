@@ -7,6 +7,7 @@ import { notFound } from "../utils/errors";
 import { sendBallotClosedEmail } from "./emailService";
 import { getBallotEncryptionKeyRecord } from "./ballotKeyService";
 import { logger } from "../utils/logger";
+import { config } from "../config";
 
 export async function tallyBallot(
   ballotId: string,
@@ -202,4 +203,72 @@ export async function tallyBallot(
 
 export async function getResult(ballotId: string) {
   return prisma.result.findUnique({ where: { ballotId } });
+}
+
+/** Build the Stellar explorer URL for a given tx hash. */
+function explorerUrl(txHash: string): string {
+  const network = config.stellarNetwork === "mainnet" ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${network}/tx/${txHash}`;
+}
+
+/**
+ * Get an aggregated results summary — ballot info, tally breakdown,
+ * participation, and on-chain verification links — in a single call.
+ *
+ * Replaces the previous pattern where the results page had to separately
+ * fetch the ballot, the result, and the audit counts (3+ requests).
+ */
+export async function getResultsSummary(ballotId: string) {
+  const [result, ballot] = await Promise.all([
+    prisma.result.findUnique({ where: { ballotId } }),
+    prisma.ballot.findUnique({
+      where: { id: ballotId, deletedAt: null },
+      include: { options: true },
+    }),
+  ]);
+
+  if (!ballot) throw notFound("Ballot not found");
+
+  const ballotSummary = {
+    id: ballot.id,
+    topic: ballot.topic,
+    status: ballot.status,
+    deadline: ballot.deadline,
+  };
+
+  if (!result) {
+    return { ballot: ballotSummary, result: null };
+  }
+
+  const tally: Record<string, number> = JSON.parse(result.tallyJson);
+  const options = ballot.options.map((opt) => {
+    const count = tally[opt.id] ?? 0;
+    const percentage =
+      result.totalVotes > 0
+        ? Math.round((count / result.totalVotes) * 10000) / 100
+        : 0;
+    return { optionId: opt.id, optionText: opt.text, count, percentage };
+  });
+
+  const tokensIssued = await prisma.voterToken.count({
+    where: { ballotId },
+  });
+  const participationRate =
+    tokensIssued > 0
+      ? Math.round((result.totalVotes / tokensIssued) * 10000) / 100
+      : 0;
+
+  return {
+    ballot: ballotSummary,
+    result: {
+      ...result,
+      options,
+      participationRate,
+      tokensIssued,
+      explorerUrl: result.stellarTxId ? explorerUrl(result.stellarTxId) : null,
+      sorobanExplorerUrl: result.sorobanTxId
+        ? explorerUrl(result.sorobanTxId)
+        : null,
+    },
+  };
 }

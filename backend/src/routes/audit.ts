@@ -40,6 +40,49 @@ router.get(
   },
 );
 
+/**
+ * Get an aggregated audit trail — ballot info, token/vote counts, and the
+ * full event log — in a single call.
+ *
+ * Replaces the previous pattern where audit-consuming pages had to
+ * separately fetch the ballot and the audit counts/events (2+ requests).
+ */
+export async function getAuditTrail(ballotId: string) {
+  const [ballot, tokensIssued, votesCast, events] = await Promise.all([
+    prisma.ballot.findUnique({
+      where: { id: ballotId, deletedAt: null },
+      select: { id: true, topic: true, status: true },
+    }),
+    prisma.auditEvent.count({
+      where: { ballotId, eventType: "TOKEN_ISSUED" },
+    }),
+    prisma.auditEvent.count({
+      where: { ballotId, eventType: "VOTE_CAST" },
+    }),
+    prisma.auditEvent.findMany({
+      where: { ballotId },
+      select: {
+        eventType: true,
+        stellarTxId: true,
+        stellarLedgerAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  if (!ballot) throw notFound("Ballot not found");
+
+  return {
+    ballotId: ballot.id,
+    topic: ballot.topic,
+    status: ballot.status,
+    tokensIssued,
+    votesCast,
+    events,
+  };
+}
+
 // GET /api/admin/audit/:ballotId — Admin: full structured export (JSON or CSV)
 // Mounted separately in app.ts as /api/admin/audit/:ballotId
 // Exported as a named function to be wired by the admin audit sub-router.

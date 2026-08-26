@@ -116,6 +116,50 @@ export interface AuditCounts {
   events: AuditEvent[];
 }
 
+// Returned by GET /api/ballots/:id/summary — aggregates ballot + options +
+// eligibility/vote/token stats in a single call.
+export interface BallotSummary {
+  id: string;
+  topic: string;
+  status: BallotStatus;
+  deadline: string;
+  startTime?: string | null;
+  createdAt: string;
+  options: Option[];
+  optionCount: number;
+  allowWeightedVoting: boolean;
+  allowRankedChoice: boolean;
+  maxRankings?: number | null;
+  eligibleVoters: number;
+  tokensIssued: number;
+  votesCast: number;
+  anchorStatus: AnchorStatus;
+  stellarTxId?: string;
+}
+
+// Returned by GET /api/ballots/:id/results-summary — aggregates ballot +
+// tally + participation + on-chain verification in a single call.
+export interface ResultsSummary {
+  ballot: {
+    id: string;
+    topic: string;
+    status: BallotStatus;
+    deadline: string;
+  };
+  result: Result | null;
+}
+
+// Returned by GET /api/ballots/:id/audit-trail — aggregates ballot info +
+// token/vote counts + full event log in a single call.
+export interface AuditTrail {
+  ballotId: string;
+  topic: string;
+  status: BallotStatus;
+  tokensIssued: number;
+  votesCast: number;
+  events: AuditEvent[];
+}
+
 export interface ApiResponse<T> {
   data: T;
 }

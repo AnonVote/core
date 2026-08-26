@@ -259,6 +259,52 @@ export async function getBallotById(id: string) {
 }
 
 /**
+ * Get an aggregated summary for a single ballot — ballot + options + stats
+ * (eligible voters, tokens issued, votes cast) + deadline info in one call.
+ *
+ * Replaces the previous pattern where the ballot detail page had to fetch
+ * the ballot, then separately fetch audit counts, then separately fetch
+ * eligibility list counts (issue: N+1 queries / multiple frontend requests).
+ */
+export async function getBallotSummary(id: string) {
+  const ballot = await prisma.ballot.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      options: true,
+      eligibilityList: { include: { _count: { select: { entries: true } } } },
+      _count: { select: { votes: true } },
+    },
+  });
+  if (!ballot) throw notFound("Ballot not found");
+
+  // Tokens issued is derived from audit events, not a direct relation on
+  // Ballot, so it needs its own query — but it's the only extra round trip
+  // (down from the 3+ separate requests the frontend previously made).
+  const tokensIssued = await prisma.auditEvent.count({
+    where: { ballotId: id, eventType: "TOKEN_ISSUED" },
+  });
+
+  return {
+    id: ballot.id,
+    topic: ballot.topic,
+    status: ballot.status,
+    deadline: ballot.deadline,
+    startTime: ballot.startTime,
+    createdAt: ballot.createdAt,
+    options: ballot.options,
+    optionCount: ballot.optionCount,
+    allowWeightedVoting: ballot.allowWeightedVoting,
+    allowRankedChoice: ballot.allowRankedChoice,
+    maxRankings: ballot.maxRankings,
+    eligibleVoters: ballot.eligibilityList._count.entries,
+    tokensIssued,
+    votesCast: ballot._count.votes,
+    anchorStatus: ballot.anchorStatus,
+    stellarTxId: ballot.stellarTxId,
+  };
+}
+
+/**
  * Update a ballot — only allowed when status === DRAFT.
  */
 export async function updateBallot(
