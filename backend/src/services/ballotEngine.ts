@@ -3,9 +3,37 @@ import { hashIdentifier } from "../utils/crypto";
 import { randomBytes } from "crypto";
 import { badRequest, notFound, ballotNotEditable } from "../utils/errors";
 import { sendBallotCreatedEmail } from "./emailService";
-import { sorobanRecordBallot } from "./sorobanService";
+import {
+  sorobanRecordBallot,
+  sorobanRecordBallotCommitment,
+} from "./sorobanService";
 import { writeRecord } from "./stellarService";
 import { logger } from "../utils/logger";
+import { computeBallotCommitment } from "../utils/commitment";
+
+/** Envelope written by the browser: "v1:" + b64(ephPub) + ":" + b64(iv) + ":" + b64(ct) */
+const DESCRIPTION_ENVELOPE_RE = /^v1:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/;
+const MAX_DESCRIPTION_CIPHERTEXT = 12_000;
+
+/**
+ * Shape-checks a description envelope. The server cannot decrypt it — this only
+ * guarantees a stored value is well-formed, so the commitment stays meaningful.
+ */
+export function assertDescriptionEnvelope(value: string): void {
+  if (typeof value !== "string" || !value.trim()) {
+    throw badRequest("descriptionCiphertext must be a non-empty string");
+  }
+  if (value.length > MAX_DESCRIPTION_CIPHERTEXT) {
+    throw badRequest(
+      `descriptionCiphertext must be at most ${MAX_DESCRIPTION_CIPHERTEXT} characters`,
+    );
+  }
+  if (!DESCRIPTION_ENVELOPE_RE.test(value)) {
+    throw badRequest(
+      'descriptionCiphertext must use the "v1:ephPub:iv:ciphertext" envelope',
+    );
+  }
+}
 
 /**
  * Create a new ballot with per-ballot encryption key and Stellar anchoring.
@@ -23,6 +51,7 @@ export async function createBallot(
   allowWeightedVoting = false,
   startTime?: Date,
   autoFinalise = false,
+  descriptionCiphertext?: string | null,
 ) {
   // Validate topic
   if (!topic?.trim()) throw badRequest("Ballot topic is required");
@@ -47,6 +76,12 @@ export async function createBallot(
       throw badRequest("Duplicate options are not allowed");
     }
     seen.add(normalized);
+  }
+
+  // The server never decrypts a description; it only checks the envelope shape so
+  // an unreadable blob cannot be stored and silently break the commitment later.
+  if (descriptionCiphertext != null) {
+    assertDescriptionEnvelope(descriptionCiphertext);
   }
 
   // Validate deadline — must be at least 1 hour in the future
@@ -75,6 +110,8 @@ export async function createBallot(
       autoFinalise,
       status: "DRAFT",
       optionCount: options.length,
+      descriptionCiphertext: descriptionCiphertext ?? null,
+      descriptionKeyVersion: descriptionCiphertext ? 1 : null,
       options: {
         create: options.map((text) => ({ text: text.trim() })),
       },
@@ -84,6 +121,20 @@ export async function createBallot(
     },
     include: { options: true },
   });
+
+  // Commitment is computed once the option rows exist. It is recomputed on every
+  // DRAFT edit and anchored at activation, when the content is finally frozen.
+  const commitmentHash = computeBallotCommitment({
+    topic: ballot.topic,
+    descriptionCiphertext: ballot.descriptionCiphertext,
+    options: ballot.options,
+    deadline: ballot.deadline,
+  });
+  await prisma.ballot.update({
+    where: { id: ballot.id },
+    data: { commitmentHash },
+  });
+  ballot.commitmentHash = commitmentHash;
 
   // Attempt Stellar anchor — use manageData write with hashIdentifier(ballotId)
   // If it fails, set anchor_status: FAILED and insert retry queue row.
@@ -238,6 +289,9 @@ export async function getBallotsByOrg(
       votesCast: b._count.votes,
       anchorStatus: b.anchorStatus,
       stellarTxId: b.stellarTxId,
+      // Opaque to everyone but the owning org; the dashboard decrypts in place.
+      descriptionCiphertext: b.descriptionCiphertext,
+      commitmentHash: b.commitmentHash,
     })),
     total_count: totalCount,
     page,
@@ -315,6 +369,8 @@ export async function updateBallot(
     deadline?: Date;
     eligibilityListId?: string;
     options?: string[];
+    /** null clears the description; undefined leaves it untouched. */
+    descriptionCiphertext?: string | null;
   },
 ) {
   const ballot = await prisma.ballot.findUnique({
@@ -352,6 +408,10 @@ export async function updateBallot(
       throw badRequest("Maximum 10 options allowed");
   }
 
+  if (data.descriptionCiphertext != null) {
+    assertDescriptionEnvelope(data.descriptionCiphertext);
+  }
+
   if (data.eligibilityListId) {
     const list = await prisma.eligibilityList.findUnique({
       where: { id: data.eligibilityListId },
@@ -381,12 +441,88 @@ export async function updateBallot(
         ...(data.eligibilityListId && {
           eligibilityListId: data.eligibilityListId,
         }),
+        ...(data.descriptionCiphertext !== undefined && {
+          descriptionCiphertext: data.descriptionCiphertext,
+          descriptionKeyVersion: data.descriptionCiphertext ? 1 : null,
+        }),
       },
       include: { options: true },
     });
 
-    return updated;
+    // Recompute from the written row, not from `data` — options may have been
+    // replaced above and the commitment must match what is actually stored.
+    const commitmentHash = computeBallotCommitment({
+      topic: updated.topic,
+      descriptionCiphertext: updated.descriptionCiphertext,
+      options: updated.options,
+      deadline: updated.deadline,
+    });
+
+    return tx.ballot.update({
+      where: { id: ballotId },
+      data: { commitmentHash },
+      include: { options: true },
+    });
   });
+}
+
+/**
+ * Activate a ballot — transition DRAFT → ACTIVE (Issue #86).
+ *
+ * This is the commitment point: `updateBallot` only permits edits while the
+ * ballot is DRAFT, so activation is the moment its content is frozen. The
+ * commitment is persisted first (the DB copy is the fallback that keeps
+ * verification working without a deployed contract), then anchored on-chain
+ * fire-and-forget — mirroring how `resultEngine` anchors `resultHash`.
+ *
+ * On-chain failure never blocks activation; a ballot that cannot be anchored is
+ * still a valid ballot, it simply reports as unanchored.
+ */
+export async function activateBallot(ballotId: string) {
+  const ballot = await prisma.ballot.findUnique({
+    where: { id: ballotId, deletedAt: null },
+    include: { options: true },
+  });
+  if (!ballot) throw notFound("Ballot not found");
+
+  // Only DRAFT ballots can be activated
+  if (ballot.status !== "DRAFT") return;
+
+  // Recompute rather than trusting the stored value, so the anchored commitment
+  // always matches the content actually being frozen.
+  const commitmentHash = computeBallotCommitment({
+    topic: ballot.topic,
+    descriptionCiphertext: ballot.descriptionCiphertext,
+    options: ballot.options,
+    deadline: ballot.deadline,
+  });
+
+  await prisma.ballot.update({
+    where: { id: ballotId },
+    data: { status: "ACTIVE", commitmentHash },
+  });
+
+  const ballotIdHash = hashIdentifier(ballotId);
+  sorobanRecordBallotCommitment(ballotIdHash, commitmentHash)
+    .then(async (txHash) => {
+      if (txHash) {
+        await prisma.ballot.update({
+          where: { id: ballotId },
+          data: { commitmentTxId: txHash, commitmentAnchoredAt: new Date() },
+        });
+        logger.info("ballot_commitment_anchored", { ballotId, txHash });
+      } else {
+        logger.warn("ballot_commitment_not_anchored", {
+          ballotId,
+          reason: "soroban contract not configured",
+        });
+      }
+    })
+    .catch((err) =>
+      logger.error("ballot_commitment_anchor_failed", { ballotId, error: err }),
+    );
+
+  return { ballotId, commitmentHash };
 }
 
 /**

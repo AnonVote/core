@@ -293,6 +293,39 @@ export async function sorobanRecordResult(
 }
 
 /**
+ * Record a ballot's content commitment on-chain (Issue #86).
+ * Call at DRAFT → ACTIVE, when the ballot content is frozen.
+ *
+ * The contract rejects a second write for the same ballot — write-once is the
+ * whole point of a commitment.
+ */
+export async function sorobanRecordBallotCommitment(
+  ballotIdHash: string,
+  commitment: string,
+): Promise<string> {
+  if (!CONTRACT_ID) return "";
+  const result = await invokeContract(CONTRACT_ID, "record_ballot_commitment", [
+    { value: ballotIdHash, type: "string" },
+    { value: commitment, type: "string" },
+  ]);
+  return result.txHash;
+}
+
+/**
+ * Read a ballot's on-chain commitment (view call — no transaction).
+ * Returns null when the contract is not deployed or the ballot is unknown.
+ */
+export async function sorobanGetBallotCommitment(
+  ballotIdHash: string,
+): Promise<string | null> {
+  if (!CONTRACT_ID) return null;
+  const value = await readContract(CONTRACT_ID, "get_ballot_commitment", [
+    { value: ballotIdHash, type: "string" },
+  ]);
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/**
  * Read on-chain audit counts for a ballot (view call — no transaction).
  */
 export async function sorobanGetAuditCounts(ballotIdHash: string): Promise<{

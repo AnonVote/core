@@ -1,6 +1,7 @@
 import {
   getDraftBallotsToActivate,
   getActiveExpiredBallots,
+  activateBallot,
   closeBallot,
   finaliseBallot,
   processPendingAnchors,
@@ -47,10 +48,9 @@ export async function startScheduler(): Promise<void> {
         );
         for (const ballot of draftsToActivate) {
           try {
-            await prisma.ballot.update({
-              where: { id: ballot.id },
-              data: { status: "ACTIVE" },
-            });
+            // activateBallot owns the transition so the ballot commitment is
+            // computed and anchored at the moment content is frozen.
+            await activateBallot(ballot.id);
             console.log(`[Scheduler] Activated ballot ${ballot.id}`);
           } catch (err) {
             console.error(
