@@ -20,6 +20,7 @@ describe("Vote Race Condition Test (backend/src/tests/voteRace.test.ts)", () => 
     await prisma.eligibilityEntry.deleteMany();
     await prisma.eligibilityList.deleteMany();
     await prisma.session.deleteMany();
+    await prisma.organizationKey.deleteMany();
     await prisma.organization.deleteMany();
   });
 
@@ -36,6 +37,7 @@ describe("Vote Race Condition Test (backend/src/tests/voteRace.test.ts)", () => 
     await prisma.eligibilityEntry.deleteMany();
     await prisma.eligibilityList.deleteMany();
     await prisma.session.deleteMany();
+    await prisma.organizationKey.deleteMany();
     await prisma.organization.deleteMany();
     await prisma.$disconnect();
   });

@@ -25,9 +25,20 @@ describe("Organization Key Management", () => {
   let orgId2: string;
 
   beforeAll(async () => {
-    // Clean up
-    await prisma.organizationKey.deleteMany({});
+    // Clean up — FK-safe order (earlier suites leave ballots behind)
+    await prisma.stellarRetryQueue.deleteMany({});
+    await prisma.auditEvent.deleteMany({});
+    await prisma.voterToken.deleteMany({});
+    await prisma.vote.deleteMany({});
+    await prisma.ballotKey.deleteMany({});
+    await prisma.result.deleteMany({});
+    await prisma.option.deleteMany({});
+    await prisma.tokenDeliveryRetry.deleteMany({});
+    await prisma.ballot.deleteMany({});
+    await prisma.eligibilityEntry.deleteMany({});
+    await prisma.eligibilityList.deleteMany({});
     await prisma.session.deleteMany({});
+    await prisma.organizationKey.deleteMany({});
     await prisma.organization.deleteMany({});
 
     // Create test organizations

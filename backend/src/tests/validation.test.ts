@@ -27,6 +27,7 @@ beforeAll(async () => {
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.organizationKey.deleteMany();
   await prisma.organization.deleteMany();
 
   // Register + login org
@@ -232,7 +233,7 @@ describe("POST /api/votes — validation", () => {
   it("rejects empty body", async () => {
     const res = await request(app).post("/api/votes").send({});
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("VALIDATION_ERROR");
+    expect(res.body.error).toBe("ValidationError");
   });
 
   it("rejects missing ballotId", async () => {

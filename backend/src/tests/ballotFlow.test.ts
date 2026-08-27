@@ -10,6 +10,7 @@ describe("Ballot Creation Flow", () => {
   beforeAll(async () => {
     // We assume the DB is running or we skip these tests
     try {
+        await prisma.organizationKey.deleteMany();
         await prisma.organization.deleteMany();
     } catch (e) {
         console.warn("DB not reachable, skipping integration tests");

@@ -7,6 +7,7 @@
 
 import request from "supertest";
 import express, { Application } from "express";
+import { errorHandler } from "../middleware/errorHandler";
 import {
   validateVotePayload,
   validatePayloadSize,
@@ -27,15 +28,16 @@ describe("Vote Validation Middleware", () => {
       app.post("/test", validateVotePayload, (req, res) => {
         res.status(200).json({ success: true });
       });
+      app.use(errorHandler);
     });
 
     it("accepts valid vote payload with all required fields", async () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(200);
@@ -46,9 +48,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballot_id: "123e4567-e89b-12d3-a456-426614174000",
+          ballot_id: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          option_id: "123e4567-e89b-12d3-a456-426614174001",
+          option_id: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(200);
@@ -58,9 +60,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           voterToken: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(200);
@@ -70,9 +72,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           weight: 5,
         });
 
@@ -83,9 +85,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           rank: 2,
         });
 
@@ -97,7 +99,7 @@ describe("Vote Validation Middleware", () => {
         .post("/test")
         .send({
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -111,7 +113,7 @@ describe("Vote Validation Middleware", () => {
         .send({
           ballotId: "   ",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -124,7 +126,7 @@ describe("Vote Validation Middleware", () => {
         .send({
           ballotId: "not-a-valid-uuid",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -135,8 +137,8 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -147,9 +149,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -160,9 +162,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "invalid token with spaces!",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(400);
@@ -173,7 +175,7 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
         });
 
@@ -185,7 +187,7 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
           optionId: "invalid-option-id",
         });
@@ -198,9 +200,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           weight: -5,
         });
 
@@ -212,9 +214,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           weight: 1000001,
         });
 
@@ -226,9 +228,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           weight: "not-a-number",
         });
 
@@ -240,9 +242,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           rank: 0,
         });
 
@@ -254,9 +256,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           rank: 101,
         });
 
@@ -268,9 +270,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           rank: 2.5,
         });
 
@@ -282,9 +284,9 @@ describe("Vote Validation Middleware", () => {
       const res = await request(app)
         .post("/test")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
           encryptedOption: "x".repeat(5000), // Exceeds MAX_ENCRYPTED_VOTE_LENGTH
         });
 
@@ -317,13 +319,11 @@ describe("Vote Validation Middleware", () => {
       app.post("/test", validatePayloadSize, (req, res) => {
         res.status(200).json({ success: true });
       });
+      app.use(errorHandler);
     });
 
     it("accepts payload within size limit", async () => {
-      const res = await request(app)
-        .post("/test")
-        .set("Content-Length", "1024")
-        .send({ data: "test" });
+      const res = await request(app).post("/test").send({ data: "test" });
 
       expect(res.status).toBe(200);
     });
@@ -332,19 +332,23 @@ describe("Vote Validation Middleware", () => {
       const originalMaxSize = process.env.MAX_VOTE_PAYLOAD_SIZE;
       process.env.MAX_VOTE_PAYLOAD_SIZE = "100"; // Set very small limit
 
-      const res = await request(app)
-        .post("/test")
-        .set("Content-Length", "10000")
-        .send({ data: "x".repeat(10000) });
+      try {
+        // Let superagent set the real Content-Length; the body itself is
+        // comfortably over the 100-byte limit.
+        const res = await request(app)
+          .post("/test")
+          .send({ data: "x".repeat(10000) });
 
-      expect(res.status).toBe(413);
-      expect(res.body.error).toBe("PAYLOAD_TOO_LARGE");
-
-      // Cleanup
-      if (originalMaxSize) {
-        process.env.MAX_VOTE_PAYLOAD_SIZE = originalMaxSize;
-      } else {
-        delete process.env.MAX_VOTE_PAYLOAD_SIZE;
+        expect(res.status).toBe(413);
+        expect(res.body.error).toBe("PAYLOAD_TOO_LARGE");
+      } finally {
+        // Restore unconditionally — a failed assertion must not leak the
+        // shrunken limit into every subsequent test.
+        if (originalMaxSize) {
+          process.env.MAX_VOTE_PAYLOAD_SIZE = originalMaxSize;
+        } else {
+          delete process.env.MAX_VOTE_PAYLOAD_SIZE;
+        }
       }
     });
 
@@ -362,6 +366,7 @@ describe("Vote Validation Middleware", () => {
       app.post("/test", validateContentType, (req, res) => {
         res.status(200).json({ success: true });
       });
+      app.use(errorHandler);
     });
 
     it("accepts application/json content type", async () => {
@@ -405,6 +410,7 @@ describe("Vote Validation Middleware", () => {
       app.post("/test", validateVoteRequest, (req, res) => {
         res.status(200).json({ success: true });
       });
+      app.use(errorHandler);
     });
 
     it("applies all validations in order", async () => {
@@ -412,9 +418,9 @@ describe("Vote Validation Middleware", () => {
         .post("/test")
         .set("Content-Type", "application/json")
         .send({
-          ballotId: "123e4567-e89b-12d3-a456-426614174000",
+          ballotId: "123e4567-e89b-42d3-a456-426614174000",
           token: "abcdefghijklmnopqrstuvwxyz123456",
-          optionId: "123e4567-e89b-12d3-a456-426614174001",
+          optionId: "123e4567-e89b-42d3-a456-426614174001",
         });
 
       expect(res.status).toBe(200);

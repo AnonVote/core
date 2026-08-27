@@ -55,6 +55,7 @@ beforeAll(async () => {
   await prisma.eligibilityList.deleteMany();
   await prisma.rateLimitEntry.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.organizationKey.deleteMany();
   await prisma.organization.deleteMany();
 
   // Create org + ballot
