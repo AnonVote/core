@@ -1,4 +1,4 @@
-import { AlertCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
+import { XCircle, AlertTriangle, Info, X } from "lucide-react";
 import { type ReactNode } from "react";
 
 export type ErrorSeverity = "error" | "warning" | "info";

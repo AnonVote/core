@@ -148,8 +148,7 @@ export default function VotePage() {
     getBallot(ballotId)
       .then((res) => {
         const ballotData = res.data.data;
-        const isOpen =
-          ballotData.status === "OPEN" || ballotData.status === "ACTIVE";
+        const isOpen = ballotData.status === "ACTIVE";
         if (!isOpen) {
           setBallotError("This ballot is not currently accepting votes.");
           return;

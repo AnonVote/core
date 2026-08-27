@@ -16,79 +16,6 @@ interface ResultsBallotInfo {
   deadline: string;
 }
 
-// ── Countdown Banner ─────────────────────────────────────────────────────────
-function CountdownBanner({ deadline }: { deadline: string }) {
-  const { days, hours, minutes, seconds, expired } = useCountdown(deadline);
-
-  if (expired) {
-    return (
-      <div className="card p-6" style={{ textAlign: "center" }}>
-        <p style={{ color: "var(--ink-muted)" }}>
-          Voting has closed. Results are being tallied.
-        </p>
-      </div>
-    );
-  }
-
-  const pad = (n: number) => String(n).padStart(2, "0");
-
-  return (
-    <div className="card p-6">
-      <h2
-        className="font-space-grotesk font-semibold mb-4"
-        style={{ fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}
-      >
-        Voting in Progress
-      </h2>
-      <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--space-4)" }}>
-        Results will be published after the deadline.
-      </p>
-      <div
-        style={{
-          display: "flex",
-          gap: "var(--space-4)",
-          justifyContent: "center",
-        }}
-      >
-        {[
-          { label: "Days", value: days },
-          { label: "Hours", value: hours },
-          { label: "Minutes", value: minutes },
-          { label: "Seconds", value: seconds },
-        ].map(({ label, value }) => (
-          <div
-            key={label}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              minWidth: "56px",
-              padding: "var(--space-3)",
-              background: "var(--surface-raised)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-soft)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "var(--text-2xl)",
-                fontWeight: "var(--weight-bold)",
-                color: "var(--ink-primary)",
-                fontVariantNumeric: "tabular-nums",
-                fontFamily: "monospace",
-              }}
-            >
-              {pad(value)}
-            </span>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: "2px" }}>
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Participation Bar ─────────────────────────────────────────────────────────
 function ParticipationBar({
@@ -237,7 +164,7 @@ export default function ResultsPage() {
     }
   }, [result, fetchData]);
 
-  const isActive = ballot?.status === "OPEN" && !result;
+  const isActive = ballot?.status === "ACTIVE" && !result;
 
   return (
     <div className="page-wrapper">

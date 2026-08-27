@@ -46,7 +46,7 @@ export default function ClaimTokenPage() {
     getBallot(ballotId).then((res) => {
       const b = res.data.data;
       setBallot(b);
-      if (b.status !== "OPEN") {
+      if (b.status !== "ACTIVE") {
         setError("This ballot is not currently accepting votes.");
         setPageState("error");
       } else if (prefillEmail) {
