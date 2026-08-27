@@ -26,6 +26,8 @@
     "test:examples": "jest --runInBand tests/examples.test.ts",
     "test:integration": "jest --runInBand -c jest.integration.config.js",
     "test:integration:stress": "jest --runInBand -c jest.stress.config.js",
+    "test:fips": "jest --runInBand tests/fipsCompliance.test.ts",
+    "validate:fips": "tsx examples/fips-compliance-check.ts",
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "docs": "typedoc",

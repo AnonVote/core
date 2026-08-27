@@ -20,6 +20,17 @@ export {
   verifyHomomorphicTallyProof,
 } from "./crypto";
 
+// FIPS 140-2 Compliance Validation
+export {
+  validateFIPSCompliance,
+  getCachedValidation,
+  clearValidationCache,
+} from "./fipsValidator";
+export type {
+  FIPSValidationResult,
+  FIPSConfiguration,
+} from "./fipsValidator";
+
 // ZKP and Homomorphic Subsystem
 export {
   // Math
