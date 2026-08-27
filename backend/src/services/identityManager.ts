@@ -1,6 +1,5 @@
 import { prisma } from "../prisma/client";
 import { hashIdentifier, generateToken, hashToken } from "../utils/crypto";
-import { writeRecord } from "./stellarService";
 import { sorobanRecordToken } from "./sorobanService";
 import { logger } from "../utils/logger";
 import {
@@ -122,52 +121,33 @@ export async function issueToken(
     return { auditEventId: auditEvent.id, weight: (entry as any).weight };
   });
 
-  // Return token immediately — Stellar write happens in background
+  // Return token immediately — on-chain anchoring happens in background
   const tokenResponse = {
     token: rawToken,
     stellarTxId: "",
     weight: result.weight,
   };
 
-  // Record token issuance on-chain — fire-and-forget
-  sorobanRecordToken(hashIdentifier(ballotId)).catch((err) =>
-    console.error("[Soroban] record_token failed:", err),
-  );
-
-  // Fire-and-forget Stellar write — does not block the response
-  writeRecord({
-    type: "TOKEN_ISSUED",
-    ballotId: hashIdentifier(ballotId),
-    auditEventId: result.auditEventId,
-  })
-    .then((stellarResult) => {
-      if (stellarResult.txHash) {
-        prisma.auditEvent
-          .update({
-            where: { id: result.auditEventId },
-            data: {
-              stellarTxId: stellarResult.txHash,
-              stellarLedgerAt: stellarResult.ledgerTimestamp,
-            },
-          })
-          .catch((err) =>
-            logger.warn("audit_event_stellar_update_failed", {
-              auditEventId: result.auditEventId,
-              error: err,
-            }),
-          );
-      } else {
-        console.warn(
-          `[Stellar] TOKEN_ISSUED write failed for auditEvent ${result.auditEventId}`,
+  // Record token issuance on-chain via Soroban (issue #77 — replaces the
+  // deprecated manageData write). Fire-and-forget with resilience inside:
+  // retries + backoff are handled by the service layer; failures are logged
+  // and metered but never block or fail token issuance.
+  sorobanRecordToken(hashIdentifier(ballotId))
+    .then((txHash) => {
+      if (txHash) {
+        console.log(
+          `[Soroban] record_token anchored for ballot ${ballotId} — tx: ${txHash}`,
         );
+      } else {
+        logger.warn("soroban_record_token_not_anchored", {
+          ballotId,
+          auditEventId: result.auditEventId,
+          message:
+            "record_token did not anchor — contract unconfigured or all retries exhausted.",
+        });
       }
     })
-    .catch((err) =>
-      logger.warn("token_issued_stellar_write_failed", {
-        auditEventId: result.auditEventId,
-        error: err,
-      }),
-    );
+    .catch((err) => console.error("[Soroban] record_token failed:", err));
 
   return tokenResponse;
 }

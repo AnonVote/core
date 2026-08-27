@@ -1,5 +1,6 @@
 import {
   createHash,
+  createHmac,
   randomBytes,
   createCipheriv,
   createDecipheriv,
@@ -121,4 +122,31 @@ export function decryptString(payload: string, hexKey: string): string {
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(authTag);
   return decipher.update(ciphertext).toString("utf8") + decipher.final("utf8");
+}
+
+/**
+ * Deterministic per-vote idempotency key for on-chain anchoring (issue #77):
+ *   HMAC-SHA256(key = DATA_ENCRYPTION_KEY bytes, msg = "<ballotId>:<tokenHash>")
+ *
+ * Keyed rather than a plain SHA-256(ballotId + tokenHash) because the token
+ * hash IS stored in the database — an attacker holding only a DB dump could
+ * otherwise recompute every candidate vote id and link votes back to tokens,
+ * breaking anonymity. The HMAC key lives outside the database.
+ *
+ * Falls back to an unkeyed hash when DATA_ENCRYPTION_KEY is unset
+ * (development only) so behaviour stays deterministic.
+ */
+export function computeVoteIdHash(
+  ballotId: string,
+  effectiveTokenHash: string,
+  encryptionKey?: string,
+): string {
+  const message = `${ballotId}:${effectiveTokenHash}`;
+  if (encryptionKey) {
+    return createHmac("sha256", Buffer.from(encryptionKey, "utf8"))
+      .update(message)
+      .digest("hex");
+  }
+  // Dev fallback — deterministic, but unkeyed.
+  return createHash("sha256").update(`unkeyed:${message}`).digest("hex");
 }

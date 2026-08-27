@@ -53,7 +53,8 @@ beforeAll(async () => {
   const loginRes = await request(app)
     .post("/api/organizations/login")
     .send({ name: "DDoS Test Org", password: "pass1234" });
-  authCookie = loginRes.headers["set-cookie"] as any;
+  const setCookie = loginRes.headers["set-cookie"];
+  authCookie = Array.isArray(setCookie) ? setCookie : [String(setCookie ?? "")];
 
   // Create eligibility list
   const list = await prisma.eligibilityList.create({ data: {} });

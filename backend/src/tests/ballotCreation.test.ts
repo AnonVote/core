@@ -208,11 +208,11 @@ describe("Ballot Creation", () => {
     expect(res.status).toBe(409);
   });
 
-  it("Stellar failure sets anchor_status: FAILED and inserts retry queue row without failing ballot creation", async () => {
+  it("reports a defined anchor_status without failing ballot creation even when on-chain anchoring fails", async () => {
     if (!cookie) return;
-    // The test environment's stellarService returns a mock tx hash,
-    // so stellar writes never actually fail. We test the failure handler
-    // by checking that anchor_status is at minimum defined (PENDING or FAILED).
+    // The test environment's sorobanService returns a mock tx hash, so on-chain
+    // writes never actually fail. We test the failure handler by checking that
+    // anchor_status is at minimum defined (ANCHORED/PENDING/FAILED).
 
     const res = await request(app)
       .post("/api/ballots")
