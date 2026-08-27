@@ -157,6 +157,41 @@ never the raw ballot id.
 
 A contract redeploy is required before on-chain verification is live.
 
+### Verified on testnet
+
+Deployed to Stellar testnet as `CC6ILAUT3EKPH274HPKERNZGENTQVFKXNENG3HQNM4VKXTVOVOZXFBAG`
+(throwaway key — redeploy with your own admin key for real use) and confirmed:
+
+- `record_ballot_commitment` → `get_ballot_commitment` round-trips, event emitted
+- a second write is rejected with `Error(Contract, #5)` and the original survives
+- the app reads the anchor and reports `source: "chain"`
+- a ballot altered by direct database write is detected as `mismatch` **against
+  the on-chain value** — the exact threat the commitment exists to catch
+
+### Blocker: Soroban writes fail on `stellar-sdk@12`
+
+**Pre-existing, and not specific to Issue #86.** Every Soroban *write* through
+`invokeContract` fails against current testnet with:
+
+```
+TypeError: Bad union switch: 4
+  at ChildUnion.armForSwitch (XDR/./src/union.js:54:11)
+  at stellar-sdk/lib/soroban/server.js:246
+```
+
+This is an XDR protocol mismatch — `stellar-sdk@12.0.0` cannot parse responses
+from a protocol-23 network. It affects the pre-existing `record_ballot`,
+`record_token`, `record_vote` and `record_result` identically; it is not caused by
+`record_ballot_commitment`.
+
+**Reads are unaffected** — `readContract` (simulation-only) works, which is why
+verification against the chain succeeds while anchoring from the app does not.
+
+Practical effect: until the SDK is upgraded, commitments must be anchored out of
+band (e.g. the `stellar` CLI) or left to the database fallback, which reports
+`source: "database"` honestly. Upgrading `stellar-sdk` is a separate change
+touching the whole blockchain layer.
+
 ## Endpoints
 
 | Method | Path | Auth | Purpose |
@@ -196,7 +231,42 @@ automatically at their next login — there is no separate key backfill.
 
 ## Known limitations
 
-- A contract redeploy is required before on-chain verification is live. Until
+- A contract redeploy is required before on-chain verification is live.
+
+### Verified on testnet
+
+Deployed to Stellar testnet as `CC6ILAUT3EKPH274HPKERNZGENTQVFKXNENG3HQNM4VKXTVOVOZXFBAG`
+(throwaway key — redeploy with your own admin key for real use) and confirmed:
+
+- `record_ballot_commitment` → `get_ballot_commitment` round-trips, event emitted
+- a second write is rejected with `Error(Contract, #5)` and the original survives
+- the app reads the anchor and reports `source: "chain"`
+- a ballot altered by direct database write is detected as `mismatch` **against
+  the on-chain value** — the exact threat the commitment exists to catch
+
+### Blocker: Soroban writes fail on `stellar-sdk@12`
+
+**Pre-existing, and not specific to Issue #86.** Every Soroban *write* through
+`invokeContract` fails against current testnet with:
+
+```
+TypeError: Bad union switch: 4
+  at ChildUnion.armForSwitch (XDR/./src/union.js:54:11)
+  at stellar-sdk/lib/soroban/server.js:246
+```
+
+This is an XDR protocol mismatch — `stellar-sdk@12.0.0` cannot parse responses
+from a protocol-23 network. It affects the pre-existing `record_ballot`,
+`record_token`, `record_vote` and `record_result` identically; it is not caused by
+`record_ballot_commitment`.
+
+**Reads are unaffected** — `readContract` (simulation-only) works, which is why
+verification against the chain succeeds while anchoring from the app does not.
+
+Practical effect: until the SDK is upgraded, commitments must be anchored out of
+band (e.g. the `stellar` CLI) or left to the database fallback, which reports
+`source: "database"` honestly. Upgrading `stellar-sdk` is a separate change
+touching the whole blockchain layer. Until
   then the database fallback keeps development and CI working, and the badge
   reports `source: "database"`.
 - `NotificationContext` persists ballot topics to `localStorage` in plaintext.
