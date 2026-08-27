@@ -102,7 +102,8 @@ export function parseError(error: unknown): ParsedError {
     
     // Network errors
     if (!axiosError.response) {
-      if (axiosError.code === "ECONNABORTED" || axiosError.message.includes("timeout")) {
+      // `message` is optional on the wire: an error handler must never itself throw.
+      if (axiosError.code === "ECONNABORTED" || axiosError.message?.includes("timeout")) {
         return { ...ERROR_MESSAGES.TIMEOUT_ERROR, statusCode: 0 };
       }
       return { ...ERROR_MESSAGES.NETWORK_ERROR, statusCode: 0 };
