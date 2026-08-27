@@ -63,6 +63,11 @@ model Ballot {
   /// "v1:ephPub:iv:ct" — null means no description (incl. all legacy ballots).
   descriptionCiphertext String?
   descriptionKeyVersion Int?
+  /// sha256 hex of the description PLAINTEXT, computed in the browser.
+  /// The commitment covers this, not the ciphertext: re-encryption (e.g. on a
+  /// password change) mints a fresh envelope for identical content, which would
+  /// otherwise invalidate an already-anchored, write-once commitment forever.
+  descriptionHash       String?
   /// sha256 hex over the canonical payload (topic, description ct, options, deadline).
   commitmentHash        String?
   commitmentTxId        String?

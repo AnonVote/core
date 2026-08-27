@@ -14,6 +14,14 @@ import { computeBallotCommitment } from "../utils/commitment";
 /** Envelope written by the browser: "v1:" + b64(ephPub) + ":" + b64(iv) + ":" + b64(ct) */
 const DESCRIPTION_ENVELOPE_RE = /^v1:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/;
 const MAX_DESCRIPTION_CIPHERTEXT = 12_000;
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
+
+/** The browser supplies sha256(plaintext); the server can only check its shape. */
+export function assertDescriptionHash(value: string): void {
+  if (typeof value !== "string" || !SHA256_HEX_RE.test(value)) {
+    throw badRequest("descriptionHash must be 64 hex characters");
+  }
+}
 
 /**
  * Shape-checks a description envelope. The server cannot decrypt it — this only
@@ -52,6 +60,7 @@ export async function createBallot(
   startTime?: Date,
   autoFinalise = false,
   descriptionCiphertext?: string | null,
+  descriptionHash?: string | null,
 ) {
   // Validate topic
   if (!topic?.trim()) throw badRequest("Ballot topic is required");
@@ -82,6 +91,14 @@ export async function createBallot(
   // an unreadable blob cannot be stored and silently break the commitment later.
   if (descriptionCiphertext != null) {
     assertDescriptionEnvelope(descriptionCiphertext);
+    if (descriptionHash == null) {
+      throw badRequest(
+        "descriptionHash is required whenever descriptionCiphertext is set",
+      );
+    }
+  }
+  if (descriptionHash != null) {
+    assertDescriptionHash(descriptionHash);
   }
 
   // Validate deadline — must be at least 1 hour in the future
@@ -112,6 +129,7 @@ export async function createBallot(
       optionCount: options.length,
       descriptionCiphertext: descriptionCiphertext ?? null,
       descriptionKeyVersion: descriptionCiphertext ? 1 : null,
+      descriptionHash: descriptionHash ?? null,
       options: {
         create: options.map((text) => ({ text: text.trim() })),
       },
@@ -126,7 +144,7 @@ export async function createBallot(
   // DRAFT edit and anchored at activation, when the content is finally frozen.
   const commitmentHash = computeBallotCommitment({
     topic: ballot.topic,
-    descriptionCiphertext: ballot.descriptionCiphertext,
+    descriptionHash: ballot.descriptionHash,
     options: ballot.options,
     deadline: ballot.deadline,
   });
@@ -291,6 +309,7 @@ export async function getBallotsByOrg(
       stellarTxId: b.stellarTxId,
       // Opaque to everyone but the owning org; the dashboard decrypts in place.
       descriptionCiphertext: b.descriptionCiphertext,
+      descriptionHash: b.descriptionHash,
       commitmentHash: b.commitmentHash,
     })),
     total_count: totalCount,
@@ -371,6 +390,7 @@ export async function updateBallot(
     options?: string[];
     /** null clears the description; undefined leaves it untouched. */
     descriptionCiphertext?: string | null;
+    descriptionHash?: string | null;
   },
 ) {
   const ballot = await prisma.ballot.findUnique({
@@ -410,6 +430,14 @@ export async function updateBallot(
 
   if (data.descriptionCiphertext != null) {
     assertDescriptionEnvelope(data.descriptionCiphertext);
+    if (data.descriptionHash == null) {
+      throw badRequest(
+        "descriptionHash is required whenever descriptionCiphertext is set",
+      );
+    }
+  }
+  if (data.descriptionHash != null) {
+    assertDescriptionHash(data.descriptionHash);
   }
 
   if (data.eligibilityListId) {
@@ -444,6 +472,7 @@ export async function updateBallot(
         ...(data.descriptionCiphertext !== undefined && {
           descriptionCiphertext: data.descriptionCiphertext,
           descriptionKeyVersion: data.descriptionCiphertext ? 1 : null,
+          descriptionHash: data.descriptionHash ?? null,
         }),
       },
       include: { options: true },
@@ -471,7 +500,7 @@ export async function updateBallot(
     // replaced above and the commitment must match what is actually stored.
     const commitmentHash = computeBallotCommitment({
       topic: updated.topic,
-      descriptionCiphertext: updated.descriptionCiphertext,
+      descriptionHash: updated.descriptionHash,
       options: updated.options,
       deadline: updated.deadline,
     });
@@ -510,7 +539,7 @@ export async function activateBallot(ballotId: string) {
   // always matches the content actually being frozen.
   const commitmentHash = computeBallotCommitment({
     topic: ballot.topic,
-    descriptionCiphertext: ballot.descriptionCiphertext,
+    descriptionHash: ballot.descriptionHash,
     options: ballot.options,
     deadline: ballot.deadline,
   });

@@ -141,6 +141,8 @@ export const createBallot = (data: {
   startTime?: string;
   autoFinalise?: boolean;
   descriptionCiphertext?: string;
+  /** sha256 hex of the description plaintext — what the commitment covers. */
+  descriptionHash?: string;
 }) => api.post<ApiResponse<Ballot>>("/ballots", data);
 
 export const updateBallot = (
@@ -152,6 +154,7 @@ export const updateBallot = (
     options?: string[];
     /** null clears the description; undefined leaves it untouched. */
     descriptionCiphertext?: string | null;
+    descriptionHash?: string | null;
   },
 ) => api.patch<ApiResponse<Ballot>>(`/ballots/${id}`, data);
 

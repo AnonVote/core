@@ -44,6 +44,8 @@ export interface Ballot {
   /** E2E-encrypted description envelope, "v1:ephPub:iv:ct". Null = none. */
   descriptionCiphertext?: string | null;
   descriptionKeyVersion?: number | null;
+  /** sha256 hex of the description plaintext — what the commitment covers. */
+  descriptionHash?: string | null;
   commitmentHash?: string | null;
   commitmentTxId?: string | null;
   commitmentAnchoredAt?: string | null;

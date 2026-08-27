@@ -8,6 +8,7 @@ import {
   getOrgPublicKey,
 } from "../api/client";
 import { encryptDescription, decryptDescription } from "../utils/org-crypto";
+import { hashDescription } from "../utils/commitment";
 import { getCachedOrgKey } from "../hooks/useOrgKey";
 
 const TOPIC_MAX = 200;
@@ -121,6 +122,7 @@ export default function EditBallotPage() {
       // Re-encrypt only when this session could actually read the description.
       // A locked field must be left exactly as stored.
       let descriptionCiphertext: string | null | undefined;
+      let descriptionHash: string | null | undefined;
       if (!descriptionLocked) {
         if (description.trim()) {
           const me = await getMe();
@@ -138,16 +140,21 @@ export default function EditBallotPage() {
             description.trim(),
             orgPublicKey,
           );
+          descriptionHash = hashDescription(description.trim());
         } else if (ballot?.descriptionCiphertext) {
           // Cleared by the admin — null removes it.
           descriptionCiphertext = null;
+          descriptionHash = null;
         }
       }
 
       await updateBallot(ballotId!, {
         topic: topic.trim(),
         deadline: new Date(deadline).toISOString(),
-        ...(descriptionCiphertext !== undefined && { descriptionCiphertext }),
+        ...(descriptionCiphertext !== undefined && {
+          descriptionCiphertext,
+          descriptionHash,
+        }),
         ...(!hasVotes && {
           options: options.map((o) => o.trim()).filter(Boolean),
         }),

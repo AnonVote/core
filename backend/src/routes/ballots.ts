@@ -37,6 +37,7 @@ router.post(
         startTime,
         autoFinalise,
         descriptionCiphertext,
+        descriptionHash,
       } = req.body;
       const ballot = await createBallot(
         req.organization!.id,
@@ -48,6 +49,7 @@ router.post(
         startTime ? new Date(startTime) : undefined,
         autoFinalise,
         descriptionCiphertext,
+        descriptionHash,
       );
       res.status(201).json({ data: ballot });
     } catch (err) {
@@ -148,13 +150,17 @@ router.patch(
         eligibilityListId,
         options,
         descriptionCiphertext,
+        descriptionHash,
       } = req.body;
       const updated = await updateBallot(req.params.id, req.organization!.id, {
         ...(topic !== undefined && { topic }),
         ...(deadline !== undefined && { deadline: new Date(deadline) }),
         ...(eligibilityListId !== undefined && { eligibilityListId }),
         ...(options !== undefined && { options }),
-        ...(descriptionCiphertext !== undefined && { descriptionCiphertext }),
+        ...(descriptionCiphertext !== undefined && {
+          descriptionCiphertext,
+          descriptionHash,
+        }),
       });
       res.status(200).json({ data: updated });
     } catch (err) {

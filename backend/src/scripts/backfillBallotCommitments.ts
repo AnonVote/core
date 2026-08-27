@@ -52,7 +52,7 @@ export async function backfillBallotCommitments(opts: {
     try {
       const commitmentHash = computeBallotCommitment({
         topic: ballot.topic,
-        descriptionCiphertext: ballot.descriptionCiphertext,
+        descriptionHash: ballot.descriptionHash,
         options: ballot.options,
         deadline: ballot.deadline,
       });

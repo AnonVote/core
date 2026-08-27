@@ -36,6 +36,8 @@ async function cleanDb() {
 const DEADLINE = new Date(Date.now() + 7 * 24 * 3600_000);
 
 // A well-formed v1 envelope. The server never decrypts it.
+const HASH = "c".repeat(64);
+
 const CIPHERTEXT =
   "v1:bmFjbFB1YmxpY0tleUJhc2U2NEV4YW1wbGVWYWx1ZUFB:aXZCYXNlNjQxMg==:Y2lwaGVydGV4dEJhc2U2NA==";
 
@@ -81,7 +83,7 @@ describe("canonicalization", () => {
   it("is deterministic for identical input", () => {
     const input = {
       topic: "Same",
-      descriptionCiphertext: CIPHERTEXT,
+      descriptionHash: HASH,
       options: [{ text: "A" }, { text: "B" }],
       deadline: DEADLINE,
     };
@@ -91,7 +93,7 @@ describe("canonicalization", () => {
   it("is independent of option ordering", () => {
     const base = {
       topic: "Order",
-      descriptionCiphertext: null,
+      descriptionHash: null,
       deadline: DEADLINE,
     };
     const forward = computeBallotCommitment({
@@ -107,7 +109,7 @@ describe("canonicalization", () => {
 
   it("changes when the topic changes", () => {
     const base = {
-      descriptionCiphertext: null,
+      descriptionHash: null,
       options: [{ text: "A" }, { text: "B" }],
       deadline: DEADLINE,
     };
@@ -116,26 +118,36 @@ describe("canonicalization", () => {
     );
   });
 
-  it("changes when the description ciphertext changes", () => {
+  it("changes when the description content changes", () => {
     const base = {
       topic: "Fixed",
       options: [{ text: "A" }, { text: "B" }],
       deadline: DEADLINE,
     };
     expect(
-      computeBallotCommitment({ ...base, descriptionCiphertext: CIPHERTEXT }),
+      computeBallotCommitment({ ...base, descriptionHash: HASH }),
     ).not.toBe(
-      computeBallotCommitment({
-        ...base,
-        descriptionCiphertext: CIPHERTEXT.replace("Y2lwaGVy", "Z2lwaGVy"),
-      }),
+      computeBallotCommitment({ ...base, descriptionHash: "b".repeat(64) }),
     );
+  });
+
+  it("is UNAFFECTED by re-encrypting the same description", () => {
+    // The regression this design exists to prevent: encrypting identical content
+    // twice yields different envelopes, so committing the ciphertext would make a
+    // routine password change permanently invalidate a write-once commitment.
+    const base = {
+      topic: "Fixed",
+      descriptionHash: HASH,
+      options: [{ text: "A" }, { text: "B" }],
+      deadline: DEADLINE,
+    };
+    expect(computeBallotCommitment(base)).toBe(computeBallotCommitment(base));
   });
 
   it("changes when the deadline changes", () => {
     const base = {
       topic: "Fixed",
-      descriptionCiphertext: null,
+      descriptionHash: null,
       options: [{ text: "A" }, { text: "B" }],
     };
     expect(
@@ -154,15 +166,12 @@ describe("canonicalization", () => {
       options: [{ text: "A" }, { text: "B" }],
       deadline: DEADLINE,
     };
-    expect(
-      computeBallotCommitment({ ...base, descriptionCiphertext: null }),
-    ).toBe(
-      computeBallotCommitment({ ...base, descriptionCiphertext: "" }),
+    expect(computeBallotCommitment({ ...base, descriptionHash: null })).toBe(
+      computeBallotCommitment({ ...base, descriptionHash: "" }),
     );
     expect(
-      JSON.parse(
-        canonicalBallotPayload({ ...base, descriptionCiphertext: null }),
-      ).descriptionCiphertext,
+      JSON.parse(canonicalBallotPayload({ ...base, descriptionHash: null }))
+        .descriptionHash,
     ).toBe("");
   });
 });
@@ -173,21 +182,22 @@ describe("cross-implementation parity", () => {
   // for every ballot, so both suites pin the same constant.
   const FIXTURE = {
     topic: "  Annual budget vote  ",
-    descriptionCiphertext: "v1:ZXBo:aXY=:Y3Q=",
+    descriptionHash: "a".repeat(64),
     options: [{ text: "Charlie" }, { text: " Alpha " }, { text: "Bravo" }],
     deadline: "2027-01-15T12:00:00.000Z",
   };
 
   it("canonicalizes with a trimmed topic and sorted, trimmed options", () => {
     expect(canonicalBallotPayload(FIXTURE)).toBe(
-      '{"topic":"Annual budget vote","descriptionCiphertext":"v1:ZXBo:aXY=:Y3Q=",' +
-        '"options":["Alpha","Bravo","Charlie"],"deadline":"2027-01-15T12:00:00.000Z"}',
+      '{"topic":"Annual budget vote","descriptionHash":"' +
+        "a".repeat(64) +
+        '","options":["Alpha","Bravo","Charlie"],"deadline":"2027-01-15T12:00:00.000Z"}',
     );
   });
 
   it("hashes the shared fixture to the pinned value", () => {
     expect(computeBallotCommitment(FIXTURE)).toBe(
-      "5821ef72e322b055ec77910fa77b1e507cb709e3e9a094910ec5cbd650405279",
+      "28abb03f3022d54e827d2a4215945ddfb4df0e698e9815300289470bf403997c",
     );
   });
 });
@@ -196,6 +206,7 @@ describe("ballot lifecycle", () => {
   it("stores the description ciphertext verbatim", async () => {
     const res = await createBallotViaApi({
       descriptionCiphertext: CIPHERTEXT,
+      descriptionHash: HASH,
     });
     expect(res.status).toBe(201);
 
@@ -232,7 +243,7 @@ describe("ballot lifecycle", () => {
     expect(row?.commitmentHash).toBe(
       computeBallotCommitment({
         topic: row!.topic,
-        descriptionCiphertext: row!.descriptionCiphertext,
+        descriptionHash: row!.descriptionHash,
         options: row!.options,
         deadline: row!.deadline,
       }),
@@ -260,6 +271,7 @@ describe("ballot lifecycle", () => {
   it("persists the commitment at DRAFT → ACTIVE activation", async () => {
     const res = await createBallotViaApi({
       descriptionCiphertext: CIPHERTEXT,
+      descriptionHash: HASH,
     });
     const ballotId = res.body.data.id;
 
@@ -273,7 +285,7 @@ describe("ballot lifecycle", () => {
     expect(row?.commitmentHash).toBe(
       computeBallotCommitment({
         topic: row!.topic,
-        descriptionCiphertext: row!.descriptionCiphertext,
+        descriptionHash: row!.descriptionHash,
         options: row!.options,
         deadline: row!.deadline,
       }),

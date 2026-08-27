@@ -65,7 +65,9 @@ async function createBallot(descriptionCiphertext?: string) {
       options: ["Yes", "No"],
       eligibilityListId,
       deadline: DEADLINE,
-      ...(descriptionCiphertext ? { descriptionCiphertext } : {}),
+      ...(descriptionCiphertext
+        ? { descriptionCiphertext, descriptionHash: "d".repeat(64) }
+        : {}),
     });
   expect(res.status).toBe(201);
   return res.body.data.id as string;
@@ -78,7 +80,10 @@ describe("BALLOT_METADATA_CHANGED", () => {
     await request(app)
       .patch(`/api/ballots/${ballotId}`)
       .set("Cookie", cookie)
-      .send({ descriptionCiphertext: envelope("first") })
+      .send({
+        descriptionCiphertext: envelope("first"),
+        descriptionHash: "e".repeat(64),
+      })
       .expect(200);
 
     const events = await prisma.auditEvent.findMany({
@@ -94,7 +99,10 @@ describe("BALLOT_METADATA_CHANGED", () => {
     await request(app)
       .patch(`/api/ballots/${ballotId}`)
       .set("Cookie", cookie)
-      .send({ descriptionCiphertext: envelope("new") })
+      .send({
+        descriptionCiphertext: envelope("new"),
+        descriptionHash: "f".repeat(64),
+      })
       .expect(200);
 
     const events = await prisma.auditEvent.findMany({
@@ -113,7 +121,11 @@ describe("BALLOT_METADATA_CHANGED", () => {
     await request(app)
       .patch(`/api/ballots/${ballotId}`)
       .set("Cookie", cookie)
-      .send({ topic: "A new topic", descriptionCiphertext: envelope("same") })
+      .send({
+        topic: "A new topic",
+        descriptionCiphertext: envelope("same"),
+        descriptionHash: "d".repeat(64),
+      })
       .expect(200);
 
     const events = await prisma.auditEvent.findMany({
@@ -127,7 +139,10 @@ describe("BALLOT_METADATA_CHANGED", () => {
     await request(app)
       .patch(`/api/ballots/${ballotId}`)
       .set("Cookie", cookie)
-      .send({ descriptionCiphertext: envelope("new") })
+      .send({
+        descriptionCiphertext: envelope("new"),
+        descriptionHash: "f".repeat(64),
+      })
       .expect(200);
 
     const res = await request(app)
@@ -167,7 +182,7 @@ describe("backfillBallotCommitments", () => {
     expect(row?.commitmentHash).toBe(
       computeBallotCommitment({
         topic: row!.topic,
-        descriptionCiphertext: row!.descriptionCiphertext,
+        descriptionHash: row!.descriptionHash,
         options: row!.options,
         deadline: row!.deadline,
       }),

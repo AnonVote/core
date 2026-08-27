@@ -4,8 +4,12 @@
  * A SHA-256 commitment over a ballot's user-visible content, anchored on-chain at
  * activation so a voter can detect a ballot being altered after they were invited.
  *
- * The description is committed as *ciphertext*, deliberately: a voter can verify
- * the ballot has not changed without being able to read an admin-only field.
+ * The description is committed as a hash of its PLAINTEXT, not its ciphertext: a
+ * voter can still verify the ballot has not changed without reading an admin-only
+ * field, but the committed value survives re-encryption. Committing the ciphertext
+ * would be unsound — encrypting identical content twice yields different envelopes
+ * (fresh ephemeral key per call), so a password-change re-encryption would
+ * permanently invalidate an already-anchored, write-once commitment.
  *
  * `frontend/src/utils/commitment.ts` MUST produce byte-identical output — the
  * shared fixture in the test suites is what keeps the two in lockstep. Any change
@@ -15,7 +19,8 @@ import { createHash } from "crypto";
 
 export interface BallotCommitmentInput {
   topic: string;
-  descriptionCiphertext?: string | null;
+  /** sha256 hex of the description plaintext; null when there is no description. */
+  descriptionHash?: string | null;
   options: { text: string }[];
   deadline: Date | string;
 }
@@ -40,7 +45,7 @@ export function canonicalBallotPayload(input: BallotCommitmentInput): string {
     topic: input.topic.trim(),
     // Legacy ballots (and ballots with no description) canonicalize to "" so a
     // commitment remains computable for them.
-    descriptionCiphertext: input.descriptionCiphertext ?? "",
+    descriptionHash: input.descriptionHash ?? "",
     options: input.options.map((o) => o.text.trim()).sort(),
     deadline: deadline.toISOString(),
   });

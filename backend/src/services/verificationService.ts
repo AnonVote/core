@@ -110,7 +110,7 @@ export async function verifyBallotCommitment(
 
   const expected = computeBallotCommitment({
     topic: ballot.topic,
-    descriptionCiphertext: ballot.descriptionCiphertext,
+    descriptionHash: ballot.descriptionHash,
     options: ballot.options,
     deadline: ballot.deadline,
   });

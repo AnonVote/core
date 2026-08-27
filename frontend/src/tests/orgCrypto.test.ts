@@ -16,6 +16,7 @@ import {
 import {
   canonicalBallotPayload,
   computeBallotCommitment,
+  hashDescription,
 } from "../utils/commitment";
 import {
   cacheOrgKey,
@@ -136,7 +137,7 @@ describe("commitment parity with the backend", () => {
   // Shared fixture — the backend suite asserts the identical value.
   const FIXTURE = {
     topic: "  Annual budget vote  ",
-    descriptionCiphertext: "v1:ZXBo:aXY=:Y3Q=",
+    descriptionHash: "a".repeat(64),
     options: [{ text: "Charlie" }, { text: " Alpha " }, { text: "Bravo" }],
     deadline: "2027-01-15T12:00:00.000Z",
   };
@@ -151,7 +152,44 @@ describe("commitment parity with the backend", () => {
   it("matches the backend hash for the shared fixture", () => {
     // Value produced by backend/src/utils/commitment.ts for FIXTURE.
     expect(computeBallotCommitment(FIXTURE)).toBe(
-      "5821ef72e322b055ec77910fa77b1e507cb709e3e9a094910ec5cbd650405279",
+      "28abb03f3022d54e827d2a4215945ddfb4df0e698e9815300289470bf403997c",
+    );
+  });
+
+  it("survives re-encryption of an identical description", () => {
+    // Regression: the commitment used to cover the ciphertext. Encrypting the
+    // same text twice yields different envelopes, so a routine password-change
+    // re-encryption permanently invalidated an already-anchored, write-once
+    // commitment. Committing the plaintext hash fixes that.
+    const { publicKey } = deriveOrgKeypair(PASSWORD, SALT);
+    const text = "Board-only context";
+
+    const first = encryptDescription(text, publicKey);
+    const second = encryptDescription(text, publicKey);
+    expect(first).not.toBe(second); // different envelopes, same content
+
+    const base = {
+      topic: "Stable",
+      options: [{ text: "A" }, { text: "B" }],
+      deadline: "2027-01-15T12:00:00.000Z",
+    };
+    expect(
+      computeBallotCommitment({ ...base, descriptionHash: hashDescription(text) }),
+    ).toBe(
+      computeBallotCommitment({ ...base, descriptionHash: hashDescription(text) }),
+    );
+  });
+
+  it("changes when the description content actually changes", () => {
+    const base = {
+      topic: "Stable",
+      options: [{ text: "A" }, { text: "B" }],
+      deadline: "2027-01-15T12:00:00.000Z",
+    };
+    expect(
+      computeBallotCommitment({ ...base, descriptionHash: hashDescription("one") }),
+    ).not.toBe(
+      computeBallotCommitment({ ...base, descriptionHash: hashDescription("two") }),
     );
   });
 
@@ -170,9 +208,9 @@ describe("commitment parity with the backend", () => {
       options: [{ text: "A" }, { text: "B" }],
       deadline: "2027-01-15T12:00:00.000Z",
     };
-    expect(
-      computeBallotCommitment({ ...base, descriptionCiphertext: null }),
-    ).toBe(computeBallotCommitment({ ...base, descriptionCiphertext: "" }));
+    expect(computeBallotCommitment({ ...base, descriptionHash: null })).toBe(
+      computeBallotCommitment({ ...base, descriptionHash: "" }),
+    );
   });
 });
 

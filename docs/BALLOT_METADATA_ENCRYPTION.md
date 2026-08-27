@@ -38,8 +38,18 @@ after voters were invited, including alteration by the operator.
    content, anchored on-chain when voting opens, so a voter can detect a ballot
    altered after they were invited.
 
-They are related only in that the commitment covers the description *ciphertext*,
-which is what lets a voter verify a ballot without being able to read it.
+They are related only in that the commitment covers a **hash of the description
+plaintext**, which is what lets a voter verify a ballot without being able to
+read it.
+
+> **Why the hash and not the ciphertext.** Encrypting identical content twice
+> produces different envelopes (a fresh ephemeral key per call, by design). If the
+> commitment covered the ciphertext, a routine password change — which
+> re-encrypts every description — would flip every ballot to "content altered".
+> Worse, the on-chain commitment is write-once, so an already-anchored ballot
+> could never be corrected. The browser therefore submits
+> `descriptionHash = sha256(plaintext)` alongside the ciphertext, and the
+> commitment covers that. A genuine description change still moves the hash.
 
 ## Key derivation
 
@@ -83,20 +93,26 @@ stored and silently break the commitment.
 
 `backend/src/utils/commitment.ts` and `frontend/src/utils/commitment.ts` MUST
 produce byte-identical output. Both test suites pin the same fixture hash
-(`5821ef72…`); if they ever diverge, verification silently breaks for every
+(`28abb03f…`); if they ever diverge, verification silently breaks for every
 ballot.
 
 ```
 JSON.stringify({
   topic: topic.trim(),
-  descriptionCiphertext: descriptionCiphertext ?? "",
+  descriptionHash: descriptionHash ?? "",
   options: options.map(o => o.text.trim()).sort(),
   deadline: deadline.toISOString(),
 })
 ```
 
-Options are sorted because `Option` has no ordering column. A null ciphertext
-canonicalizes to `""`, so legacy ballots remain hashable.
+Options are sorted because `Option` has no ordering column. A null
+`descriptionHash` canonicalizes to `""`, so legacy ballots remain hashable.
+
+`descriptionHash` is supplied by the browser (`hashDescription()` in
+`frontend/src/utils/commitment.ts`) and is required whenever
+`descriptionCiphertext` is set. The server only shape-checks it — it cannot
+verify the hash without the key, which is fine: the commitment's adversary is the
+operator, and the value is frozen on-chain at activation.
 
 ### Lifecycle
 

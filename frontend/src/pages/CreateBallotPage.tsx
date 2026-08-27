@@ -7,6 +7,7 @@ import {
   getOrgPublicKey,
 } from "../api/client";
 import { encryptDescription } from "../utils/org-crypto";
+import { hashDescription } from "../utils/commitment";
 
 // The backend rejects a topic over 200 characters; the form previously allowed
 // 500, so a valid-looking topic was refused on submit.
@@ -80,6 +81,7 @@ export default function CreateBallotPage() {
       // Encrypt the description to the org's public key before it leaves the
       // browser. The server only ever receives ciphertext.
       let descriptionCiphertext: string | undefined;
+      let descriptionHash: string | undefined;
       if (description.trim()) {
         try {
           const me = await getMe();
@@ -97,6 +99,9 @@ export default function CreateBallotPage() {
             description.trim(),
             orgPublicKey,
           );
+          // The commitment covers the plaintext hash, not the ciphertext, so it
+          // survives re-encryption on a password change.
+          descriptionHash = hashDescription(description.trim());
         } catch {
           setErrors({
             description:
@@ -111,7 +116,9 @@ export default function CreateBallotPage() {
       const { eligibilityListId } = eligRes.data.data;
       const createRes = await createBallot({
         topic: topic.trim(),
-        ...(descriptionCiphertext ? { descriptionCiphertext } : {}),
+        ...(descriptionCiphertext
+          ? { descriptionCiphertext, descriptionHash }
+          : {}),
         options: options.map((o) => o.trim()).filter(Boolean),
         eligibilityListId,
         deadline: new Date(deadline).toISOString(),

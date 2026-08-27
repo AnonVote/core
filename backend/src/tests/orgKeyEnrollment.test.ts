@@ -77,6 +77,7 @@ async function makeBallotWithDescription(tag: string) {
       eligibilityListId,
       deadline: DEADLINE,
       descriptionCiphertext: envelope(tag),
+      descriptionHash: "a".repeat(64),
     });
   expect(res.status).toBe(201);
   return res.body.data.id as string;
@@ -279,6 +280,7 @@ describe("password change re-encryption", () => {
         eligibilityListId: otherList.id,
         deadline: DEADLINE,
         descriptionCiphertext: envelope("z"),
+        descriptionHash: "b".repeat(64),
       });
 
     const res = await request(app)
