@@ -1,6 +1,12 @@
 import { prisma } from "../prisma/client";
-import { hashToken, encryptVote, hashIdentifier } from "../utils/crypto";
-import { sorobanRecordVote } from "./sorobanService";
+import {
+  hashToken,
+  encryptVote,
+  hashIdentifier,
+  computeVoteIdHash,
+} from "../utils/crypto";
+import { getVoteSubmissionBatcher } from "./voteSubmissionBatcher";
+import { config } from "../config";
 import { AppError } from "../utils/errors";
 import { getEffectiveVoter } from "./delegationManager";
 import { getBallotEncryptionKey } from "./ballotKeyService";
@@ -133,16 +139,43 @@ export async function submitVote(
     // Encrypt raw option ID
     const encryptedOption = encryptVote(optionId, ballotKey);
 
-    // Create vote record with anchorStatus PENDING
-    const vote = await tx.vote.create({
-      data: {
-        ballotId,
-        encryptedOption,
-        weight,
-        rank,
-        anchorStatus: "PENDING",
-      },
-    });
+    // Deterministic idempotency key for on-chain anchoring (issue #77).
+    // HMAC-keyed so a DB-only leak cannot link votes back to token hashes.
+    const voteIdHash = computeVoteIdHash(
+      ballotId,
+      effectiveToken,
+      config.dataEncryptionKey || undefined,
+    );
+
+    // Create vote record with anchorStatus PENDING — the submission batcher
+    // anchors it on-chain asynchronously (batched, retried, DLQ'd on failure).
+    let vote;
+    try {
+      vote = await tx.vote.create({
+        data: {
+          ballotId,
+          encryptedOption,
+          weight,
+          rank,
+          voteIdHash,
+          anchorStatus: "PENDING",
+        },
+      });
+    } catch (createErr) {
+      // Unique violation on vote_id_hash ⇒ this exact ballot+token already
+      // cast a vote — a replay. Surface it without leaking which option won.
+      if (
+        createErr instanceof Error &&
+        /unique|duplicate/i.test(createErr.message)
+      ) {
+        throw new AppError(
+          "A vote has already been recorded for this token.",
+          409,
+          "DUPLICATE_VOTE_ID",
+        );
+      }
+      throw createErr;
+    }
 
     // Audit event — no token value stored
     const auditEvent = await tx.auditEvent.create({
@@ -166,70 +199,34 @@ export async function submitVote(
     throw new AppError("Database transaction failed during vote submission", 500, "DATABASE_ERROR");
   });
 
-  // Stellar/Soroban anchoring after transaction commits
-  let stellarTxId: string | null = null;
-  let sorobanTxId: string | null = null;
-  let anchorStatus: "ANCHORED" | "PENDING" = "PENDING";
+  // ── On-chain anchoring (async, batched) ─────────────────────────────────
+  // The vote is durably confirmed in the database; anchoring now happens via
+  // the VoteSubmissionBatcher: votes are grouped into a single atomic Soroban
+  // transaction (up to VOTE_BATCH_SIZE), retried with exponential backoff,
+  // circuit-breaker protected, and dead-lettered if all retries fail.
+  // The API therefore responds immediately with anchor_status PENDING — the
+  // contract state manager and verification endpoints reflect final status.
   const ballotIdHash = hashIdentifier(ballotId);
+  const queued = getVoteSubmissionBatcher().enqueue({
+    voteId: voteResult.id,
+    ballotId,
+    ballotIdHash,
+    voteIdHash: voteResult.voteIdHash!,
+  });
 
-  try {
-    const txHash = await sorobanRecordVote(ballotIdHash);
-    if (txHash) {
-      stellarTxId = txHash;
-      sorobanTxId = txHash;
-      anchorStatus = "ANCHORED";
-
-      await prisma.vote.update({
-        where: { id: voteResult.id },
-        data: {
-          stellarTxId: txHash,
-          sorobanTxId: txHash,
-          anchorStatus: "ANCHORED",
-        },
-      }).catch((err) => console.error("[Soroban] Failed to update vote status on anchor success:", err));
-    } else {
-      await handleStellarAnchorFailure(voteResult.id);
-    }
-  } catch (err) {
-    console.error("[Soroban] Error recording vote on-chain:", err);
-    // A thrown error means the contract invocation itself failed (not just skipped)
-    // Mark the vote as failed and surface TRANSACTION_FAILED to the caller
-    await handleStellarAnchorFailure(voteResult.id);
-    throw new AppError(
-      "Contract invocation failed during vote submission",
-      500,
-      "TRANSACTION_FAILED",
-    );
+  if (!queued) {
+    logger.info("vote_anchor_enqueue_deduplicated", {
+      voteId: voteResult.id,
+      message:
+        "Vote was already queued/anchored recently — idempotent replay ignored.",
+    });
   }
-
-  const explorer_url = sorobanTxId
-    ? `https://stellar.expert/explorer/testnet/tx/${sorobanTxId}`
-    : undefined;
 
   return {
     status: "confirmed",
-    stellar_tx_id: stellarTxId,
-    soroban_tx_id: sorobanTxId,
-    anchor_status: anchorStatus,
-    ...(explorer_url ? { explorer_url } : {}),
+    stellar_tx_id: null,
+    soroban_tx_id: null,
+    anchor_status: "PENDING",
     voteId: voteResult.id,
   };
-}
-
-async function handleStellarAnchorFailure(voteId: string): Promise<void> {
-  try {
-    await prisma.$transaction([
-      prisma.vote.update({
-        where: { id: voteId },
-        data: { anchorStatus: "FAILED" },
-      }),
-      prisma.stellarRetryQueue.upsert({
-        where: { voteId },
-        create: { voteId, retryCount: 0 },
-        update: {},
-      }),
-    ]);
-  } catch (err) {
-    console.error(`[Stellar] Failed to queue retry for vote ${voteId}:`, err);
-  }
 }

@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Env, String,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Env, String, Vec,
 };
 
 /// Maximum votes allowed per ballot (2^63 - 1).
@@ -19,6 +19,9 @@ pub enum Error {
     Unauthorized = 3,
     /// Returned when a public key is invalid or identical to current key.
     InvalidKey = 4,
+    /// Returned when a duplicate vote id is submitted to `record_vote` or
+    /// `batch_record_votes`. Used for idempotency (issue #77).
+    DuplicateVote = 5,
 }
 
 #[contracttype]
@@ -29,6 +32,7 @@ pub enum DataKey {
     VotesCast(String),
     BallotResult(String),
     BallotExists(String),
+    VoteRecorded(String),
 }
 
 fn is_valid_stellar_key(key: &String) -> bool {
@@ -134,9 +138,29 @@ impl AnonVoteContract {
         );
     }
 
-    /// Record a vote cast on-chain.
-    /// Rejects votes with `Error::CounterOverflow` if the vote count has reached `MAX_VOTES_PER_BALLOT`.
-    pub fn record_vote(env: Env, ballot_id_hash: String) -> Result<(), Error> {
+        /// Record a vote cast on-chain.
+    /// Idempotent: a duplicate `vote_id_hash` returns `Error::DuplicateVote`
+    /// (#5). Rejects votes with `Error::CounterOverflow` once the ballot's
+    /// vote counter reaches `MAX_VOTES_PER_BALLOT`.
+    ///
+    /// `vote_id_hash` is a deterministic per-vote key supplied by the caller
+    /// (HMAC-SHA256 of ballotId + tokenHash) and is what makes replays safe —
+    /// resubmitting the same batch can never double-count.
+    pub fn record_vote(
+        env: Env,
+        ballot_id_hash: String,
+        vote_id_hash: String,
+    ) -> Result<(), Error> {
+        // Idempotency guard — a vote id may only ever be counted once.
+        let rec_key = DataKey::VoteRecorded(vote_id_hash.clone());
+        if env.storage().instance().has(&rec_key) {
+            env.events().publish(
+                (symbol_short!("vote"), symbol_short!("dupe")),
+                ballot_id_hash.clone(),
+            );
+            return Err(Error::DuplicateVote);
+        }
+
         let key = DataKey::VotesCast(ballot_id_hash.clone());
         let current: u64 = env.storage().instance().get(&key).unwrap_or(0);
 
@@ -150,6 +174,8 @@ impl AnonVoteContract {
 
         let next = current + 1;
         env.storage().instance().set(&key, &next);
+        // Persist the recorded-vote marker so replays are rejected.
+        env.storage().instance().set(&rec_key, &true);
 
         if next >= MAX_VOTES_PER_BALLOT {
             env.events().publish(
@@ -162,6 +188,53 @@ impl AnonVoteContract {
             (symbol_short!("vote"), symbol_short!("cast")),
             ballot_id_hash,
         );
+
+        Ok(())
+    }
+
+    /// Record a batch of votes in one atomic call.
+    ///
+    /// `votes` is a `Vec<(ballot_id_hash, vote_id_hash)>`. The contract
+    /// pre-validates every entry (duplicate + per-ballot overflow) BEFORE
+    /// applying any, so on revert the storage is left untouched — callers can
+    /// then split the batch into individual idempotent `record_vote` submits.
+    /// This is the primitive that lets 100 votes share one transaction fee.
+    pub fn batch_record_votes(
+        env: Env,
+        votes: Vec<(String, String)>,
+    ) -> Result<(), Error> {
+        // Pre-validate without mutating storage.
+        for (ballot_id_hash, vote_id_hash) in votes.iter() {
+            let rec_key = DataKey::VoteRecorded(vote_id_hash.clone());
+            if env.storage().instance().has(&rec_key) {
+                env.events().publish(
+                    (symbol_short!("vote"), symbol_short!("dupe")),
+                    ballot_id_hash.clone(),
+                );
+                return Err(Error::DuplicateVote);
+            }
+
+            let count_key = DataKey::VotesCast(ballot_id_hash.clone());
+            let current: u64 = env.storage().instance().get(&count_key).unwrap_or(0);
+            if current >= MAX_VOTES_PER_BALLOT {
+                return Err(Error::CounterOverflow);
+            }
+        }
+
+        // All checks passed — apply each record (atomic per tx).
+        for (ballot_id_hash, vote_id_hash) in votes.iter() {
+            let count_key = DataKey::VotesCast(ballot_id_hash.clone());
+            let current: u64 = env.storage().instance().get(&count_key).unwrap_or(0);
+            env.storage().instance().set(&count_key, &(current + 1));
+
+            let rec_key = DataKey::VoteRecorded(vote_id_hash.clone());
+            env.storage().instance().set(&rec_key, &true);
+
+            env.events().publish(
+                (symbol_short!("vote"), symbol_short!("cast")),
+                ballot_id_hash.clone(),
+            );
+        }
 
         Ok(())
     }
@@ -189,11 +262,18 @@ impl AnonVoteContract {
         env.storage().instance().get(&key).unwrap_or(0)
     }
 
-    /// Check if audit counters are consistent (tokens_issued >= votes_cast).
+        /// Check if audit counters are consistent (tokens_issued >= votes_cast).
     pub fn is_consistent(env: Env, ballot_id_hash: String) -> bool {
         let tokens = Self::get_tokens_issued(env.clone(), ballot_id_hash.clone());
         let votes = Self::get_votes_cast(env, ballot_id_hash);
         tokens >= votes
+    }
+
+    /// Returns true if a vote with the given id_hash has already been recorded
+    /// on-chain. View call — no transaction required.
+    pub fn has_vote(env: Env, vote_id_hash: String) -> bool {
+        let key = DataKey::VoteRecorded(vote_id_hash);
+        env.storage().instance().has(&key)
     }
 }
 
@@ -313,7 +393,7 @@ mod test {
         assert_eq!(client.get_admin_key(), admin3);
     }
 
-    #[test]
+        #[test]
     fn test_vote_counter_increments_correctly() {
         let env = Env::default();
         let contract_id = env.register(AnonVoteContract, ());
@@ -326,13 +406,119 @@ mod test {
 
         assert_eq!(client.get_votes_cast(&ballot_id), 0);
 
-        let res = client.try_record_vote(&ballot_id);
+        // Each vote must carry a unique vote id (idempotency key).
+        let res = client.try_record_vote(
+            &ballot_id,
+            &String::from_str(&env, "vote-1"),
+        );
         assert!(res.is_ok());
         assert_eq!(client.get_votes_cast(&ballot_id), 1);
 
-        let res2 = client.try_record_vote(&ballot_id);
+        let res2 = client.try_record_vote(
+            &ballot_id,
+            &String::from_str(&env, "vote-2"),
+        );
         assert!(res2.is_ok());
         assert_eq!(client.get_votes_cast(&ballot_id), 2);
+    }
+
+    #[test]
+    fn test_duplicate_vote_id_rejected() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "ballot-dup");
+        let vote_id = String::from_str(&env, "vote-x");
+        client.record_ballot(&ballot_id);
+
+        // First submission accepted.
+        assert!(client.try_record_vote(&ballot_id, &vote_id).is_ok());
+        assert_eq!(client.get_votes_cast(&ballot_id), 1);
+
+        // Resubmitting the SAME vote id is rejected with DuplicateVote, and
+        // the on-chain counter does not advance.
+        let dupe = client.try_record_vote(&ballot_id, &vote_id);
+        assert!(dupe.is_err());
+        assert_eq!(dupe.unwrap_err(), Ok(Error::DuplicateVote));
+        assert_eq!(client.get_votes_cast(&ballot_id), 1);
+
+        // A different vote id for the same ballot is accepted.
+        assert!(client
+            .try_record_vote(&ballot_id, &String::from_str(&env, "vote-y"))
+            .is_ok());
+        assert_eq!(client.get_votes_cast(&ballot_id), 2);
+    }
+
+    #[test]
+    fn test_has_vote_reflects_recorded_state() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "ballot-has");
+        let vote_id = String::from_str(&env, "vote-has-1");
+        client.record_ballot(&ballot_id);
+
+        assert_eq!(client.has_vote(&vote_id), false);
+        assert!(client.try_record_vote(&ballot_id, &vote_id).is_ok());
+        assert_eq!(client.has_vote(&vote_id), true);
+        assert_eq!(client.has_vote(&String::from_str(&env, "nope")), false);
+    }
+
+    #[test]
+    fn test_batch_record_votes_is_atomic() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "batch-ballot");
+        client.record_ballot(&ballot_id);
+
+        // Clean batch is accepted atomically.
+        let votes: Vec<(String, String)> = Vec::from_array(&env, [
+            (ballot_id.clone(), String::from_str(&env, "b1")),
+            (ballot_id.clone(), String::from_str(&env, "b2")),
+            (ballot_id.clone(), String::from_str(&env, "b3")),
+        ]);
+        let res = client.try_batch_record_votes(&votes);
+        assert!(res.is_ok());
+        assert_eq!(client.get_votes_cast(&ballot_id), 3);
+
+        // A batch containing an already-recorded vote id reverts the WHOLE
+        // batch (atomic) and changes nothing.
+        let votes_with_dup: Vec<(String, String)> = Vec::from_array(&env, [
+            (ballot_id.clone(), String::from_str(&env, "b1")),
+            (ballot_id.clone(), String::from_str(&env, "b4")),
+        ]);
+        let res_dup = client.try_batch_record_votes(&votes_with_dup);
+        assert!(res_dup.is_err());
+        assert_eq!(res_dup.unwrap_err(), Ok(Error::DuplicateVote));
+        assert_eq!(client.get_votes_cast(&ballot_id), 3);
+        assert_eq!(client.has_vote(&String::from_str(&env, "b4")), false);
+    }
+
+    #[test]
+    fn test_batch_record_votes_overflow_atomic() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "batch-overflow");
+        client.record_ballot(&ballot_id);
+
+        env.as_contract(&contract_id, || {
+            let key = DataKey::VotesCast(ballot_id.clone());
+            env.storage().instance().set(&key, &MAX_VOTES_PER_BALLOT);
+        });
+
+        let votes: Vec<(String, String)> = Vec::from_array(&env, [
+            (ballot_id.clone(), String::from_str(&env, "ob1")),
+        ]);
+        let res = client.try_batch_record_votes(&votes);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), Ok(Error::CounterOverflow));
+        assert_eq!(client.has_vote(&String::from_str(&env, "ob1")), false);
     }
 
     #[test]
@@ -348,7 +534,10 @@ mod test {
             env.storage().instance().set(&key, &(MAX_VOTES_PER_BALLOT - 1));
         });
 
-        let res = client.try_record_vote(&ballot_id);
+        let res = client.try_record_vote(
+            &ballot_id,
+            &String::from_str(&env, "at-limit-vote"),
+        );
         assert!(res.is_ok());
 
         assert_eq!(client.get_votes_cast(&ballot_id), MAX_VOTES_PER_BALLOT);
@@ -367,7 +556,10 @@ mod test {
             env.storage().instance().set(&key, &MAX_VOTES_PER_BALLOT);
         });
 
-        let res = client.try_record_vote(&ballot_id);
+        let res = client.try_record_vote(
+            &ballot_id,
+            &String::from_str(&env, "overflow-vote"),
+        );
         assert!(res.is_err());
         assert_eq!(res.unwrap_err(), Ok(Error::CounterOverflow));
 
@@ -380,6 +572,7 @@ mod test {
         assert_eq!(Error::BallotNotFound as u32, 2);
         assert_eq!(Error::Unauthorized as u32, 3);
         assert_eq!(Error::InvalidKey as u32, 4);
+        assert_eq!(Error::DuplicateVote as u32, 5);
         assert_eq!(MAX_VOTES_PER_BALLOT, 9_223_372_036_854_775_807_u64);
         assert_eq!(MAX_VOTES_PER_BALLOT, (1u64 << 63) - 1);
     }

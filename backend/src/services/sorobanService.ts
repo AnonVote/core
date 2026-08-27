@@ -1,18 +1,18 @@
 /**
- * Soroban Smart Contract Service
+ * Soroban Smart Contract Service — LOW-LEVEL RPC PRIMITIVES (issue #77).
  *
- * STATUS: Contract written (contracts/anonvote/src/lib.rs) — needs deployment.
+ * This module talks to the deployed AnonVote Soroban contract. It throws
+ * typed `SorobanError`s on failure; retry/backoff/circuit-breaking lives in
+ * sorobanResilient.ts, batching in voteSubmissionBatcher.ts, and state
+ * reconciliation in contractStateManager.ts.
  *
- * The manageData-based stellarService.ts is the active blockchain layer.
- * This service is ready to wire once the Soroban contract is deployed.
- *
- * TO ACTIVATE:
- * 1. Install Rust + Stellar CLI (see contracts/README.md)
- * 2. Build: cd contracts/anonvote && cargo build --target wasm32-unknown-unknown --release
- * 3. Deploy: stellar contract deploy --wasm target/wasm32-unknown-unknown/release/anonvote.wasm --network testnet
- * 4. Initialize: stellar contract invoke --id <ID> -- initialize --admin <PUBLIC_KEY>
- * 5. Set SOROBAN_CONTRACT_ID=<ID> in backend/.env
- * 6. Call the helpers below from ballotEngine, identityManager, privacyEngine, resultEngine
+ * Contract methods consumed (contracts/anonvote/src/lib.rs):
+ *   record_ballot(ballot_id_hash)
+ *   record_token(ballot_id_hash)
+ *   record_vote(ballot_id_hash, vote_id_hash)          — rejects duplicates (#5)
+ *   batch_record_votes(Vec<(ballot_id_hash, vote_id_hash)>) — atomic batch
+ *   record_result(ballot_id_hash, result_hash)
+ *   get_tokens_issued / get_votes_cast / is_consistent / has_vote
  *
  * CORRECT SDK USAGE (stellar-sdk v12):
  * - RPC server:     new StellarSdk.SorobanRpc.Server(rpcUrl)
@@ -20,13 +20,21 @@
  * - Assemble tx:    StellarSdk.SorobanRpc.assembleTransaction(tx, simulation)
  * - Submit tx:      server.sendTransaction(tx)
  * - Convert values: StellarSdk.nativeToScVal(value, { type }) / scValToNative(scVal)
- * - Invoke op:      StellarSdk.Operation.invokeHostFunction({ func, auth })
  */
 
 import * as StellarSdk from "stellar-sdk";
 import crypto from "crypto";
 import { config } from "../config";
 import { prisma } from "../prisma/client";
+import {
+  SorobanError,
+  classifySorobanError,
+} from "./sorobanErrors";
+import {
+  withSorobanResilience,
+  ResilienceOptions,
+} from "./sorobanResilient";
+import { logger } from "../utils/logger";
 
 const SOROBAN_RPC_TESTNET = "https://soroban-testnet.stellar.org";
 const SOROBAN_RPC_MAINNET = "https://rpc.stellar.org";
@@ -52,20 +60,44 @@ function getRpcServer(): StellarSdk.SorobanRpc.Server {
 
 export interface SorobanInvokeResult {
   txHash: string;
+  /** Present for compatibility; invokeContract now THROWS on failure instead. */
   success: boolean;
   returnValue?: unknown;
 }
 
+/** Result of an atomic multi-vote batch submission. */
+export interface SorobanBatchResult {
+  txHash: string;
+  votesRecorded: number;
+}
+
+const MOCK_TEST_TX_HASH = "0xmocked_soroban_tx_hash";
+
+function isTestMode(): boolean {
+  return process.env.NODE_ENV === "test";
+}
+
+/** True when the backend has a deployed contract configured. */
+export function isSorobanConfigured(): boolean {
+  return Boolean(config.sorobanContractId && config.stellarSecretKey);
+}
+
+/** Shared resilience defaults for write ops; overridable per call. */
+function resilient(opts?: Partial<ResilienceOptions>): ResilienceOptions {
+  return { op: "soroban_call", ...(opts || {}) };
+}
+
 /**
- * Invoke a method on a deployed Soroban smart contract.
+ * Invoke a method on the deployed Soroban smart contract.
+ *
+ * THROWS a typed `SorobanError` on any failure (simulation rejection, send
+ * error, transaction failure, network problem) — callers that want legacy
+ * fire-and-forget behaviour should use `safeInvokeContract` or the resilient
+ * helpers below.
  *
  * @param contractId - The deployed contract ID (C... address)
  * @param method     - The contract function name to call
  * @param args       - Arguments as native JS values (converted via nativeToScVal)
- *
- * @returns txHash and return value, or empty string if not configured / fails
- *
- * NOTE: This is a stub. Set SOROBAN_CONTRACT_ID in .env to activate.
  */
 export async function invokeContract(
   contractId: string,
@@ -73,13 +105,17 @@ export async function invokeContract(
   args: { value: unknown; type: string }[],
 ): Promise<SorobanInvokeResult> {
   if (!config.stellarSecretKey) {
-    console.warn("[Soroban] No secret key configured, skipping contract call");
-    return { txHash: "", success: false };
+    throw new SorobanError(
+      "CONFIG_ERROR",
+      "[Soroban] No secret key configured",
+    );
   }
 
   if (!contractId) {
-    console.warn("[Soroban] No contract ID provided, skipping contract call");
-    return { txHash: "", success: false };
+    throw new SorobanError(
+      "CONFIG_ERROR",
+      "[Soroban] No contract ID provided",
+    );
   }
 
   try {
@@ -111,8 +147,17 @@ export async function invokeContract(
     const simulation = await server.simulateTransaction(tx);
 
     if (StellarSdk.SorobanRpc.Api.isSimulationError(simulation)) {
-      console.error("[Soroban] Simulation failed:", simulation.error);
-      return { txHash: "", success: false };
+      logger.error("soroban_simulation_failed", {
+        method,
+        error: simulation.error,
+      });
+      throw classifySorobanError(
+        new SorobanError(
+          "SIMULATION_FAILED",
+          `Simulation failed for ${method}`,
+          { cause: simulation.error },
+        ),
+      );
     }
 
     // Assemble the transaction with simulation results (adds soroban data + fees)
@@ -126,8 +171,15 @@ export async function invokeContract(
     const sendResult = await server.sendTransaction(preparedTx);
 
     if (sendResult.status === "ERROR") {
-      console.error("[Soroban] Send failed:", sendResult.errorResult);
-      return { txHash: "", success: false };
+      logger.error("soroban_send_failed", {
+        method,
+        error: sendResult.errorResult,
+      });
+      throw classifySorobanError(
+        new SorobanError("RPC_ERROR", `Send failed for ${method}`, {
+          cause: sendResult.errorResult,
+        }),
+      );
     }
 
     // Poll for transaction completion
@@ -157,11 +209,26 @@ export async function invokeContract(
       return { txHash, success: true, returnValue };
     }
 
-    console.error("[Soroban] Transaction failed:", getResult);
-    return { txHash, success: false };
+    if (
+      getResult.status ===
+      StellarSdk.SorobanRpc.Api.GetTransactionStatus.FAILED
+    ) {
+      // On-chain execution reverted — permanent for this invocation.
+      throw classifySorobanError(
+        new SorobanError("CONTRACT_ERROR", `Transaction failed for ${method}`, {
+          cause: getResult.resultXdr ? getResult.resultXdr.toXDR("base64") : undefined,
+        }),
+      );
+    }
+
+    // Timed out waiting for inclusion — treat as retryable network fault.
+    throw new SorobanError(
+      "NETWORK_ERROR",
+      `Timed out polling transaction ${txHash} for ${method}`,
+    );
   } catch (err) {
-    console.error("[Soroban] invokeContract error:", err);
-    return { txHash: "", success: false };
+    if (err instanceof SorobanError) throw err;
+    throw classifySorobanError(err);
   }
 }
 
@@ -230,10 +297,73 @@ export async function readContract(
 }
 
 // ── AnonVote contract helpers ─────────────────────────────────────────────────
-// These wrap invokeContract/readContract with the specific AnonVote contract
-// methods. Set SOROBAN_CONTRACT_ID in .env to activate.
+// Resilient write helpers used by the engines. Each returns the tx hash on
+// success or "" when the call was skipped (unconfigured / test mode) — they
+// never throw. Retry/backoff/circuit-breaking is applied via
+// withSorobanResilience; exhausted retries surface as a logged error and "".
 
 const CONTRACT_ID = config.sorobanContractId;
+
+/** Shared guard for fire-and-forget write helpers. */
+function skipReason(): "test" | "unconfigured" | null {
+  if (isTestMode()) return "test";
+  if (!CONTRACT_ID) return "unconfigured";
+  return null;
+}
+
+function runResilientWrite(
+  method: string,
+  args: { value: unknown; type: string }[],
+  resilience?: Partial<ResilienceOptions>,
+): Promise<string> {
+  const skipped = skipReason();
+  if (skipped === "test") return Promise.resolve(MOCK_TEST_TX_HASH);
+  if (skipped === "unconfigured") return Promise.resolve("");
+
+  return withSorobanResilience(
+    () => invokeContract(CONTRACT_ID!, method, args),
+    resilient({ op: method, ...resilience }),
+  )
+    .then((r) => r.txHash)
+    .catch((err) => {
+      // Exhausted retries or circuit open — caller treats "" as not anchored.
+      logger.error("soroban_write_failed", {
+        op: method,
+        kind: err instanceof SorobanError ? err.kind : "UNKNOWN",
+        retryable: err instanceof SorobanError ? err.retryable : false,
+        error: err instanceof Error ? err.message : err,
+      });
+      return "";
+    });
+}
+
+/**
+ * Legacy-shaped wrapper: resolves to {txHash:"", success:false} instead of
+ * throwing. Used by admin endpoints that predate the typed-error refactor.
+ */
+export async function safeInvokeContract(
+  contractId: string,
+  method: string,
+  args: { value: unknown; type: string }[],
+  resilience?: Partial<ResilienceOptions>,
+): Promise<SorobanInvokeResult> {
+  if (isTestMode()) {
+    return { txHash: MOCK_TEST_TX_HASH, success: true };
+  }
+  try {
+    return await withSorobanResilience(
+      () => invokeContract(contractId, method, args),
+      resilient({ op: method, ...resilience }),
+    );
+  } catch (err) {
+    logger.error("soroban_invoke_exhausted", {
+      op: method,
+      kind: err instanceof SorobanError ? err.kind : "UNKNOWN",
+      error: err instanceof Error ? err.message : err,
+    });
+    return { txHash: "", success: false };
+  }
+}
 
 /**
  * Record a ballot creation on-chain.
@@ -242,11 +372,9 @@ const CONTRACT_ID = config.sorobanContractId;
 export async function sorobanRecordBallot(
   ballotIdHash: string,
 ): Promise<string> {
-  if (!CONTRACT_ID) return "";
-  const result = await invokeContract(CONTRACT_ID, "record_ballot", [
+  return runResilientWrite("record_ballot", [
     { value: ballotIdHash, type: "string" },
   ]);
-  return result.txHash;
 }
 
 /**
@@ -256,23 +384,95 @@ export async function sorobanRecordBallot(
 export async function sorobanRecordToken(
   ballotIdHash: string,
 ): Promise<string> {
-  if (!CONTRACT_ID) return "";
-  const result = await invokeContract(CONTRACT_ID, "record_token", [
+  return runResilientWrite("record_token", [
     { value: ballotIdHash, type: "string" },
   ]);
-  return result.txHash;
 }
 
 /**
- * Record a vote cast on-chain.
- * Call from privacyEngine.submitVote() after the vote is saved to DB.
+ * Record a single vote cast on-chain (idempotent).
+ *
+ * @param ballotIdHash - SHA-256 of the database ballot ID
+ * @param voteIdHash   - Deterministic per-vote idempotency key; the contract
+ *                       rejects duplicates with Error::DuplicateVote (#5).
  */
-export async function sorobanRecordVote(ballotIdHash: string): Promise<string> {
-  if (!CONTRACT_ID) return "";
-  const result = await invokeContract(CONTRACT_ID, "record_vote", [
-    { value: ballotIdHash, type: "string" },
+export async function sorobanRecordVote(
+  ballotIdHash: string,
+  voteIdHash: string,
+): Promise<string> {
+  return runResilientWrite(
+    "record_vote",
+    [
+      { value: ballotIdHash, type: "string" },
+      { value: voteIdHash, type: "string" },
+    ],
+    // A duplicate rejection is permanent for this invocation — the batcher
+    // interprets it as "already anchored" rather than retrying.
+    { maxAttempts: 1 },
+  );
+}
+
+/**
+ * Record a batch of votes in ONE atomic Soroban transaction via the
+ * contract's `batch_record_votes` — one fee instead of N. The contract
+ * validates every entry before applying any, so a duplicate vote id reverts
+ * the whole batch with Error::DuplicateVote (#5); callers should dedupe
+ * beforehand and fall back to individual idempotent submits on that error.
+ *
+ * @returns tx hash + number of votes recorded, or txHash:"" on failure
+ */
+export async function sorobanRecordVotesBatch(
+  entries: { ballotIdHash: string; voteIdHash: string }[],
+): Promise<SorobanBatchResult> {
+  const skipped = skipReason();
+  if (skipped === "test") {
+    return { txHash: MOCK_TEST_TX_HASH, votesRecorded: entries.length };
+  }
+  if (skipped === "unconfigured") {
+    return { txHash: "", votesRecorded: 0 };
+  }
+
+  try {
+    const result = await withSorobanResilience(
+      () =>
+        invokeContract(CONTRACT_ID!, "batch_record_votes", [
+          {
+            // Native array-of-pairs with type "vec" → nativeToScVal converts
+            // recursively into the expected `Vec<(String, String)>` shape.
+            value: entries.map(
+              (e) => [e.ballotIdHash, e.voteIdHash] as [string, string],
+            ),
+            type: "vec" as any,
+          },
+        ]),
+      resilient({ op: "batch_record_votes" }),
+    );
+    return { txHash: result.txHash, votesRecorded: entries.length };
+  } catch (err) {
+    logger.error("soroban_batch_failed", {
+      op: "batch_record_votes",
+      size: entries.length,
+      kind: err instanceof SorobanError ? err.kind : "UNKNOWN",
+      error: err instanceof Error ? err.message : err,
+    });
+    return { txHash: "", votesRecorded: 0 };
+  }
+}
+
+/**
+ * On-chain existence check for a vote id (view call). Used to disambiguate a
+ * failed batch submission: entries already on-chain are marked ANCHORED while
+ * the rest are retried. Returns null when the chain cannot be consulted.
+ */
+export async function sorobanHasVote(
+  voteIdHash: string,
+): Promise<boolean | null> {
+  if (!CONTRACT_ID || isTestMode()) return null;
+  const result = await readContract(CONTRACT_ID, "has_vote", [
+    { value: voteIdHash, type: "string" },
   ]);
-  return result.txHash;
+  if (result === null || result === undefined) return null;
+  return Boolean(result);
 }
 
 /**
@@ -284,12 +484,10 @@ export async function sorobanRecordResult(
   ballotIdHash: string,
   resultHash: string,
 ): Promise<string> {
-  if (!CONTRACT_ID) return "";
-  const result = await invokeContract(CONTRACT_ID, "record_result", [
+  return runResilientWrite("record_result", [
     { value: ballotIdHash, type: "string" },
     { value: resultHash, type: "string" },
   ]);
-  return result.txHash;
 }
 
 /**
@@ -399,6 +597,8 @@ export async function verifyBallotConsistency(
 /**
  * Rotate admin key on-chain.
  * Call from POST /api/admin/rotate-key.
+ * Uses the safe wrapper so contract/network errors surface as
+ * {txHash:"", success:false} rather than a 500 from the admin route.
  */
 export async function sorobanRotateAdminKey(
   callerPublicKey: string,
@@ -407,7 +607,7 @@ export async function sorobanRotateAdminKey(
   if (!CONTRACT_ID) {
     return { txHash: "", success: false };
   }
-  return invokeContract(CONTRACT_ID, "rotate_admin_key", [
+  return safeInvokeContract(CONTRACT_ID, "rotate_admin_key", [
     { value: callerPublicKey, type: "string" },
     { value: newAdminPublicKey, type: "string" },
   ]);

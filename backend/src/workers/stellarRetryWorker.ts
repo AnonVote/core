@@ -1,25 +1,35 @@
+/**
+ * Stellar/Soroban Retry Worker (issue #77).
+ *
+ * Drains the LEGACY `stellar_retry_queue` table (populated by pre-batching
+ * deployments) into the VoteSubmissionBatcher, which performs the actual
+ * on-chain anchoring with batching, exponential-backoff retries, circuit
+ * breaking and dead-lettering. Once a row's votes are handed to the batcher
+ * the queue entry is removed — all further retry semantics live in the
+ * batcher/resilience layer, not here.
+ */
+import { createHash } from "crypto";
 import { prisma } from "../prisma/client";
-import { sorobanRecordVote } from "../services/sorobanService";
 import { hashIdentifier } from "../utils/crypto";
+import { getVoteSubmissionBatcher } from "../services/voteSubmissionBatcher";
 import { logger } from "../utils/logger";
 
 let timer: NodeJS.Timeout | null = null;
 let isProcessing = false;
 
-export async function processStellarRetryQueue(): Promise<void> {
-  if (isProcessing) return;
+export async function processStellarRetryQueue(): Promise<number> {
+  if (isProcessing) return 0;
   isProcessing = true;
 
+  let drained = 0;
   try {
     const pendingItems = await prisma.stellarRetryQueue.findMany({
-      where: {
-        retryCount: { lt: 5 },
-      },
-      include: {
-        vote: true,
-      },
+      where: { retryCount: { lt: 5 } },
+      include: { vote: true },
       take: 20,
     });
+
+        const batcher = getVoteSubmissionBatcher();
 
     for (const item of pendingItems) {
       if (!item.vote) {
@@ -34,92 +44,52 @@ export async function processStellarRetryQueue(): Promise<void> {
         continue;
       }
 
-      const ballotIdHash = hashIdentifier(item.vote.ballotId);
+        // Votes anchored before the batching migration have no stored
+      // vote_id_hash. Derive a stable one from the vote id — it is unique and
+      // deterministic, so replays stay idempotent under the contract guard.
+      const voteIdHash =
+        item.vote.voteIdHash ??
+        createHash("sha256").update(`legacy-vote:${item.vote.id}`).digest("hex");
 
-      try {
-        const txHash = await sorobanRecordVote(ballotIdHash);
+      batcher.enqueue({
+        voteId: item.vote.id,
+        ballotId: item.vote.ballotId,
+        ballotIdHash: hashIdentifier(item.vote.ballotId),
+        voteIdHash,
+      });
+      drained += 1;
 
-        if (txHash) {
-          // Success anchoring
-          await prisma.$transaction([
-            prisma.vote.update({
-              where: { id: item.voteId },
-              data: {
-                stellarTxId: txHash,
-                anchorStatus: "ANCHORED",
-              },
-            }),
-            prisma.stellarRetryQueue.delete({
-              where: { id: item.id },
-            }),
-          ]);
-          console.log(`[StellarRetryWorker] Anchored vote ${item.voteId} with tx ${txHash}`);
-        } else {
-          // Soroban call returned empty/failed
-          const newRetryCount = item.retryCount + 1;
-          if (newRetryCount >= 5) {
-            await prisma.$transaction([
-              prisma.vote.update({
-                where: { id: item.voteId },
-                data: { anchorStatus: "FAILED" },
-              }),
-              prisma.stellarRetryQueue.update({
-                where: { id: item.id },
-                data: { retryCount: newRetryCount },
-              }),
-            ]);
-            console.warn(
-              `[StellarRetryWorker] Vote ${item.voteId} reached max retries (5). Marked FAILED permanently for manual review.`
-            );
-          } else {
-            await prisma.stellarRetryQueue.update({
-              where: { id: item.id },
-              data: { retryCount: newRetryCount },
-            });
-          }
-        }
-      } catch (err) {
-        console.error(`[StellarRetryWorker] Error retrying vote ${item.voteId}:`, err);
-        const newRetryCount = item.retryCount + 1;
-        if (newRetryCount >= 5) {
-          await prisma.$transaction([
-            prisma.vote.update({
-              where: { id: item.voteId },
-              data: { anchorStatus: "FAILED" },
-            }),
-            prisma.stellarRetryQueue.update({
-              where: { id: item.id },
-              data: { retryCount: newRetryCount },
-            }),
-          ]).catch((err) =>
-            logger.error("stellar_retry_failed_mark_failed", {
-              voteId: item.voteId,
-              error: err,
-            }),
-          );
-        } else {
-          await prisma.stellarRetryQueue.update({
-            where: { id: item.id },
-            data: { retryCount: newRetryCount },
-          }).catch((err) =>
-            logger.error("stellar_retry_count_update_failed", {
-              voteId: item.voteId,
-              error: err,
-            }),
-          );
-        }
-      }
+      await prisma.stellarRetryQueue
+        .delete({ where: { id: item.id } })
+        .catch((err) =>
+          logger.warn("stellar_retry_queue_drain_delete_failed", {
+            queueItemId: item.id,
+            error: err,
+          }),
+        );
+    }
+
+    if (drained > 0) {
+      logger.info("stellar_retry_queue_drained", {
+        count: drained,
+        message:
+          "Legacy retry-queue votes handed to the submission batcher for anchored retry.",
+      });
     }
   } catch (err) {
     console.error("[StellarRetryWorker] Error in queue processing loop:", err);
   } finally {
     isProcessing = false;
   }
+
+  return drained;
 }
 
 export function startStellarRetryWorker(intervalMs = 60000): void {
   if (timer) return;
-  console.log(`[StellarRetryWorker] Starting background worker (interval: ${intervalMs}ms)`);
+  console.log(
+    `[StellarRetryWorker] Starting background worker (interval: ${intervalMs}ms)`,
+  );
   timer = setInterval(() => {
     processStellarRetryQueue().catch((err) => {
       console.error("[StellarRetryWorker] Unhandled error:", err);

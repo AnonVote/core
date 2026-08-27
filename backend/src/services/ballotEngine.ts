@@ -4,14 +4,13 @@ import { randomBytes } from "crypto";
 import { badRequest, notFound, ballotNotEditable } from "../utils/errors";
 import { sendBallotCreatedEmail } from "./emailService";
 import { sorobanRecordBallot } from "./sorobanService";
-import { writeRecord } from "./stellarService";
 import { logger } from "../utils/logger";
 
 /**
- * Create a new ballot with per-ballot encryption key and Stellar anchoring.
+ * Create a new ballot with per-ballot encryption key and Soroban anchoring.
  *
  * The ballot_key is stored in a separate ballot_keys table and never returned
- * in any API response. If the Stellar anchor write fails, the ballot is still
+ * in any API response. If the on-chain anchor write fails, the ballot is still
  * created with anchor_status: FAILED and a retry queue row is inserted.
  */
 export async function createBallot(
@@ -85,26 +84,23 @@ export async function createBallot(
     include: { options: true },
   });
 
-  // Attempt Stellar anchor — use manageData write with hashIdentifier(ballotId)
-  // If it fails, set anchor_status: FAILED and insert retry queue row.
-  // Do NOT fail ballot creation.
+  // Anchor ballot creation on-chain via the Soroban contract (issue #77 —
+  // replaces the deprecated manageData write). If it fails, set
+  // anchor_status: FAILED and insert a retry queue row. Do NOT fail creation.
   try {
     const ballotIdHash = hashIdentifier(ballot.id);
-    const stellarResult = await writeRecord({
-      type: "BALLOT_CREATED",
-      ballotIdHash,
-    });
+    const sorobanTxId = await sorobanRecordBallot(ballotIdHash);
 
-    if (stellarResult.txHash) {
+    if (sorobanTxId) {
       await prisma.ballot.update({
         where: { id: ballot.id },
         data: {
-          stellarTxId: stellarResult.txHash,
+          stellarTxId: sorobanTxId,
           anchorStatus: "ANCHORED",
         },
       });
     } else {
-      // Stellar write returned empty — treat as failure
+      // Contract write skipped/failed — treat as failure
       await prisma.ballot.update({
         where: { id: ballot.id },
         data: { anchorStatus: "FAILED" },
@@ -116,7 +112,7 @@ export async function createBallot(
       });
     }
   } catch (err) {
-    console.error("[Stellar] Ballot anchor failed at creation:", err);
+    console.error("[Soroban] Ballot anchor failed at creation:", err);
     await prisma.ballot.update({
       where: { id: ballot.id },
       data: { anchorStatus: "FAILED" },
@@ -476,16 +472,13 @@ export async function retryBallotAnchor(ballotId: string, orgId: string) {
 
   try {
     const ballotIdHash = hashIdentifier(ballot.id);
-    const stellarResult = await writeRecord({
-      type: "BALLOT_CREATED",
-      ballotIdHash,
-    });
+    const sorobanTxId = await sorobanRecordBallot(ballotIdHash);
 
-    if (stellarResult.txHash) {
+    if (sorobanTxId) {
       await prisma.ballot.update({
         where: { id: ballotId },
         data: {
-          stellarTxId: stellarResult.txHash,
+          stellarTxId: sorobanTxId,
           anchorStatus: "ANCHORED",
         },
       });
@@ -501,7 +494,7 @@ export async function retryBallotAnchor(ballotId: string, orgId: string) {
       return {
         id: ballotId,
         anchorStatus: "ANCHORED" as const,
-        stellarTxId: stellarResult.txHash,
+        stellarTxId: sorobanTxId,
       };
     } else {
       // Increment retry count
@@ -550,19 +543,16 @@ export async function processPendingAnchors() {
   for (const ballot of pending) {
     try {
       const ballotIdHash = hashIdentifier(ballot.id);
-      const stellarResult = await writeRecord({
-        type: "BALLOT_CREATED",
-        ballotIdHash,
-      });
-      if (stellarResult.txHash) {
+      const sorobanTxId = await sorobanRecordBallot(ballotIdHash);
+      if (sorobanTxId) {
         await prisma.ballot.update({
           where: { id: ballot.id },
           data: {
-            stellarTxId: stellarResult.txHash,
+            stellarTxId: sorobanTxId,
             anchorStatus: "ANCHORED",
           },
         });
-        console.log(`[Anchor] Ballot ${ballot.id} anchored: ${stellarResult.txHash}`);
+        console.log(`[Anchor] Ballot ${ballot.id} anchored: ${sorobanTxId}`);
       }
     } catch (err) {
       console.error(`[Anchor] Retry failed for ballot ${ballot.id}:`, err);

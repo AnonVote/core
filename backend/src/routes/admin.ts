@@ -27,6 +27,15 @@ import { sendVoterTokenEmail } from "../services/emailService";
 import { config } from "../config";
 import { sorobanRotateAdminKey } from "../services/sorobanService";
 import { rotateBallotEncryptionKey } from "../services/ballotKeyService";
+import { getSorobanMetrics } from "../services/sorobanMetrics";
+import { getSorobanCircuitBreakerStatus } from "../services/sorobanResilient";
+import {
+  getRecentDivergences,
+  runContractStateSync,
+} from "../services/contractStateManager";
+import { getVoteSubmissionBatcher } from "../services/voteSubmissionBatcher";
+import { isSorobanConfigured } from "../services/sorobanService";
+import { notFound as notFoundError } from "../utils/errors";
 
 function isValidStellarPublicKey(key: string): boolean {
   return typeof key === "string" && /^G[A-Z2-7]{55}$/.test(key);
@@ -527,6 +536,122 @@ router.post(
       );
 
       res.status(201).json({ data: ballot });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Soroban integration observability & dead-letter recovery (issue #77) ────
+
+// GET /api/admin/soroban/metrics — contract call metrics, batcher stats,
+// circuit breaker state and recent chain-vs-DB divergences.
+router.get(
+  "/soroban/metrics",
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(200).json({
+        data: {
+          configured: isSorobanConfigured(),
+          metrics: getSorobanMetrics(),
+          circuitBreaker: getSorobanCircuitBreakerStatus(),
+          batcher: getVoteSubmissionBatcher().stats(),
+          recentDivergences: getRecentDivergences(),
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/admin/soroban/state-sync — trigger a contract↔DB reconciliation
+// run on demand (also runs automatically every minute).
+router.post(
+  "/soroban/state-sync",
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const summary = await runContractStateSync();
+      res.status(200).json({ data: summary });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/admin/soroban/dead-letters — votes whose anchoring permanently failed.
+router.get(
+  "/soroban/dead-letters",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const letters = await prisma.sorobanDeadLetter.findMany({
+        where: { resolvedAt: null },
+        include: {
+          vote: {
+            select: { id: true, ballotId: true, anchorStatus: true, submittedAt: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+      res.status(200).json({
+        data: letters.map((l) => ({
+          id: l.id,
+          voteId: l.voteId,
+          ballotId: l.ballotId,
+          reason: l.reason,
+          lastError: l.lastError,
+          attempts: l.attempts,
+          createdAt: l.createdAt,
+          anchorStatus: l.vote?.anchorStatus ?? null,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/admin/soroban/dead-letters/:id/replay — requeue a dead-lettered
+// vote into the submission batcher for another anchoring attempt.
+router.post(
+  "/soroban/dead-letters/:id/replay",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const letter = await prisma.sorobanDeadLetter.findUnique({
+        where: { id: req.params.id },
+        include: { vote: true },
+      });
+      if (!letter) throw notFoundError("Dead letter entry not found");
+      if (!letter.vote) throw notFoundError("Vote for dead letter not found");
+
+      const { hashIdentifier } = await import("../utils/crypto");
+      const accepted = getVoteSubmissionBatcher().enqueue({
+        voteId: letter.vote.id,
+        ballotId: letter.vote.ballotId,
+        ballotIdHash: hashIdentifier(letter.vote.ballotId),
+        voteIdHash: letter.vote.voteIdHash!,
+      });
+
+      await prisma.sorobanDeadLetter.update({
+        where: { id: letter.id },
+        data: { resolvedAt: new Date() },
+      });
+
+      res.status(200).json({
+        data: {
+          id: letter.id,
+          voteId: letter.voteId,
+          requeued: accepted,
+          message: accepted
+            ? "Vote requeued for anchoring."
+            : "Vote was already queued or anchored recently.",
+        },
+      });
     } catch (err) {
       next(err);
     }
