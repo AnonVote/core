@@ -16,6 +16,7 @@ import { useRetry, categoriseError } from "../hooks/useRetry";
 import { useFormPersistence } from "../hooks/useFormPersistence";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
 import type { Ballot } from "../types";
+import CommitmentBadge from "../components/CommitmentBadge";
 
 const TOKEN_RE = /^[0-9a-f]{32,}$/i;
 
@@ -568,6 +569,11 @@ export default function VotePage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
             {ballot.topic}
           </h2>
+        </div>
+
+        {/* Lets a voter detect a ballot altered after they were invited */}
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <CommitmentBadge ballotId={ballotId!} />
         </div>
 
         {error && (

@@ -41,17 +41,28 @@ export async function getOrgPublicKey(organizationId: string) {
   });
 
   if (!org) throw notFound("Organization not found");
-  if (!org.publicKey || !org.keyDerivationSalt) {
-    throw notFound("Organization has not enrolled an encryption key");
-  }
 
+  // A not-yet-enrolled org still returns its salt: the browser needs it to
+  // derive a keypair before it can enroll one. The salt is public by design and
+  // worthless without the password.
   return {
     organizationId: org.id,
     publicKey: org.publicKey,
-    keyDerivationSalt: org.keyDerivationSalt,
+    keyDerivationSalt:
+      org.keyDerivationSalt ?? (await ensureSalt(organizationId)),
     keyVersion: org.keyVersion,
     algorithm: "X25519" as const,
   };
+}
+
+/** Mints and persists a salt for an organization created before this feature. */
+async function ensureSalt(organizationId: string): Promise<string> {
+  const keyDerivationSalt = generateKeyDerivationSalt();
+  await prisma.organization.update({
+    where: { id: organizationId },
+    data: { keyDerivationSalt },
+  });
+  return keyDerivationSalt;
 }
 
 /**

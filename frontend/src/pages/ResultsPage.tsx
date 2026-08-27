@@ -6,6 +6,7 @@ import ResultChart from "../components/ResultChart";
 import VerifyWidget from "../components/VerifyWidget";
 import { useCountdown } from "../hooks/useCountdown";
 import type { Result, AuditTrail } from "../types";
+import CommitmentBadge from "../components/CommitmentBadge";
 
 // Lightweight ballot shape used on this page — sourced from the
 // results-summary endpoint rather than a separate ballot fetch.
@@ -199,6 +200,13 @@ export default function ResultsPage() {
           </div>
           <CopyLinkButton />
         </div>
+
+        {/* Lets anyone confirm the published ballot was not altered */}
+        {ballotId && (
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <CommitmentBadge ballotId={ballotId} />
+          </div>
+        )}
 
         {ballot && (
           <p

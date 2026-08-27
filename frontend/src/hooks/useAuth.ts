@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getMe, logoutOrg } from "../api/client";
+import { clearOrgKey } from "./useOrgKey";
 import { useTheme } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationContext";
 
@@ -75,6 +76,9 @@ export function useAuth(): AuthState & { logout: () => Promise<void> } {
     try {
       await logoutOrg();
     } finally {
+      // Drop the derived org encryption key — it must not outlive the session.
+      clearOrgKey();
+
       // Clear session-specific UI state (notifications, avatar)
       clearNotifications();
 

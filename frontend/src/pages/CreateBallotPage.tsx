@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadEligibilityList, createBallot } from "../api/client";
+import {
+  uploadEligibilityList,
+  createBallot,
+  getMe,
+  getOrgPublicKey,
+} from "../api/client";
+import { encryptDescription } from "../utils/org-crypto";
+
+// The backend rejects a topic over 200 characters; the form previously allowed
+// 500, so a valid-looking topic was refused on submit.
+const TOPIC_MAX = 200;
+const DESCRIPTION_MAX = 5000;
 import Navbar from "../components/Navbar";
 import { useTheme } from "../context/ThemeContext";
 import { useNotifications } from "../context/NotificationContext";
@@ -10,6 +21,7 @@ export default function CreateBallotPage() {
   const { theme } = useTheme();
   const { addNotification } = useNotifications();
   const [topic, setTopic] = useState("");
+  const [description, setDescription] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [deadline, setDeadline] = useState("");
   const [allowWeightedVoting, setAllowWeightedVoting] = useState(false);
@@ -29,7 +41,10 @@ export default function CreateBallotPage() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!topic.trim()) e.topic = "Topic is required";
-    if (topic.length > 500) e.topic = "Topic must be under 500 characters";
+    if (description.length > DESCRIPTION_MAX)
+      e.description = `Description must be at most ${DESCRIPTION_MAX} characters`;
+    if (topic.length > TOPIC_MAX)
+      e.topic = `Topic must be at most ${TOPIC_MAX} characters`;
 
     if (options.some((o) => !o.trim()))
       e.options = "All options must have text";
@@ -62,10 +77,41 @@ export default function CreateBallotPage() {
     setErrors({});
     setLoading(true);
     try {
+      // Encrypt the description to the org's public key before it leaves the
+      // browser. The server only ever receives ciphertext.
+      let descriptionCiphertext: string | undefined;
+      if (description.trim()) {
+        try {
+          const me = await getMe();
+          const keyRes = await getOrgPublicKey(me.data.data.id);
+          const orgPublicKey = keyRes.data.data.publicKey;
+          if (!orgPublicKey) {
+            setErrors({
+              description:
+                "No encryption key is enrolled for this organization. Log out and back in, then try again.",
+            });
+            setLoading(false);
+            return;
+          }
+          descriptionCiphertext = encryptDescription(
+            description.trim(),
+            orgPublicKey,
+          );
+        } catch {
+          setErrors({
+            description:
+              "Could not encrypt the description. Please try again.",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       const eligRes = await uploadEligibilityList(file!);
       const { eligibilityListId } = eligRes.data.data;
       const createRes = await createBallot({
         topic: topic.trim(),
+        ...(descriptionCiphertext ? { descriptionCiphertext } : {}),
         options: options.map((o) => o.trim()).filter(Boolean),
         eligibilityListId,
         deadline: new Date(deadline).toISOString(),
@@ -175,12 +221,12 @@ export default function CreateBallotPage() {
                 style={{
                   fontSize: "var(--text-xs)",
                   color:
-                    topic.length > 500
+                    topic.length > TOPIC_MAX
                       ? "var(--semantic-error)"
                       : "var(--ink-muted)",
                 }}
               >
-                {topic.length}/500
+                {topic.length}/{TOPIC_MAX}
               </span>
             </div>
             <div className="input-wrapper">
@@ -206,6 +252,59 @@ export default function CreateBallotPage() {
               />
             </div>
             {errors.topic && <p className="field-error">{errors.topic}</p>}
+          </div>
+
+          {/* Description — end-to-end encrypted, admin-only */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "var(--space-2)",
+              }}
+            >
+              <label
+                htmlFor="ballot-description"
+                className="form-label"
+                style={{ marginBottom: 0 }}
+              >
+                Description <span style={{ fontWeight: 400 }}>(optional)</span>
+              </label>
+              <span
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color:
+                    description.length > DESCRIPTION_MAX
+                      ? "var(--semantic-error)"
+                      : "var(--ink-muted)",
+                }}
+              >
+                {description.length}/{DESCRIPTION_MAX}
+              </span>
+            </div>
+            <textarea
+              id="ballot-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className={
+                "input-field " + (errors.description ? "error" : "")
+              }
+              placeholder="Context for administrators. Encrypted in your browser — the server never sees it."
+            />
+            <p
+              style={{
+                fontSize: "var(--text-xs)",
+                color: "var(--ink-muted)",
+                marginTop: "var(--space-1)",
+              }}
+            >
+              Encrypted in your browser before it is sent. Voters never see this.
+            </p>
+            {errors.description && (
+              <p className="field-error">{errors.description}</p>
+            )}
           </div>
 
           {/* Options */}

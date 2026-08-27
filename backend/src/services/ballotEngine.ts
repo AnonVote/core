@@ -449,6 +449,24 @@ export async function updateBallot(
       include: { options: true },
     });
 
+    // Audit a description change. The server holds no key, so the "before"
+    // snapshot is simply the previous ciphertext — already encrypted to this
+    // org and readable only by it. Deriving it server-side (rather than letting
+    // the client supply it) keeps the audit record trustworthy.
+    if (
+      data.descriptionCiphertext !== undefined &&
+      data.descriptionCiphertext !== ballot.descriptionCiphertext
+    ) {
+      await tx.auditEvent.create({
+        data: {
+          ballotId,
+          organizationId: orgId,
+          eventType: "BALLOT_METADATA_CHANGED",
+          metadataCiphertext: ballot.descriptionCiphertext,
+        },
+      });
+    }
+
     // Recompute from the written row, not from `data` — options may have been
     // replaced above and the commitment must match what is actually stored.
     const commitmentHash = computeBallotCommitment({

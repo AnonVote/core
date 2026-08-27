@@ -170,9 +170,15 @@ export async function adminAuditHandler(
     };
 
     if (format === "csv") {
+      // RFC 4180: a quoted field escapes a literal double-quote by doubling it.
+      // The previous quoter emitted `"${v}"` verbatim, so any value containing a
+      // quote produced malformed CSV.
+      const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+
+      // Header and row must be edited in lockstep — they are positional.
       const csvRows = [
         // Headers
-        "eventType,createdAt,stellarTxId,stellarLedgerAt",
+        "eventType,createdAt,stellarTxId,stellarLedgerAt,metadataCiphertext",
         // Rows
         ...events.map((e) =>
           [
@@ -180,8 +186,9 @@ export async function adminAuditHandler(
             e.createdAt.toISOString(),
             e.stellarTxId ?? "",
             e.stellarLedgerAt?.toISOString() ?? "",
+            e.metadataCiphertext ?? "",
           ]
-            .map((v) => `"${v}"`)
+            .map(csvCell)
             .join(","),
         ),
       ];
