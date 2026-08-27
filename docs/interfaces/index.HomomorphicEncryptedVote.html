@@ -17,7 +17,7 @@ and a zero-knowledge validity proof.</p>
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">HomomorphicEncryptedVote</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#ballotid">ballotId</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#encryptedvector">encryptedVector</a><span class="tsd-signature-symbol">:</span> <a href="index.PaillierCiphertext.html" class="tsd-signature-type tsd-kind-interface">PaillierCiphertext</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#sumciphertext">sumCiphertext</a><span class="tsd-signature-symbol">:</span> <a href="index.PaillierCiphertext.html" class="tsd-signature-type tsd-kind-interface">PaillierCiphertext</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#validityproof">validityProof</a><span class="tsd-signature-symbol">:</span> <a href="index.BallotValidityProof.html" class="tsd-signature-type tsd-kind-interface">BallotValidityProof</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#timestamp">timestamp</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#receipthash">receiptHash</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L55">zkp/types.ts:55</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L55">zkp/types.ts:55</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -41,42 +41,42 @@ and a zero-knowledge validity proof.</p>
 <div class="tsd-comment tsd-typography"><p>Ballot ID / Election ID</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L57">zkp/types.ts:57</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L57">zkp/types.ts:57</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="encryptedvector"><span>encrypted<wbr/>Vector</span><a href="#encryptedvector" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">encryptedVector</span><span class="tsd-signature-symbol">:</span> <a href="index.PaillierCiphertext.html" class="tsd-signature-type tsd-kind-interface">PaillierCiphertext</a><span class="tsd-signature-symbol">[]</span></div>
 <div class="tsd-comment tsd-typography"><p>Array of Paillier ciphertexts, one per election option (1 for selected, 0 for others)</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L59">zkp/types.ts:59</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L59">zkp/types.ts:59</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="sumciphertext"><span>sum<wbr/>Ciphertext</span><a href="#sumciphertext" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">sumCiphertext</span><span class="tsd-signature-symbol">:</span> <a href="index.PaillierCiphertext.html" class="tsd-signature-type tsd-kind-interface">PaillierCiphertext</a></div>
 <div class="tsd-comment tsd-typography"><p>Combined ciphertext of vector sum: Enc(sum(v_i))</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L61">zkp/types.ts:61</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L61">zkp/types.ts:61</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="validityproof"><span>validity<wbr/>Proof</span><a href="#validityproof" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">validityProof</span><span class="tsd-signature-symbol">:</span> <a href="index.BallotValidityProof.html" class="tsd-signature-type tsd-kind-interface">BallotValidityProof</a></div>
 <div class="tsd-comment tsd-typography"><p>Non-interactive Zero-Knowledge proof that vote is well-formed (exactly one option selected)</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L63">zkp/types.ts:63</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L63">zkp/types.ts:63</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="timestamp"><span>timestamp</span><a href="#timestamp" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">timestamp</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 <div class="tsd-comment tsd-typography"><p>ISO timestamp of vote generation</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L65">zkp/types.ts:65</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L65">zkp/types.ts:65</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="receipthash"><span>receipt<wbr/>Hash</span><a href="#receipthash" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">receiptHash</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 <div class="tsd-comment tsd-typography"><p>Unique voter commitment / receipt hash</p>
 </div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/2af951e6dbff7ff4e1b3b1d1a12335706b79134f/src/zkp/types.ts#L67">zkp/types.ts:67</a></li></ul></aside></section></section></details></div>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/zkp/types.ts#L67">zkp/types.ts:67</a></li></ul></aside></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
