@@ -5,6 +5,9 @@ import { rateLimitExceeded } from "../utils/errors";
 import { prisma } from "../prisma/client";
 import { logger } from "../utils/logger";
 import { validate } from "../middleware/validate";
+import { distributedRateLimitMiddleware } from "../middleware/distributedRateLimit";
+import { adaptiveBackpressureMiddleware } from "../middleware/adaptiveBackpressure";
+import { circuitBreakerMiddleware, voteCircuitBreaker } from "../middleware/circuitBreaker";
 import { submitVoteSchema } from "../validation/schemas";
 
 const router = Router();
@@ -28,7 +31,10 @@ function normaliseVoteBody(req: Request, _res: Response, next: NextFunction): vo
 router.post(
   "/",
   normaliseVoteBody,
+  circuitBreakerMiddleware(voteCircuitBreaker),
   validate(submitVoteSchema),
+  adaptiveBackpressureMiddleware,
+  distributedRateLimitMiddleware,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ballotId = (req.body.ballotId as string).trim();
