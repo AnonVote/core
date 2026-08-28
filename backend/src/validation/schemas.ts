@@ -290,3 +290,27 @@ export const delegateVoteSchema: ValidationSchema = {
     label: "delegateTokenHash",
   },
 };
+
+// ---------------------------------------------------------------------------
+// Organization public-key enrollment (Issue #86)
+// ---------------------------------------------------------------------------
+
+// Raw 32-byte X25519 key, base64 — always 44 chars with a single '=' pad.
+const X25519_PUBKEY_B64_RE = /^[A-Za-z0-9+/]{43}=$/;
+
+export const enrollPublicKeySchema: ValidationSchema = {
+  publicKey: {
+    required: true,
+    type: "string",
+    min: 44,
+    max: 44,
+    pattern: X25519_PUBKEY_B64_RE,
+    label: "publicKey",
+  },
+  keyVersion: {
+    required: false,
+    type: "number",
+    min: 1,
+    label: "keyVersion",
+  },
+};

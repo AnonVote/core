@@ -49,8 +49,10 @@ export function validateVotePayload(
     const errors: string[] = [];
 
     // ── Ballot ID validation ──────────────────────────────────────────────
-    const finalBallotId = ballot_id || ballotId;
-    if (!finalBallotId) {
+    // Presence-based, not truthiness-based: "" must report "cannot be empty",
+    // not "is required".
+    const finalBallotId = ballot_id !== undefined ? ballot_id : ballotId;
+    if (finalBallotId === undefined || finalBallotId === null) {
       errors.push("ballot_id is required");
     } else if (typeof finalBallotId !== "string") {
       errors.push("ballot_id must be a string");
@@ -61,8 +63,8 @@ export function validateVotePayload(
     }
 
     // ── Token validation ──────────────────────────────────────────────────
-    const finalToken = token || voterToken;
-    if (!finalToken) {
+    const finalToken = token !== undefined ? token : voterToken;
+    if (finalToken === undefined || finalToken === null) {
       errors.push("token is required");
     } else if (typeof finalToken !== "string") {
       errors.push("token must be a string");
@@ -73,8 +75,8 @@ export function validateVotePayload(
     }
 
     // ── Option ID validation ──────────────────────────────────────────────
-    const finalOptionId = option_id || optionId;
-    if (!finalOptionId) {
+    const finalOptionId = option_id !== undefined ? option_id : optionId;
+    if (finalOptionId === undefined || finalOptionId === null) {
       errors.push("option_id is required");
     } else if (typeof finalOptionId !== "string") {
       errors.push("option_id must be a string");

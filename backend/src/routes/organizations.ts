@@ -10,6 +10,7 @@ import {
   loginOrganizationSchema,
   updateOrganizationSchema,
   changePasswordSchema,
+  enrollPublicKeySchema,
 } from "../validation/schemas";
 import { badRequest, unauthorized, notFound } from "../utils/errors";
 import {
@@ -18,6 +19,11 @@ import {
   deleteOrgAccount,
 } from "../services/organizationService";
 import { shouldRefreshToken, SESSION_EXPIRY_SECONDS } from "../middleware/auth";
+import {
+  generateKeyDerivationSalt,
+  getOrgPublicKey,
+  enrollOrgPublicKey,
+} from "../services/orgKeypairService";
 
 const router = Router();
 
@@ -36,7 +42,14 @@ router.post(
 
       const passwordHash = await bcrypt.hash(password, 10);
       const org = await prisma.organization.create({
-        data: { name, email, passwordHash },
+        data: {
+          name,
+          email,
+          passwordHash,
+          // Minted server-side at registration so the browser can derive its
+          // keypair immediately, before it has enrolled a public key.
+          keyDerivationSalt: generateKeyDerivationSalt(),
+        },
       });
 
       res.status(201).json({
@@ -45,6 +58,8 @@ router.post(
           name: org.name,
           email: org.email,
           createdAt: org.createdAt,
+          keyDerivationSalt: org.keyDerivationSalt,
+          keyVersion: org.keyVersion,
         },
       });
     } catch (err) {
@@ -224,13 +239,40 @@ router.patch(
   validate(changePasswordSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { currentPassword, newPassword } = req.body;
+      const {
+        currentPassword,
+        newPassword,
+        publicKey,
+        reencrypted,
+        discardEncryptedDescriptions,
+      } = req.body;
       await changeOrgPassword(
         req.organization!.id,
         currentPassword,
         newPassword,
+        { publicKey, reencrypted, discardEncryptedDescriptions },
       );
       res.status(200).json({ message: "Password updated" });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/organizations/me/public-key — Enroll or rotate the org's X25519 key
+router.post(
+  "/me/public-key",
+  requireAuth,
+  validate(enrollPublicKeySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { publicKey, keyVersion } = req.body;
+      const result = await enrollOrgPublicKey(
+        req.organization!.id,
+        publicKey,
+        keyVersion,
+      );
+      res.status(200).json({ data: result });
     } catch (err) {
       next(err);
     }
@@ -246,6 +288,21 @@ router.delete(
       await deleteOrgAccount(req.organization!.id);
       res.clearCookie("session");
       res.status(200).json({ message: "Account deleted" });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/organizations/:id/public-key — Public enrollment material
+// Registered last so the literal /me, /login, /logout, /refresh, /password
+// routes above always win the match.
+router.get(
+  "/:id/public-key",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await getOrgPublicKey(req.params.id);
+      res.status(200).json({ data: result });
     } catch (err) {
       next(err);
     }

@@ -1,9 +1,11 @@
 import {
   getDraftBallotsToActivate,
   getActiveExpiredBallots,
+  activateBallot,
   closeBallot,
   finaliseBallot,
   processPendingAnchors,
+  retryPendingCommitmentAnchors,
 } from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
 import { prisma } from "../prisma/client";
@@ -32,6 +34,10 @@ export async function startScheduler(): Promise<void> {
   setInterval(async () => {
     try {
       await processPendingAnchors();
+      // Issue #86: ballots whose commitment anchoring never landed. Without
+      // this a ballot would sit permanently at source: "database" until a
+      // human noticed.
+      await retryPendingCommitmentAnchors();
     } catch (err) {
       console.error("[Scheduler] Anchor worker error:", err);
     }
@@ -47,10 +53,9 @@ export async function startScheduler(): Promise<void> {
         );
         for (const ballot of draftsToActivate) {
           try {
-            await prisma.ballot.update({
-              where: { id: ballot.id },
-              data: { status: "ACTIVE" },
-            });
+            // activateBallot owns the transition so the ballot commitment is
+            // computed and anchored at the moment content is frozen.
+            await activateBallot(ballot.id);
             console.log(`[Scheduler] Activated ballot ${ballot.id}`);
           } catch (err) {
             console.error(

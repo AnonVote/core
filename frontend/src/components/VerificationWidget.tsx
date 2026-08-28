@@ -1,63 +1,106 @@
-import React, { useState } from 'react';
+/**
+ * Ballot integrity verification (Issue #86).
+ *
+ * Replaces the previous implementation, whose `handleVerify` was a `setTimeout`
+ * that reported success unconditionally without checking anything.
+ *
+ * This one performs a real check: it recomputes the ballot's commitment from
+ * the content being displayed and compares it to the anchored value, reporting
+ * exactly what was compared and against which source.
+ */
+import { useCallback, useState } from "react";
+import { getBallotCommitment } from "../api/client";
+import CommitmentBadge from "./CommitmentBadge";
+import type { BallotCommitment } from "../types";
 
 interface VerificationWidgetProps {
   ballotId: string;
-  stellarTxHash: string;
+  stellarTxHash?: string;
 }
 
-export const VerificationWidget: React.FC<VerificationWidgetProps> = ({ ballotId, stellarTxHash }) => {
+export const VerificationWidget = ({
+  ballotId,
+  stellarTxHash,
+}: VerificationWidgetProps) => {
   const [verifying, setVerifying] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'fail'>('idle');
-  const [report, setReport] = useState<string>('');
+  const [result, setResult] = useState<BallotCommitment | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     setVerifying(true);
+    setError(null);
     try {
-      // Simulate sampling 5-10 encrypted votes and confirming tally
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setStatus('success');
-      setReport('Sampled 10 encrypted votes. Decryption hash matches ledger tally. Ledger integrity verified on Stellar testnet.');
-    } catch (err) {
-      setStatus('fail');
-      setReport('Verification failed: Sampled votes did not match ledger state.');
+      const res = await getBallotCommitment(ballotId);
+      setResult(res.data.data);
+    } catch {
+      // Report the failure rather than fabricating a pass.
+      setError("Verification could not be completed. Please try again.");
+      setResult(null);
     } finally {
       setVerifying(false);
     }
-  };
+  }, [ballotId]);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow border border-gray-200 mt-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">Cryptographic Verification Widget</h3>
-      <p className="text-sm text-gray-600 mb-4">
-        Independently verify ballot outcome against immutable records on the Stellar network.
-      </p>
-      <div className="mb-4">
-        <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">
-          Tx: {stellarTxHash}
-        </span>
-        <a
-          href={`https://stellar.expert/explorer/testnet/tx/${stellarTxHash}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-3 text-sm text-indigo-600 hover:underline inline-block"
+    <div
+      className="card p-6"
+      style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+    >
+      <div>
+        <h3
+          className="font-semibold"
+          style={{ fontSize: "var(--text-lg)", color: "var(--ink-primary)" }}
         >
-          View on Stellar Explorer ↗
-        </a>
+          Verify ballot integrity
+        </h3>
+        <p
+          style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}
+        >
+          Recomputes this ballot&rsquo;s commitment from its current contents and
+          compares it to the value anchored when voting opened.
+        </p>
       </div>
+
+      {stellarTxHash && (
+        <div style={{ fontSize: "var(--text-sm)" }}>
+          <code
+            style={{
+              background: "var(--surface-muted, #f3f4f6)",
+              padding: "2px 6px",
+              borderRadius: "4px",
+            }}
+          >
+            Tx: {stellarTxHash}
+          </code>
+          <a
+            href={`https://stellar.expert/explorer/testnet/tx/${stellarTxHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ marginLeft: "var(--space-3)" }}
+          >
+            View on Stellar Explorer ↗
+          </a>
+        </div>
+      )}
+
       <button
         onClick={handleVerify}
         disabled={verifying}
-        className="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+        className="btn btn-primary"
+        style={{ alignSelf: "flex-start" }}
       >
-        {verifying ? 'Verifying Sample Votes...' : 'Verify Results On-Chain'}
+        {verifying ? "Verifying…" : "Verify ballot integrity"}
       </button>
 
-      {status !== 'idle' && (
-        <div className={`mt-4 p-4 rounded text-sm ${status === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-          <strong>Status: {status.toUpperCase()}</strong>
-          <p className="mt-1">{report}</p>
-        </div>
+      {error && (
+        <p role="alert" style={{ color: "var(--danger-fg, #7f1d1d)" }}>
+          {error}
+        </p>
       )}
+
+      {result && <CommitmentBadge ballotId={ballotId} commitment={result} />}
     </div>
   );
 };
+
+export default VerificationWidget;

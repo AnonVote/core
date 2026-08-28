@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getBallot, updateBallot, uploadEligibilityList } from "../api/client";
+import {
+  getBallot,
+  updateBallot,
+  uploadEligibilityList,
+  getMe,
+  getOrgPublicKey,
+} from "../api/client";
+import { encryptDescription, decryptDescription } from "../utils/org-crypto";
+import { hashDescription } from "../utils/commitment";
+import { getCachedOrgKey } from "../hooks/useOrgKey";
+
+const TOPIC_MAX = 200;
+const DESCRIPTION_MAX = 5000;
 import Navbar from "../components/Navbar";
 import { useTheme } from "../context/ThemeContext";
 import type { Ballot } from "../types";
@@ -14,6 +26,9 @@ export default function EditBallotPage() {
   const [loadError, setLoadError] = useState("");
 
   const [topic, setTopic] = useState("");
+  const [description, setDescription] = useState("");
+  // true when the ballot has a description this session cannot decrypt
+  const [descriptionLocked, setDescriptionLocked] = useState(false);
   const [options, setOptions] = useState(["", ""]);
   const [deadline, setDeadline] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -32,6 +47,22 @@ export default function EditBallotPage() {
         }
         setBallot(b);
         setTopic(b.topic);
+
+        // Decrypt the description in place when this session holds the key;
+        // otherwise lock the field rather than silently overwriting ciphertext
+        // the admin cannot see.
+        if (b.descriptionCiphertext) {
+          const key = getCachedOrgKey();
+          if (key) {
+            try {
+              setDescription(decryptDescription(b.descriptionCiphertext, key));
+            } catch {
+              setDescriptionLocked(true);
+            }
+          } else {
+            setDescriptionLocked(true);
+          }
+        }
         setOptions(b.options.map((o) => o.text));
         // Format deadline for datetime-local input
         const d = new Date(b.deadline);
@@ -54,6 +85,10 @@ export default function EditBallotPage() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!topic.trim()) e.topic = "Topic is required";
+    if (topic.length > TOPIC_MAX)
+      e.topic = `Topic must be at most ${TOPIC_MAX} characters`;
+    if (description.length > DESCRIPTION_MAX)
+      e.description = `Description must be at most ${DESCRIPTION_MAX} characters`;
     if (!hasVotes) {
       if (options.some((o) => !o.trim()))
         e.options = "All options must have text";
@@ -84,9 +119,42 @@ export default function EditBallotPage() {
         eligibilityListId = eligRes.data.data.eligibilityListId;
       }
 
+      // Re-encrypt only when this session could actually read the description.
+      // A locked field must be left exactly as stored.
+      let descriptionCiphertext: string | null | undefined;
+      let descriptionHash: string | null | undefined;
+      if (!descriptionLocked) {
+        if (description.trim()) {
+          const me = await getMe();
+          const keyRes = await getOrgPublicKey(me.data.data.id);
+          const orgPublicKey = keyRes.data.data.publicKey;
+          if (!orgPublicKey) {
+            setErrors({
+              description:
+                "No encryption key is enrolled for this organization. Log out and back in, then try again.",
+            });
+            setLoading(false);
+            return;
+          }
+          descriptionCiphertext = encryptDescription(
+            description.trim(),
+            orgPublicKey,
+          );
+          descriptionHash = hashDescription(description.trim());
+        } else if (ballot?.descriptionCiphertext) {
+          // Cleared by the admin — null removes it.
+          descriptionCiphertext = null;
+          descriptionHash = null;
+        }
+      }
+
       await updateBallot(ballotId!, {
         topic: topic.trim(),
         deadline: new Date(deadline).toISOString(),
+        ...(descriptionCiphertext !== undefined && {
+          descriptionCiphertext,
+          descriptionHash,
+        }),
         ...(!hasVotes && {
           options: options.map((o) => o.trim()).filter(Boolean),
         }),
@@ -261,6 +329,80 @@ export default function EditBallotPage() {
               />
             </div>
             {errors.topic && <p className="field-error">{errors.topic}</p>}
+          </div>
+
+          {/* Description — end-to-end encrypted, admin-only */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "var(--space-2)",
+              }}
+            >
+              <label
+                htmlFor="ballot-description"
+                className="form-label"
+                style={{ marginBottom: 0 }}
+              >
+                Description <span style={{ fontWeight: 400 }}>(optional)</span>
+              </label>
+              {!descriptionLocked && (
+                <span
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color:
+                      description.length > DESCRIPTION_MAX
+                        ? "var(--semantic-error)"
+                        : "var(--ink-muted)",
+                  }}
+                >
+                  {description.length}/{DESCRIPTION_MAX}
+                </span>
+              )}
+            </div>
+
+            {descriptionLocked ? (
+              <p
+                style={{
+                  padding: "var(--space-3)",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "var(--surface-muted, #f3f4f6)",
+                  color: "var(--ink-muted)",
+                  fontSize: "var(--text-sm)",
+                }}
+              >
+                Encrypted — sign in again to view. This description will be left
+                unchanged when you save.
+              </p>
+            ) : (
+              <>
+                <textarea
+                  id="ballot-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className={
+                    "input-field " + (errors.description ? "error" : "")
+                  }
+                  placeholder="Context for administrators. Encrypted in your browser — the server never sees it."
+                />
+                <p
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color: "var(--ink-muted)",
+                    marginTop: "var(--space-1)",
+                  }}
+                >
+                  Encrypted in your browser before it is sent. Voters never see
+                  this.
+                </p>
+              </>
+            )}
+            {errors.description && (
+              <p className="field-error">{errors.description}</p>
+            )}
           </div>
 
           {/* Options — locked if votes cast */}

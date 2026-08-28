@@ -27,6 +27,11 @@ import {
   ChatBubbleIcon,
 } from "@radix-ui/react-icons";
 import "./SettingsPage.css";
+import {
+  buildPasswordChangePayload,
+  DescriptionRekeyError,
+} from "../utils/org-enrollment";
+import { cacheOrgKey } from "../hooks/useOrgKey";
 
 type SettingsSection =
   | "profile"
@@ -91,6 +96,7 @@ export default function SettingsPage() {
   const [passwordStatus, setPasswordStatus] = useState<
     "idle" | "saving" | "success" | "error"
   >("idle");
+  const [passwordError, setPasswordError] = useState("");
 
   const [showDeleteBallotsConfirm, setShowDeleteBallotsConfirm] =
     useState(false);
@@ -162,14 +168,37 @@ export default function SettingsPage() {
   const handleUpdatePassword = async () => {
     if (newPassword.length < 8 || newPassword !== confirmPassword) return;
     setPasswordStatus("saving");
+    setPasswordError("");
     try {
-      await changePassword({ currentPassword, newPassword });
+      // A new password means a new keypair, so every encrypted description must
+      // be re-keyed in the same request — the server rejects the change
+      // otherwise rather than orphaning them.
+      const { publicKey, reencrypted, newPrivateKey } =
+        await buildPasswordChangePayload(currentPassword, newPassword);
+
+      await changePassword({
+        currentPassword,
+        newPassword,
+        publicKey,
+        reencrypted,
+      });
+
+      // Only now is the new key the real one.
+      cacheOrgKey(newPrivateKey);
+
       setPasswordStatus("success");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => setPasswordStatus("idle"), 3000);
-    } catch {
+    } catch (err: any) {
+      if (err instanceof DescriptionRekeyError) {
+        setPasswordError(err.message);
+      } else {
+        setPasswordError(
+          err?.response?.data?.message ?? "Could not update your password.",
+        );
+      }
       setPasswordStatus("error");
       setTimeout(() => setPasswordStatus("idle"), 3000);
     }
@@ -1021,7 +1050,9 @@ export default function SettingsPage() {
                   <span className="message-icon">
                     <InfoCircledIcon width="16" height="16" />
                   </span>
-                  <span>Failed to update password. Please try again.</span>
+                  <span>
+                    {passwordError || "Failed to update password. Please try again."}
+                  </span>
                 </div>
               )}
 

@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "test": "jest --runInBand",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "backfill:commitments": "ts-node src/scripts/backfillBallotCommitments.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

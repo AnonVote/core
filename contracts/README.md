@@ -38,7 +38,11 @@ The `anonvote` smart contract provides on-chain anchoring for ballot creation, t
 - `get_tokens_issued(env: Env, ballot_id_hash: String) -> u64`: Returns total token count issued.
 - `get_votes_cast(env: Env, ballot_id_hash: String) -> u64`: Returns total votes recorded.
 - `is_consistent(env: Env, ballot_id_hash: String) -> bool`: Verifies that `tokens_issued >= votes_cast`.
+- `record_ballot_commitment(env: Env, ballot_id_hash: String, commitment: String) -> Result<(), Error>`: Anchors a ballot's content commitment at DRAFT → ACTIVE (issue #86). **Write-once** — a second write returns `Error::CommitmentExists`. Unlike `record_result`, which overwrites unconditionally, a commitment that can be replaced proves nothing.
+- `get_ballot_commitment(env: Env, ballot_id_hash: String) -> Result<String, Error>`: Returns the anchored commitment, or `Error::BallotNotFound` if the ballot was never committed.
 - `has_vote(env: Env, vote_id_hash: String) -> bool`: Returns whether a vote id has already been recorded (used by the backend to disambiguate failed batches).
+- `initialize(env: Env, admin_key: String) -> Result<(), Error>`: Sets the admin key once, at deployment.
+- `get_admin_key(env: Env) -> Result<String, Error>` / `rotate_admin_key(...)`: Admin key read and rotation.
 
 ## Error Codes
 
@@ -49,6 +53,31 @@ The `anonvote` smart contract provides on-chain anchoring for ballot creation, t
 | 3 | `Unauthorized` | caller is not the current admin |
 | 4 | `InvalidKey` | invalid public key (or same as current admin) |
 | 5 | `DuplicateVote` | `vote_id_hash` already recorded (idempotency guard) |
+| 6 | `CommitmentExists` | a commitment is already anchored for this ballot |
+
+These discriminants are a stable on-chain contract; `test_error_code_descriptive` pins them.
+
+## Deployment
+
+```bash
+cargo build --target wasm32-unknown-unknown --release
+
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --source <identity> --network testnet
+
+# Set the admin key once. Whoever holds this key controls rotate_admin_key.
+stellar contract invoke --id <CONTRACT_ID> --source <identity> --network testnet \
+  -- initialize --admin_key <G...>
+```
+
+Then set `SOROBAN_CONTRACT_ID=<CONTRACT_ID>` in `.env`. Until it is set, every
+Soroban call silently no-ops and ballot verification falls back to the database
+copy, reporting `source: "database"`.
+
+> **Redeploy required for Issue #86.** `record_ballot_commitment` and
+> `get_ballot_commitment` are new, so a contract deployed before this change
+> cannot serve on-chain verification.
 
 ## Building & Testing
 
@@ -70,8 +99,8 @@ cargo test
 > cargo update -p ed25519-dalek@3.0.0 --precise 2.1.1
 > ```
 >
-> (`Cargo.lock` is gitignored for this crate, so the pin must be re-applied per
-> checkout.)
+> `Cargo.lock` is now committed for this crate (issue #86), so the pin travels
+> with the repository and should not need re-applying per checkout.
 
 See [`docs/SOROBAN_INTEGRATION.md`](../docs/SOROBAN_INTEGRATION.md) for the full
 backend integration guide (deploy, batching, retries, observability, recovery).

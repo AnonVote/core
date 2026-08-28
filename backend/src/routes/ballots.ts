@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { requireAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { createBallotSchema, updateBallotSchema } from "../validation/schemas";
+import { verifyBallotCommitment } from "../services/verificationService";
 import {
   createBallot,
   getBallotsByOrg,
@@ -35,6 +36,8 @@ router.post(
         allowWeightedVoting,
         startTime,
         autoFinalise,
+        descriptionCiphertext,
+        descriptionHash,
       } = req.body;
       const ballot = await createBallot(
         req.organization!.id,
@@ -45,6 +48,8 @@ router.post(
         allowWeightedVoting,
         startTime ? new Date(startTime) : undefined,
         autoFinalise,
+        descriptionCiphertext,
+        descriptionHash,
       );
       res.status(201).json({ data: ballot });
     } catch (err) {
@@ -139,14 +144,46 @@ router.patch(
   validate(updateBallotSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { topic, deadline, eligibilityListId, options } = req.body;
+      const {
+        topic,
+        deadline,
+        eligibilityListId,
+        options,
+        descriptionCiphertext,
+        descriptionHash,
+      } = req.body;
       const updated = await updateBallot(req.params.id, req.organization!.id, {
         ...(topic !== undefined && { topic }),
         ...(deadline !== undefined && { deadline: new Date(deadline) }),
         ...(eligibilityListId !== undefined && { eligibilityListId }),
         ...(options !== undefined && { options }),
+        ...(descriptionCiphertext !== undefined && {
+          descriptionCiphertext,
+          descriptionHash,
+        }),
       });
       res.status(200).json({ data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/ballots/:id/commitment — Public: verify ballot content against its anchor
+router.get(
+  "/:id/commitment",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await verifyBallotCommitment(req.params.id);
+      res.status(200).json({
+        data: {
+          ballotId: req.params.id,
+          commitmentHash: result.expected,
+          onChain: result.onChain,
+          status: result.status,
+          source: result.source,
+        },
+      });
     } catch (err) {
       next(err);
     }

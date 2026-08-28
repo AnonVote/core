@@ -37,6 +37,7 @@ describe("Token format validation — POST /api/votes", () => {
     await prisma.eligibilityEntry.deleteMany();
     await prisma.eligibilityList.deleteMany();
     await prisma.session.deleteMany();
+    await prisma.organizationKey.deleteMany();
     await prisma.organization.deleteMany();
 
     const org = await prisma.organization.create({
@@ -235,6 +236,7 @@ describe("voterIdentifier length validation — POST /api/tokens and POST /api/t
     await prisma.eligibilityEntry.deleteMany();
     await prisma.eligibilityList.deleteMany();
     await prisma.session.deleteMany();
+    await prisma.organizationKey.deleteMany();
     await prisma.organization.deleteMany();
 
     const org = await prisma.organization.create({
@@ -277,9 +279,9 @@ describe("voterIdentifier length validation — POST /api/tokens and POST /api/t
       .post("/api/tokens")
       .send({ ballotId, voterIdentifier: "x".repeat(500) });
 
-    // Validation passes; service layer may return a business error (not on eligibility
-    // list) but must NOT return 400 ValidationError
-    expect(res.status).not.toBe(400);
+    // Validation passes; the service layer still returns a business error (the
+    // identifier is not on the eligibility list), which is itself a 400 — so the
+    // assertion that matters is the error code, not the status.
     expect(res.body.error).not.toBe("ValidationError");
   });
 
@@ -297,7 +299,9 @@ describe("voterIdentifier length validation — POST /api/tokens and POST /api/t
       .post("/api/tokens/reissue")
       .send({ ballotId, voterIdentifier: "x".repeat(500) });
 
-    expect(res.status).not.toBe(400);
+    // Validation passes; the service layer still returns a business error (the
+    // identifier is not on the eligibility list), which is itself a 400 — so the
+    // assertion that matters is the error code, not the status.
     expect(res.body.error).not.toBe("ValidationError");
   });
 

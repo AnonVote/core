@@ -27,9 +27,9 @@ const AUTH_TAG_LENGTH = 16;
  * Derives a deterministic key from the master key for organization-specific encryption
  */
 function deriveMasterKey(): Buffer {
-  const masterKey = config.ballotEncryptionKey;
+  const masterKey = config.dataEncryptionKey;
   if (!masterKey || masterKey.length !== 64) {
-    throw new Error("BALLOT_ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
+    throw new Error("DATA_ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
   }
   return Buffer.from(masterKey, "hex");
 }
@@ -50,8 +50,10 @@ function encryptOrganizationKey(orgKey: Buffer): string {
   const salt = crypto.randomBytes(SALT_LENGTH);
   
   // Derive encryption key from master key using HKDF (fast, designed for key derivation)
-  const derivedKey = crypto.hkdfSync('sha256', masterKey, salt, Buffer.from('org-key-encryption'), KEY_LENGTH);
-  
+  const derivedKey = Buffer.from(
+    crypto.hkdfSync('sha256', masterKey, salt, Buffer.from('org-key-encryption'), KEY_LENGTH),
+  );
+
   const cipher = crypto.createCipheriv(ALGORITHM, derivedKey, iv);
   const encrypted = Buffer.concat([cipher.update(orgKey), cipher.final()]);
   const authTag = cipher.getAuthTag();
@@ -82,8 +84,10 @@ function decryptOrganizationKey(encryptedKey: string): Buffer {
   const encrypted = Buffer.from(parts[3], "hex");
   
   // Derive same key used for encryption using HKDF
-  const derivedKey = crypto.hkdfSync('sha256', masterKey, salt, Buffer.from('org-key-encryption'), KEY_LENGTH);
-  
+  const derivedKey = Buffer.from(
+    crypto.hkdfSync('sha256', masterKey, salt, Buffer.from('org-key-encryption'), KEY_LENGTH),
+  );
+
   const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv);
   decipher.setAuthTag(authTag);
   

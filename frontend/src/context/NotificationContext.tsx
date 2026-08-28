@@ -148,7 +148,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const updatedCounts: Record<string, number> = { ...voteCounts };
 
         for (const ballot of ballots) {
-          if (ballot.status !== "OPEN") continue;
+          if (ballot.status !== "ACTIVE") continue;
           try {
             const auditRes = await getAudit(ballot.id);
             const { votesCast } = auditRes.data.data;

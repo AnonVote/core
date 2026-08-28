@@ -48,8 +48,18 @@ router.post(
 
       if (!rlResult.allowed) {
         // Log violation to audit table (best-effort, non-blocking)
-        prisma.auditEvent
-          .create({ data: { ballotId, eventType: "RATE_LIMIT_EXCEEDED" } })
+        prisma.ballot
+          .findUnique({ where: { id: ballotId }, select: { organizationId: true } })
+          .then((b) =>
+            b &&
+            prisma.auditEvent.create({
+              data: {
+                ballotId,
+                organizationId: b.organizationId,
+                eventType: "RATE_LIMIT_EXCEEDED",
+              },
+            }),
+          )
           .catch((err) =>
             logger.warn("rate_limit_audit_failed", {
               ballotId,

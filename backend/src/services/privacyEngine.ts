@@ -37,32 +37,6 @@ export async function submitVote(
     throw new AppError("Missing or malformed field: ballot_id", 400, "INVALID_INPUT");
   }
 
-  // Validate ballot is open (fetch early for organizationId)
-  const ballot = await prisma.ballot.findUnique({
-    where: { id: ballotId },
-    include: { options: true },
-  });
-
-  if (!ballot || ballot.status === "CLOSED") {
-    throw badRequest("This ballot is not currently accepting votes.");
-  }
-
-  if (voterToken.used) {
-    // Record duplicate attempt — no token value stored
-    await prisma.auditEvent.create({
-      data: { 
-        ballotId, 
-        organizationId: ballot.organizationId,
-        eventType: "DUPLICATE_VOTE_ATTEMPT" 
-      },
-    });
-    throw badRequest("This token has already been used to cast a vote.");
-  }
-
-  // Validate option belongs to ballot
-  const validOption = ballot.options.find((o) => o.id === optionId);
-  if (!validOption) {
-    throw badRequest("Invalid option for this ballot.");
   if (!rawToken || typeof rawToken !== "string" || !rawToken.trim()) {
     throw new AppError("Missing or malformed field: token", 400, "INVALID_INPUT");
   }
@@ -100,8 +74,17 @@ export async function submitVote(
         throw new AppError("This token is not recognised for this ballot.", 401, "INVALID_TOKEN");
       }
       if (existing.used) {
+        // organizationId is required on AuditEvent; the ballot is not yet loaded here.
+        const dupBallot = await tx.ballot.findUnique({
+          where: { id: ballotId },
+          select: { organizationId: true },
+        });
         await tx.auditEvent.create({
-          data: { ballotId, eventType: "DUPLICATE_VOTE_ATTEMPT" },
+          data: {
+            ballotId,
+            organizationId: dupBallot?.organizationId ?? "",
+            eventType: "DUPLICATE_VOTE_ATTEMPT",
+          },
         }).catch((err) =>
           logger.warn("duplicate_vote_audit_failed", {
             ballotId,
@@ -178,16 +161,10 @@ export async function submitVote(
     }
 
     // Audit event — no token value stored
-    const auditEvent = await tx.auditEvent.create({
-      data: { 
-        ballotId, 
-        organizationId: ballot.organizationId,
-        eventType: "VOTE_CAST" 
-
-    // Audit log
     await tx.auditEvent.create({
       data: {
         ballotId,
+        organizationId: ballot.organizationId,
         eventType: "VOTE_CAST",
       },
     });

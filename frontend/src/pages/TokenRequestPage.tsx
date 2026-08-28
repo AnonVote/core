@@ -30,7 +30,7 @@ export default function TokenRequestPage() {
     getBallot(ballotId)
       .then((res) => {
         const b = res.data.data;
-        if (b.status !== "OPEN")
+        if (b.status !== "ACTIVE")
           setBallotError(
             "This ballot is not currently accepting token requests.",
           );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { loginOrg } from "../api/client";
+import { enrollOrgKeyAfterLogin } from "../utils/org-enrollment";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import {
@@ -34,6 +35,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await loginOrg(form);
+      // Derive and cache the org encryption key from the password just used.
+      // Never blocks login — a failure only means descriptions show as
+      // placeholders until the next successful login.
+      await enrollOrgKeyAfterLogin(form.password);
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);

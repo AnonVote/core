@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { InfoCircledIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 
 interface OrganizationOverviewProps {

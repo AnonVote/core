@@ -16,6 +16,7 @@ async function cleanDb() {
   await prisma.eligibilityEntry.deleteMany();
   await prisma.eligibilityList.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.organizationKey.deleteMany();
   await prisma.organization.deleteMany();
 }
 
@@ -113,7 +114,9 @@ describe("End-to-End voting flow", () => {
 
     const invalidTokenRes = await request(app)
       .post("/api/votes")
-      .send({ ballotId, voterToken: "definitely-not-a-valid-token", optionId: optionAId });
+      // Well-formed (64-char hex) but never issued: must reach the service and
+      // fail as INVALID_TOKEN, not as a schema ValidationError.
+      .send({ ballotId, voterToken: "b".repeat(64), optionId: optionAId });
     expect(invalidTokenRes.status).toBe(401);
     expect(invalidTokenRes.body.error).toBe("INVALID_TOKEN");
 

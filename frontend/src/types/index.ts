@@ -41,6 +41,33 @@ export interface Ballot {
   anchorStatus?: AnchorStatus;
   eligibleVoters?: number;
   result?: Result;
+  /** E2E-encrypted description envelope, "v1:ephPub:iv:ct". Null = none. */
+  descriptionCiphertext?: string | null;
+  descriptionKeyVersion?: number | null;
+  /** sha256 hex of the description plaintext — what the commitment covers. */
+  descriptionHash?: string | null;
+  commitmentHash?: string | null;
+  commitmentTxId?: string | null;
+  commitmentAnchoredAt?: string | null;
+}
+
+export type CommitmentStatus = "verified" | "mismatch" | "unanchored";
+
+export interface BallotCommitment {
+  ballotId: string;
+  commitmentHash: string;
+  onChain: string | null;
+  status: CommitmentStatus;
+  source: "chain" | "database" | "none";
+}
+
+export interface OrgPublicKey {
+  organizationId: string;
+  /** null until the organization has enrolled a key. */
+  publicKey: string | null;
+  keyDerivationSalt: string;
+  keyVersion: number;
+  algorithm: "X25519";
 }
 
 export interface AdminBallotSummary {

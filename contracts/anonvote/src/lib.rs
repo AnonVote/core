@@ -22,6 +22,9 @@ pub enum Error {
     /// Returned when a duplicate vote id is submitted to `record_vote` or
     /// `batch_record_votes`. Used for idempotency (issue #77).
     DuplicateVote = 5,
+    /// Returned when a ballot commitment already exists. Commitments are
+    /// write-once — overwriting one would defeat their purpose (issue #86).
+    CommitmentExists = 6,
 }
 
 #[contracttype]
@@ -33,6 +36,7 @@ pub enum DataKey {
     BallotResult(String),
     BallotExists(String),
     VoteRecorded(String),
+    BallotCommitment(String),
 }
 
 fn is_valid_stellar_key(key: &String) -> bool {
@@ -248,6 +252,43 @@ impl AnonVoteContract {
             (symbol_short!("result"), symbol_short!("publshd")),
             (ballot_id_hash, result_hash),
         );
+    }
+
+    /// Record a ballot's content commitment on-chain (Issue #86).
+    ///
+    /// Unlike `record_result`, which overwrites unconditionally, this rejects a
+    /// second write: a commitment that can be replaced proves nothing.
+    pub fn record_ballot_commitment(
+        env: Env,
+        ballot_id_hash: String,
+        commitment: String,
+    ) -> Result<(), Error> {
+        let key = DataKey::BallotCommitment(ballot_id_hash.clone());
+
+        if env.storage().instance().has(&key) {
+            return Err(Error::CommitmentExists);
+        }
+
+        env.storage().instance().set(&key, &commitment);
+
+        env.events().publish(
+            (symbol_short!("ballot"), symbol_short!("commit")),
+            (ballot_id_hash, commitment),
+        );
+
+        Ok(())
+    }
+
+    /// Get a ballot's content commitment.
+    pub fn get_ballot_commitment(
+        env: Env,
+        ballot_id_hash: String,
+    ) -> Result<String, Error> {
+        let key = DataKey::BallotCommitment(ballot_id_hash);
+        env.storage()
+            .instance()
+            .get(&key)
+            .ok_or(Error::BallotNotFound)
     }
 
     /// Get total tokens issued for a ballot.
@@ -567,12 +608,80 @@ mod test {
     }
 
     #[test]
+    fn test_record_and_get_ballot_commitment() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "ballot-commit-1");
+        let commitment = String::from_str(
+            &env,
+            "3b1f8c2d4e5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e",
+        );
+
+        client.record_ballot_commitment(&ballot_id, &commitment);
+        assert_eq!(client.get_ballot_commitment(&ballot_id), commitment);
+    }
+
+    #[test]
+    fn test_get_ballot_commitment_unknown_ballot_errors() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "ballot-never-committed");
+
+        let res = client.try_get_ballot_commitment(&ballot_id);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), Ok(Error::BallotNotFound));
+    }
+
+    #[test]
+    fn test_ballot_commitment_overwrite_rejected() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_id = String::from_str(&env, "ballot-commit-2");
+        let first = String::from_str(&env, "aaaa1111");
+        let second = String::from_str(&env, "bbbb2222");
+
+        client.record_ballot_commitment(&ballot_id, &first);
+
+        let res = client.try_record_ballot_commitment(&ballot_id, &second);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), Ok(Error::CommitmentExists));
+
+        // The original commitment must survive the rejected overwrite.
+        assert_eq!(client.get_ballot_commitment(&ballot_id), first);
+    }
+
+    #[test]
+    fn test_ballot_commitments_are_independent_per_ballot() {
+        let env = Env::default();
+        let contract_id = env.register(AnonVoteContract, ());
+        let client = AnonVoteContractClient::new(&env, &contract_id);
+
+        let ballot_a = String::from_str(&env, "ballot-a");
+        let ballot_b = String::from_str(&env, "ballot-b");
+        let commit_a = String::from_str(&env, "aaaa");
+        let commit_b = String::from_str(&env, "bbbb");
+
+        client.record_ballot_commitment(&ballot_a, &commit_a);
+        client.record_ballot_commitment(&ballot_b, &commit_b);
+
+        assert_eq!(client.get_ballot_commitment(&ballot_a), commit_a);
+        assert_eq!(client.get_ballot_commitment(&ballot_b), commit_b);
+    }
+
+    #[test]
     fn test_error_code_descriptive() {
         assert_eq!(Error::CounterOverflow as u32, 1);
         assert_eq!(Error::BallotNotFound as u32, 2);
         assert_eq!(Error::Unauthorized as u32, 3);
         assert_eq!(Error::InvalidKey as u32, 4);
         assert_eq!(Error::DuplicateVote as u32, 5);
+        assert_eq!(Error::CommitmentExists as u32, 6);
         assert_eq!(MAX_VOTES_PER_BALLOT, 9_223_372_036_854_775_807_u64);
         assert_eq!(MAX_VOTES_PER_BALLOT, (1u64 << 63) - 1);
     }

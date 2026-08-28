@@ -9,6 +9,8 @@ import type {
   BallotSummary,
   ResultsSummary,
   AuditTrail,
+  BallotCommitment,
+  OrgPublicKey,
 } from "../types";
 
 const api = axios.create({
@@ -76,8 +78,30 @@ export const updateOrg = (data: { name?: string; email?: string }) =>
 export const changePassword = (data: {
   currentPassword: string;
   newPassword: string;
+  /** New X25519 public key derived from the new password. */
+  publicKey?: string;
+  /**
+   * Every encrypted description re-encrypted to the new key. The server rejects
+   * the change outright if this does not cover them all — silent loss here is
+   * unrecoverable.
+   */
+  reencrypted?: { ballotId: string; descriptionCiphertext: string }[];
+  /** Explicit opt-in to destroying descriptions that were not re-encrypted. */
+  discardEncryptedDescriptions?: boolean;
 }) =>
   api.patch<ApiResponse<{ message: string }>>("/organizations/password", data);
+
+// Public: the salt and public key a browser needs to derive/encrypt. No secret.
+export const getOrgPublicKey = (organizationId: string) =>
+  api.get<ApiResponse<OrgPublicKey>>(
+    `/organizations/${organizationId}/public-key`,
+  );
+
+export const enrollOrgPublicKey = (data: {
+  publicKey: string;
+  keyVersion?: number;
+}) =>
+  api.post<ApiResponse<OrgPublicKey>>("/organizations/me/public-key", data);
 
 export const deleteAccount = () =>
   api.delete<ApiResponse<{ message: string }>>("/organizations/me");
@@ -116,6 +140,9 @@ export const createBallot = (data: {
   maxRankings?: number;
   startTime?: string;
   autoFinalise?: boolean;
+  descriptionCiphertext?: string;
+  /** sha256 hex of the description plaintext — what the commitment covers. */
+  descriptionHash?: string;
 }) => api.post<ApiResponse<Ballot>>("/ballots", data);
 
 export const updateBallot = (
@@ -125,8 +152,18 @@ export const updateBallot = (
     deadline?: string;
     eligibilityListId?: string;
     options?: string[];
+    /** null clears the description; undefined leaves it untouched. */
+    descriptionCiphertext?: string | null;
+    descriptionHash?: string | null;
   },
 ) => api.patch<ApiResponse<Ballot>>(`/ballots/${id}`, data);
+
+// Public: verify a ballot's content against its anchored commitment.
+/** Exported for test fixtures. */
+export type BallotCommitmentShape = BallotCommitment;
+
+export const getBallotCommitment = (id: string) =>
+  api.get<ApiResponse<BallotCommitment>>(`/ballots/${id}/commitment`);
 
 // Eligibility
 export const uploadEligibilityList = (file: File) => {

@@ -54,7 +54,8 @@ describe('CreateBallotPage', () => {
     renderPage();
     const topicInput = screen.getByPlaceholderText(/e.g. Adopt new remote work policy/i);
     fireEvent.change(topicInput, { target: { value: 'Test Topic' } });
-    expect(screen.getByText('10/500')).toBeInTheDocument();
+    // The backend rejects a topic over 200 chars, so the counter tracks 200.
+    expect(screen.getByText('10/200')).toBeInTheDocument();
   });
 
   test('enforces max 10 options', () => {

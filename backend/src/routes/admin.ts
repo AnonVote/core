@@ -256,7 +256,7 @@ router.post(
               where: { eligibilityListId: ballot.eligibilityListId, identifierHash: h },
               data: { tokenIssued: true },
             });
-            const audit = await tx.auditEvent.create({ data: { ballotId: ballot.id, eventType: "TOKEN_ISSUED" } });
+            const audit = await tx.auditEvent.create({ data: { ballotId: ballot.id, organizationId: ballot.organizationId, eventType: "TOKEN_ISSUED" } });
             return { tokenId: token.id, auditId: audit.id };
           });
 
@@ -393,7 +393,14 @@ router.post(
       
       res.status(201).json({ 
         message: "Encryption key created successfully",
-        data: { organizationId: orgId }
+        data: { organizationId: orgId },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // GET /api/admin/audit/:ballotId — Admin: full structured audit export (JSON or CSV)
 router.get("/audit/:ballotId", requireAuth, adminAuditHandler);
 
@@ -460,7 +467,14 @@ router.post(
       
       res.status(200).json({ 
         message: "Encryption key rotated successfully",
-        data: { organizationId: orgId }
+        data: { organizationId: orgId },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // POST /api/admin/ballots/:ballotId/rotate-key — Rotate a ballot encryption key
 router.post(
   "/ballots/:ballotId/rotate-key",
@@ -510,6 +524,11 @@ router.get(
       });
       
       res.status(200).json({ data: keys });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // POST /api/admin/ballots — Create ballot as admin
 router.post(

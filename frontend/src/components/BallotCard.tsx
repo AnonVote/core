@@ -11,6 +11,7 @@ import {
   CopyIcon,
   ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
+import BallotDescription from "./BallotDescription";
 
 interface Props {
   ballot: Ballot;
@@ -287,6 +288,12 @@ export default function BallotCard({ ballot, onBallotDeleted }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Encrypted description — decrypts in place, or shows a placeholder */}
+      <BallotDescription
+        descriptionCiphertext={ballot.descriptionCiphertext}
+        clamp
+      />
 
       {/* Stellar Anchor Status */}
       <div className="mb-4">

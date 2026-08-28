@@ -51,7 +51,7 @@ describe("Tenant Isolation", () => {
 
     const loginARes = await request(app)
       .post("/api/organizations/login")
-      .send({ email: "orga@test.com", password: "password123" });
+      .send({ name: "Test Org A", password: "password123" });
 
     orgA = {
       id: orgARecord.id,
@@ -70,7 +70,7 @@ describe("Tenant Isolation", () => {
 
     const loginBRes = await request(app)
       .post("/api/organizations/login")
-      .send({ email: "orgb@test.com", password: "password123" });
+      .send({ name: "Test Org B", password: "password123" });
 
     orgB = {
       id: orgBRecord.id,
@@ -169,7 +169,7 @@ describe("Tenant Isolation", () => {
         .send({ topic: "Hacked Ballot B" });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("own ballots");
+      expect(res.body.message).toContain("own ballots");
     });
 
     it("should prevent organization from deleting another org's ballot", async () => {
@@ -178,7 +178,7 @@ describe("Tenant Isolation", () => {
         .set("Cookie", orgA.token);
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("own ballots");
+      expect(res.body.message).toContain("own ballots");
     });
   });
 
@@ -225,28 +225,26 @@ describe("Tenant Isolation", () => {
         },
       });
 
-      // Org A should only see their events
+      // /api/audit/:ballotId is deliberately public (counts + event types only).
+      // The org-scoped surface is /api/admin/audit/:ballotId — assert isolation there.
       const resA = await request(app)
-        .get(`/api/audit/${ballotA.id}`)
+        .get(`/api/admin/audit/${ballotA.id}`)
         .set("Cookie", orgA.token);
 
       expect(resA.status).toBe(200);
-      const ballotIds = resA.body.data.map((e: any) => e.ballotId);
-      expect(ballotIds).toContain(ballotA.id);
-      expect(ballotIds).not.toContain(ballotB.id);
+      expect(resA.body.data.summary.ballotId).toBe(ballotA.id);
+      const eventBallotIds = resA.body.data.eventLog.map((e: any) => e.ballotId);
+      expect(eventBallotIds).toContain(ballotA.id);
+      expect(eventBallotIds).not.toContain(ballotB.id);
     });
 
     it("should prevent accessing another organization's audit logs", async () => {
       const res = await request(app)
-        .get(`/api/audit/${ballotB.id}`)
+        .get(`/api/admin/audit/${ballotB.id}`)
         .set("Cookie", orgA.token);
 
-      // Should either return empty or error
-      if (res.status === 200) {
-        expect(res.body.data).toHaveLength(0);
-      } else {
-        expect(res.status).toBeGreaterThanOrEqual(400);
-      }
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.body.message).toContain("your own ballots");
     });
   });
 
@@ -266,7 +264,7 @@ describe("Tenant Isolation", () => {
         .set("Cookie", orgA.token);
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("own organization");
+      expect(res.body.message).toContain("own organization");
     });
 
     it("should not allow organization to rotate another org's keys", async () => {
@@ -275,7 +273,7 @@ describe("Tenant Isolation", () => {
         .set("Cookie", orgA.token);
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("own organization");
+      expect(res.body.message).toContain("own organization");
     });
 
     it("should allow organization to rotate their own keys", async () => {
@@ -348,10 +346,11 @@ describe("Tenant Isolation", () => {
         .set("Cookie", orgA.token);
 
       expect(res.status).toBe(200);
-      const ballots = res.body.data;
-      
+      const topics = res.body.data.map((b: any) => b.topic);
+
       // Should only see Org A's ballots
-      expect(ballots.every((b: any) => b.topic.includes("A"))).toBe(true);
+      expect(topics).toContain("Ballot A");
+      expect(topics).not.toContain("Ballot B");
     });
 
     it("should validate session belongs to correct organization", async () => {
