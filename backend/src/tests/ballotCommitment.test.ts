@@ -12,7 +12,10 @@ import {
   canonicalBallotPayload,
   computeBallotCommitment,
 } from "../utils/commitment";
-import { activateBallot } from "../services/ballotEngine";
+import {
+  activateBallot,
+  retryPendingCommitmentAnchors,
+} from "../services/ballotEngine";
 import { verifyBallotCommitment } from "../services/verificationService";
 
 async function cleanDb() {
@@ -363,5 +366,102 @@ describe("verification", () => {
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.data.commitmentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(verifyRes.body.data.status).toBe("verified");
+  });
+});
+
+describe("commitment anchor retry", () => {
+  // activateBallot anchors fire-and-forget so a network blip never blocks a
+  // ballot going ACTIVE. These pin the sweep that stops such a ballot sitting
+  // permanently at source: "database".
+
+  // Built directly rather than via activateBallot: in test mode the Soroban
+  // write returns a mock hash, so activateBallot's fire-and-forget .then()
+  // would race with (and undo) the reset below.
+  async function makeStuckBallot() {
+    const res = await createBallotViaApi();
+    const ballotId = res.body.data.id;
+    await prisma.ballot.update({
+      where: { id: ballotId },
+      data: {
+        status: "ACTIVE",
+        commitmentTxId: null,
+        commitmentAnchoredAt: null,
+      },
+    });
+    return ballotId;
+  }
+
+  it("selects ACTIVE ballots whose anchoring never landed", async () => {
+    const ballotId = await makeStuckBallot();
+    const stuck = await prisma.ballot.findMany({
+      where: {
+        commitmentHash: { not: null },
+        commitmentAnchoredAt: null,
+        status: { in: ["ACTIVE", "CLOSED", "FINALISED"] },
+      },
+      select: { id: true },
+    });
+    expect(stuck.map((b) => b.id)).toContain(ballotId);
+  });
+
+  it("no-ops when Soroban is unconfigured, rather than churning every cycle", async () => {
+    await makeStuckBallot();
+    // SOROBAN_CONTRACT_ID is unset in tests, so the sweep must skip entirely.
+    const result = await retryPendingCommitmentAnchors();
+    expect(result.attempted).toBe(0);
+    expect((result as { skipped?: string }).skipped).toBe("unconfigured");
+  });
+
+  it("leaves a DRAFT ballot alone — its content is still mutable", async () => {
+    const res = await createBallotViaApi();
+    const draftId = res.body.data.id;
+
+    const stuck = await prisma.ballot.findMany({
+      where: {
+        commitmentHash: { not: null },
+        commitmentAnchoredAt: null,
+        status: { in: ["ACTIVE", "CLOSED", "FINALISED"] },
+      },
+      select: { id: true },
+    });
+    expect(stuck.map((b) => b.id)).not.toContain(draftId);
+  });
+
+  it("stops retrying once anchoring is recorded", async () => {
+    const ballotId = await makeStuckBallot();
+    await prisma.ballot.update({
+      where: { id: ballotId },
+      data: { commitmentAnchoredAt: new Date() },
+    });
+
+    const stuck = await prisma.ballot.findMany({
+      where: {
+        commitmentHash: { not: null },
+        commitmentAnchoredAt: null,
+        status: { in: ["ACTIVE", "CLOSED", "FINALISED"] },
+      },
+      select: { id: true },
+    });
+    expect(stuck.map((b) => b.id)).not.toContain(ballotId);
+  });
+
+  it("treats a recovered ballot as done even with no tx id", async () => {
+    // The restart-mid-flight case: the write landed but the tx id was lost.
+    // commitmentAnchoredAt (not commitmentTxId) is the terminating predicate.
+    const ballotId = await makeStuckBallot();
+    await prisma.ballot.update({
+      where: { id: ballotId },
+      data: { commitmentAnchoredAt: new Date(), commitmentTxId: null },
+    });
+
+    const stuck = await prisma.ballot.findMany({
+      where: {
+        commitmentHash: { not: null },
+        commitmentAnchoredAt: null,
+        status: { in: ["ACTIVE", "CLOSED", "FINALISED"] },
+      },
+      select: { id: true },
+    });
+    expect(stuck.map((b) => b.id)).not.toContain(ballotId);
   });
 });

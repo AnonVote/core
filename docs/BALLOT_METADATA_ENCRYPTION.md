@@ -122,9 +122,34 @@ operator, and the value is frozen on-chain at activation.
 | DRAFT edit | Commitment recomputed from the written row |
 | DRAFT → ACTIVE | Commitment persisted, then anchored on-chain fire-and-forget |
 | Anchor fails | Ballot stays valid; verification reports the DB copy or `unanchored` |
+| Retry | The 60s scheduler sweep re-attempts any ballot with `commitmentAnchoredAt: null` |
 
 `activateBallot()` in `ballotEngine.ts` owns the transition; `utils/scheduler.ts`
 calls it instead of updating status inline.
+
+### Anchor retry
+
+Anchoring is fire-and-forget so a network blip can never block a ballot going
+ACTIVE. `retryPendingCommitmentAnchors()` runs on the same 60s scheduler worker as
+`processPendingAnchors()` and re-attempts anything left unanchored, so a ballot
+never sits at `source: "database"` waiting for a human to notice.
+
+- The terminating predicate is **`commitmentAnchoredAt: null`**, not
+  `commitmentTxId: null` — see the recovery case below.
+- **Recovery:** if a write actually landed but the process died before persisting
+  the tx id, the chain already holds the commitment. Since
+  `record_ballot_commitment` is write-once, re-writing would fail with
+  `CommitmentExists`. The sweep therefore reads first and adopts a matching
+  on-chain value (tx id stays null, `commitmentAnchoredAt` is set).
+- A **differing** on-chain value is never overwritten — that is a real mismatch
+  for `verifyBallotCommitment` to surface, not something to paper over. It is
+  logged as `ballot_commitment_conflict`.
+- DRAFT ballots are excluded: their content is still mutable.
+- The sweep no-ops entirely when no contract is configured.
+
+The write itself goes through issue #77's resilience layer
+(`runResilientWrite` — retries, circuit breaking, metrics), so a failing write
+backs off rather than hammering the RPC each cycle.
 
 ## Verification
 

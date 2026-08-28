@@ -501,12 +501,14 @@ export async function sorobanRecordBallotCommitment(
   ballotIdHash: string,
   commitment: string,
 ): Promise<string> {
-  if (!CONTRACT_ID) return "";
-  const result = await invokeContract(CONTRACT_ID, "record_ballot_commitment", [
+  // Routed through the issue #77 resilience layer: retries, circuit breaking and
+  // metrics, returning "" rather than throwing when the write does not land.
+  // The caller treats "" as "not anchored" and leaves it for
+  // `retryPendingCommitmentAnchors` to pick up.
+  return runResilientWrite("record_ballot_commitment", [
     { value: ballotIdHash, type: "string" },
     { value: commitment, type: "string" },
   ]);
-  return result.txHash;
 }
 
 /**

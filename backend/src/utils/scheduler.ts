@@ -5,6 +5,7 @@ import {
   closeBallot,
   finaliseBallot,
   processPendingAnchors,
+  retryPendingCommitmentAnchors,
 } from "../services/ballotEngine";
 import { tallyBallot } from "../services/resultEngine";
 import { prisma } from "../prisma/client";
@@ -33,6 +34,10 @@ export async function startScheduler(): Promise<void> {
   setInterval(async () => {
     try {
       await processPendingAnchors();
+      // Issue #86: ballots whose commitment anchoring never landed. Without
+      // this a ballot would sit permanently at source: "database" until a
+      // human noticed.
+      await retryPendingCommitmentAnchors();
     } catch (err) {
       console.error("[Scheduler] Anchor worker error:", err);
     }

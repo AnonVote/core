@@ -6,6 +6,8 @@ import { sendBallotCreatedEmail } from "./emailService";
 import {
   sorobanRecordBallot,
   sorobanRecordBallotCommitment,
+  sorobanGetBallotCommitment,
+  isSorobanConfigured,
 } from "./sorobanService";
 import { logger } from "../utils/logger";
 import { computeBallotCommitment } from "../utils/commitment";
@@ -741,6 +743,105 @@ export async function processPendingAnchors() {
       console.error(`[Anchor] Retry failed for ballot ${ballot.id}:`, err);
     }
   }
+}
+
+/**
+ * Retry commitment anchoring for ballots whose on-chain write never landed
+ * (issue #86).
+ *
+ * `activateBallot` anchors fire-and-forget so a network blip can never block a
+ * ballot going ACTIVE. Without this, such a ballot would sit permanently at
+ * `source: "database"` and only a human noticing would fix it.
+ *
+ * Selection predicate is `commitmentAnchoredAt: null`, not `commitmentTxId:
+ * null`, so a ballot recovered from the chain (below) terminates instead of
+ * being retried forever.
+ *
+ * Recovery case: if a previous attempt actually landed but the process died
+ * before persisting the tx id, the chain already holds the commitment. Because
+ * `record_ballot_commitment` is write-once, blindly re-writing would fail with
+ * `CommitmentExists`. So read first, and adopt a matching on-chain value.
+ * A *differing* on-chain value is never overwritten — that is a genuine
+ * mismatch for `verifyBallotCommitment` to surface, not something to paper over.
+ */
+export async function retryPendingCommitmentAnchors(limit = 25) {
+  // Nothing to retry without a deployed contract — the database fallback is the
+  // intended mode, and verification reports `source: "database"` honestly.
+  if (!isSorobanConfigured()) {
+    return { attempted: 0, anchored: 0, recovered: 0, skipped: "unconfigured" };
+  }
+
+  const pending = await prisma.ballot.findMany({
+    where: {
+      deletedAt: null,
+      commitmentHash: { not: null },
+      commitmentAnchoredAt: null,
+      status: { in: ["ACTIVE", "CLOSED", "FINALISED"] },
+    },
+    select: { id: true, commitmentHash: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+
+  if (pending.length === 0) return { attempted: 0, anchored: 0, recovered: 0 };
+
+  let anchored = 0;
+  let recovered = 0;
+
+  for (const ballot of pending) {
+    const ballotIdHash = hashIdentifier(ballot.id);
+    try {
+      const onChain = await sorobanGetBallotCommitment(ballotIdHash);
+
+      if (onChain === ballot.commitmentHash) {
+        // Already anchored; we simply lost the tx id. Stop retrying it.
+        await prisma.ballot.update({
+          where: { id: ballot.id },
+          data: { commitmentAnchoredAt: new Date() },
+        });
+        recovered++;
+        logger.info("ballot_commitment_recovered", { ballotId: ballot.id });
+        continue;
+      }
+
+      if (onChain) {
+        // Something else is anchored for this ballot. Write-once means we must
+        // not overwrite it; leave it for verification to report as a mismatch.
+        logger.error("ballot_commitment_conflict", {
+          ballotId: ballot.id,
+          expected: ballot.commitmentHash,
+          onChain,
+        });
+        continue;
+      }
+
+      const txHash = await sorobanRecordBallotCommitment(
+        ballotIdHash,
+        ballot.commitmentHash!,
+      );
+      if (txHash) {
+        await prisma.ballot.update({
+          where: { id: ballot.id },
+          data: { commitmentTxId: txHash, commitmentAnchoredAt: new Date() },
+        });
+        anchored++;
+        logger.info("ballot_commitment_anchored", {
+          ballotId: ballot.id,
+          txHash,
+          viaRetry: true,
+        });
+      }
+      // Empty txHash means Soroban is unconfigured or the resilience layer gave
+      // up; leave the row untouched so the next cycle picks it up again.
+    } catch (err) {
+      logger.error("ballot_commitment_retry_failed", {
+        ballotId: ballot.id,
+        error: err,
+      });
+    }
+  }
+
+  return { attempted: pending.length, anchored, recovered };
 }
 
 /**
