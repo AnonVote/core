@@ -9,6 +9,11 @@ import {
   TimeoutError,
 } from "./errors";
 import type { Ballot, EncryptedPayload, RetryConfig } from "../types";
+import type {
+  PaillierPublicKey,
+  HomomorphicEncryptedVote,
+} from "../zkp/types";
+import { createHomomorphicVote } from "../zkp/proofs";
 
 // ── Config & response types ────────────────────────────────────────────────
 
@@ -27,6 +32,11 @@ export interface AnonVoteClientConfig {
    * submission. Generate with: `crypto.randomBytes(32).toString("hex")`.
    */
   ballotEncryptionKey: string;
+
+  /**
+   * Optional Paillier public key for Zero-Knowledge Proofs and Additive Homomorphic Encryption.
+   */
+  paillierPublicKey?: PaillierPublicKey;
 
   /**
    * Bearer token for authenticated API requests. Required for methods that
@@ -342,6 +352,47 @@ export class AnonVoteClient {
     return this.request<VoteResult>("POST", `/ballots/${ballotId}/votes`, {
       token,
       encryptedPayload,
+    });
+  }
+
+  /**
+   * Submits a homomorphic encrypted vote with an attached Zero-Knowledge Proof.
+   *
+   * @param ballotId - The ID of the ballot.
+   * @param token - One-time voter token.
+   * @param optionIndex - Selected option index.
+   * @param totalOptions - Total options count.
+   * @param paillierKey - Optional explicit Paillier key (defaults to config).
+   */
+  async submitHomomorphicVote(
+    ballotId: string,
+    token: string,
+    optionIndex: number,
+    totalOptions: number,
+    paillierKey?: PaillierPublicKey,
+  ): Promise<VoteResult> {
+    this.requireBallotId(ballotId);
+    if (!token || token.trim().length === 0) {
+      throw new ValidationError("token is required");
+    }
+
+    const key = paillierKey || this.config.paillierPublicKey;
+    if (!key) {
+      throw new ValidationError(
+        "paillierPublicKey is required either in params or client config",
+      );
+    }
+
+    const homomorphicVote: HomomorphicEncryptedVote = createHomomorphicVote(
+      optionIndex,
+      totalOptions,
+      ballotId,
+      key,
+    );
+
+    return this.request<VoteResult>("POST", `/ballots/${ballotId}/votes`, {
+      token,
+      homomorphicVote,
     });
   }
 

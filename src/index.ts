@@ -14,7 +14,85 @@ export {
   decryptVote,
   verifyVoteHash,
   verifyVoteProof,
+  encryptVoteHomomorphic,
+  verifyVoteZKP,
+  tallyHomomorphic,
+  verifyHomomorphicTallyProof,
 } from "./crypto";
+
+// FIPS 140-2 Compliance Validation
+export {
+  validateFIPSCompliance,
+  getCachedValidation,
+  clearValidationCache,
+} from "./fipsValidator";
+export type {
+  FIPSValidationResult,
+  FIPSConfiguration,
+} from "./fipsValidator";
+
+// ZKP and Homomorphic Subsystem
+export {
+  // Math
+  mod,
+  gcd,
+  lcm,
+  extendedGcd,
+  modInverse,
+  modPow,
+  hexToBigInt,
+  bigIntToHex,
+  randomBigInt,
+  randomCoprime,
+  isProbablePrime,
+  generatePrime,
+  // Paillier
+  paillierL,
+  generatePaillierKeyPair,
+  encryptPaillier,
+  decryptPaillier,
+  addPaillier,
+  aggregatePaillier,
+  multiplyPaillier,
+  // Pedersen
+  generatePedersenParams,
+  commitPedersen,
+  verifyPedersenCommitment,
+  addPedersenCommitments,
+  // ZKP Proofs
+  generateBinaryValidityProof,
+  verifyBinaryValidityProof,
+  createHomomorphicVote,
+  verifyHomomorphicVote,
+  tallyHomomorphicVotes,
+  verifyTallyDecryptionProof,
+  // Threshold
+  generateThresholdKeyShares,
+  generatePartialDecryption,
+  combineThresholdDecryptions,
+  // Merkle
+  buildMerkleTree,
+  generateMerkleProof,
+  verifyMerkleProof,
+} from "./zkp";
+export type {
+  PaillierPublicKey,
+  PaillierPrivateKey,
+  PaillierKeyPair,
+  PaillierCiphertext,
+  HomomorphicEncryptedVote,
+  BinaryValidityProof,
+  BallotValidityProof,
+  TallyDecryptionProof,
+  ThresholdKeyShare,
+  PartialDecryptionShare,
+  ThresholdDecryptionResult,
+  MerkleProof,
+  MerkleTreeCommitment,
+  ZKPVerificationReport,
+  PedersenParams,
+  PedersenCommitment,
+} from "./zkp";
 
 // Helper utilities
 export { bytesToBase64Url } from "./utils";
@@ -83,3 +161,4 @@ export type {
   CastVoteParams,
   VoteReceipt,
 } from "./types";
+

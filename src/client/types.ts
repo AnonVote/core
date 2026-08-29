@@ -1,4 +1,14 @@
 import type { EncryptedPayload } from "../types";
+import type {
+  PaillierPublicKey,
+} from "../zkp/types";
+
+export type {
+  PaillierPublicKey,
+  HomomorphicEncryptedVote,
+  ZKPVerificationReport,
+  MerkleProof,
+} from "../zkp/types";
 
 /**
  * Configuration for AnonVoteClient.
@@ -21,6 +31,11 @@ export interface ClientConfig {
    * Must never be stored in the database alongside encrypted votes.
    */
   ballotKey: string;
+
+  /**
+   * Optional Paillier public key for Zero-Knowledge Proofs and Additive Homomorphic Encryption.
+   */
+  paillierPublicKey?: PaillierPublicKey;
 }
 
 /**

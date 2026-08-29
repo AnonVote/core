@@ -240,6 +240,103 @@ export function verifyVoteHash(
  */
 export const verifyVoteProof = verifyVoteHash;
 
+import type {
+  PaillierPublicKey,
+  PaillierPrivateKey,
+  HomomorphicEncryptedVote,
+  TallyDecryptionProof,
+  ZKPVerificationReport,
+} from "./zkp/types";
+import {
+  createHomomorphicVote,
+  verifyHomomorphicVote,
+  tallyHomomorphicVotes,
+  verifyTallyDecryptionProof,
+} from "./zkp/proofs";
+
+/**
+ * Encrypts a vote homomorphically using Paillier encryption and generates a full
+ * Non-Interactive Zero-Knowledge (NIZK) validity proof proving that the ballot is
+ * valid (single-choice 1-of-k) without revealing the chosen option.
+ *
+ * @param optionIndex - The 0-based index of the chosen election option
+ * @param totalOptions - Total number of available options in the election
+ * @param ballotId - Unique identifier of the ballot
+ * @param publicKey - Paillier public key for additive homomorphic encryption
+ * @returns Homomorphic encrypted vote containing encrypted vector and ZKP proof
+ *
+ * @example
+ * const vote = encryptVoteHomomorphic(0, 3, "ballot-123", paillierKeyPair.publicKey);
+ */
+export function encryptVoteHomomorphic(
+  optionIndex: number,
+  totalOptions: number,
+  ballotId: string,
+  publicKey: PaillierPublicKey,
+): HomomorphicEncryptedVote {
+  return createHomomorphicVote(optionIndex, totalOptions, ballotId, publicKey);
+}
+
+/**
+ * Verifies a voter's Zero-Knowledge Proof (NIZK) validity without decrypting their ballot.
+ *
+ * @param vote - The homomorphic encrypted vote to audit
+ * @param publicKey - Paillier public key
+ * @returns A {@link ZKPVerificationReport} indicating validity status
+ *
+ * @example
+ * const report = verifyVoteZKP(vote, paillierKeyPair.publicKey);
+ * console.log(report.isValid); // true
+ */
+export function verifyVoteZKP(
+  vote: HomomorphicEncryptedVote,
+  publicKey: PaillierPublicKey,
+): ZKPVerificationReport {
+  return verifyHomomorphicVote(vote, publicKey);
+}
+
+/**
+ * Homomorphically tallies all verified votes into an aggregated result without
+ * decrypting any individual ballot.
+ *
+ * @param votes - List of homomorphic encrypted votes
+ * @param publicKey - Paillier public key
+ * @param privateKey - Paillier private key for final aggregate total decryption
+ * @param merkleRoot - Merkle root of all ballots included in the tally
+ * @returns A {@link TallyDecryptionProof} containing aggregated totals and decryption proof
+ *
+ * @example
+ * const proof = tallyHomomorphic(votes, keyPair.publicKey, keyPair.privateKey, "root-123");
+ * console.log(proof.tallyResults); // [10, 5, 2]
+ */
+export function tallyHomomorphic(
+  votes: HomomorphicEncryptedVote[],
+  publicKey: PaillierPublicKey,
+  privateKey: PaillierPrivateKey,
+  merkleRoot = "",
+): TallyDecryptionProof {
+  return tallyHomomorphicVotes(votes, publicKey, privateKey, merkleRoot);
+}
+
+/**
+ * Verifies the correctness of a homomorphic tally decryption proof.
+ *
+ * @param proof - Tally decryption proof
+ * @param publicKey - Paillier public key
+ * @returns true if the tally decryption proof is valid, false otherwise
+ *
+ * @example
+ * const isVerified = verifyHomomorphicTallyProof(proof, keyPair.publicKey);
+ * console.log(isVerified); // true
+ */
+export function verifyHomomorphicTallyProof(
+  proof: TallyDecryptionProof,
+  publicKey: PaillierPublicKey,
+): boolean {
+  return verifyTallyDecryptionProof(proof, publicKey);
+}
+
+
 
 /**
  * Parse and validate a base64-encoded 32-byte ballot key.

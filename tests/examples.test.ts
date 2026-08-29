@@ -8,6 +8,7 @@ import { main as runBasicBallot } from "../examples/basic-ballot";
 import { main as runTokenWorkflow } from "../examples/token-workflow";
 import { main as runErrorHandling } from "../examples/error-handling";
 import { main as runClientIntegration } from "../examples/client-integration";
+import { main as runZkVoteVerification } from "../examples/zk-vote-verification";
 
 describe("examples/basic-ballot.ts", () => {
   let consoleSpy: jest.SpyInstance;
@@ -247,3 +248,63 @@ describe("examples/client-integration.ts", () => {
     expect(apiLog).toBeDefined();
   });
 });
+
+describe("examples/zk-vote-verification.ts", () => {
+  let consoleSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("runs without throwing", async () => {
+    await expect(runZkVoteVerification()).resolves.toBeUndefined();
+  });
+
+  it("logs key generation and public modulus", async () => {
+    await runZkVoteVerification();
+    const keyLog = consoleSpy.mock.calls.find(
+      (call: string[]) => typeof call[0] === "string" && call[0].includes("Public Modulus n"),
+    );
+    expect(keyLog).toBeDefined();
+  });
+
+  it("logs ballot validity verification passed", async () => {
+    await runZkVoteVerification();
+    const validLog = consoleSpy.mock.calls.find(
+      (call: string[]) => typeof call[0] === "string" && call[0].includes("VALID (PASSED)"),
+    );
+    expect(validLog).toBeDefined();
+  });
+
+  it("logs Merkle inclusion confirmation", async () => {
+    await runZkVoteVerification();
+    const merkleLog = consoleSpy.mock.calls.find(
+      (call: string[]) => typeof call[0] === "string" && call[0].includes("Alice verifying inclusion"),
+    );
+    expect(merkleLog).toBeDefined();
+    expect(merkleLog[0]).toContain("CONFIRMED");
+  });
+
+  it("logs verified and audited tally proof", async () => {
+    await runZkVoteVerification();
+    const tallyLog = consoleSpy.mock.calls.find(
+      (call: string[]) => typeof call[0] === "string" && call[0].includes("Tally Proof Verification"),
+    );
+    expect(tallyLog).toBeDefined();
+    expect(tallyLog[0]).toContain("VERIFIED & AUDITED");
+  });
+
+  it("logs threshold decryption success", async () => {
+    await runZkVoteVerification();
+    const threshLog = consoleSpy.mock.calls.find(
+      (call: string[]) => typeof call[0] === "string" && call[0].includes("Threshold Decryption Status"),
+    );
+    expect(threshLog).toBeDefined();
+    expect(threshLog[0]).toContain("SUCCESS");
+  });
+});
+

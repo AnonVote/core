@@ -1,6 +1,15 @@
 import { randomUUID } from "../random";
 import { encryptVote, decryptVote } from "../crypto";
 import { ValidationError } from "../errors";
+import {
+  createHomomorphicVote,
+  verifyHomomorphicVote,
+} from "../zkp/proofs";
+import type {
+  PaillierPublicKey,
+  HomomorphicEncryptedVote,
+  ZKPVerificationReport,
+} from "../zkp/types";
 import type {
   ClientConfig,
   ElectionOptions,
@@ -239,6 +248,60 @@ export class AnonVoteClient {
       encryptedPayload,
       createdAt: new Date(),
     };
+  }
+
+  /**
+   * Casts a homomorphic vote with an attached Zero-Knowledge Proof (NIZK).
+   *
+   * @param election - The active election to vote in.
+   * @param optionId - Selected option UUID.
+   * @param paillierKey - Optional explicit Paillier public key (falls back to client config).
+   * @returns A {@link HomomorphicEncryptedVote} containing encrypted vector and ZKP validity proof.
+   */
+  castVoteHomomorphic(
+    election: Election,
+    optionId: string,
+    paillierKey?: PaillierPublicKey,
+  ): HomomorphicEncryptedVote {
+    const optionIndex = election.options.findIndex((o) => o.id === optionId);
+    if (optionIndex === -1) {
+      throw new ValidationError(
+        "INVALID_OPTION: optionId does not match any option in this election",
+      );
+    }
+
+    const key = paillierKey || this.config.paillierPublicKey;
+    if (!key) {
+      throw new ValidationError(
+        "paillierPublicKey is required to cast homomorphic vote",
+      );
+    }
+
+    return createHomomorphicVote(
+      optionIndex,
+      election.options.length,
+      election.id,
+      key,
+    );
+  }
+
+  /**
+   * Verifies a voter's zero-knowledge validity proof without decrypting the vote.
+   *
+   * @param vote - The homomorphic encrypted vote to audit.
+   * @param paillierKey - Optional explicit Paillier public key.
+   */
+  verifyVoteZKP(
+    vote: HomomorphicEncryptedVote,
+    paillierKey?: PaillierPublicKey,
+  ): ZKPVerificationReport {
+    const key = paillierKey || this.config.paillierPublicKey;
+    if (!key) {
+      throw new ValidationError(
+        "paillierPublicKey is required to verify vote proof",
+      );
+    }
+    return verifyHomomorphicVote(vote, key);
   }
 
   /**

@@ -24,7 +24,7 @@ a way that violates the AnonVote privacy model.</p>
 
 </div></div></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L72">client/index.ts:72</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L81">client/index.ts:81</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
@@ -38,6 +38,8 @@ a way that violates the AnonVote privacy model.</p>
 <h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-index-list"><a href="#createelection" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>create<wbr/>Election</span></a>
 <a href="#castvote" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote</span></a>
+<a href="#castvotehomomorphic" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote<wbr/>Homomorphic</span></a>
+<a href="#verifyvotezkp" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote<wbr/>ZKP</span></a>
 <a href="#verifyvote" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote</span></a>
 <a href="#serialize" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>serialize</span></a>
 <a href="#deserialize" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>deserialize</span></a>
@@ -70,7 +72,7 @@ a way that violates the AnonVote privacy model.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L88">client/index.ts:88</a></li></ul></aside></div></li></ul></section></section></details>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L97">client/index.ts:97</a></li></ul></aside></div></li></ul></section></section></details>
 <details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
 <h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
 <section>
@@ -118,7 +120,7 @@ IDs are generated.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L129">client/index.ts:129</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L138">client/index.ts:138</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="castvote"><span>cast<wbr/>Vote</span><a href="#castvote" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -166,7 +168,51 @@ returned Ballot is local only and must not be sent to the server.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L214">client/index.ts:214</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L223">client/index.ts:223</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="castvotehomomorphic"><span>cast<wbr/>Vote<wbr/>Homomorphic</span><a href="#castvotehomomorphic" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="castvotehomomorphic-1"><span class="tsd-kind-call-signature">castVoteHomomorphic</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">election</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/client.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">optionId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">paillierKey</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><a href="#castvotehomomorphic-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Casts a homomorphic vote with an attached Zero-Knowledge Proof (NIZK).</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">election</span>: <a href="../interfaces/client.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a></span>
+<div class="tsd-comment tsd-typography"><p>The active election to vote in.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">optionId</span>: <span class="tsd-signature-type">string</span></span>
+<div class="tsd-comment tsd-typography"><p>Selected option UUID.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">paillierKey</span>: <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a></span>
+<div class="tsd-comment tsd-typography"><p>Optional explicit Paillier public key (falls back to client config).</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a></h4><p>A <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-kind-interface">HomomorphicEncryptedVote</a> containing encrypted vector and ZKP validity proof.</p>
+<aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L261">client/index.ts:261</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="verifyvotezkp"><span>verify<wbr/>Vote<wbr/>ZKP</span><a href="#verifyvotezkp" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="verifyvotezkp-1"><span class="tsd-kind-call-signature">verifyVoteZKP</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">vote</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">paillierKey</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.ZKPVerificationReport.html" class="tsd-signature-type tsd-kind-interface">ZKPVerificationReport</a><a href="#verifyvotezkp-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Verifies a voter's zero-knowledge validity proof without decrypting the vote.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">vote</span>: <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a></span>
+<div class="tsd-comment tsd-typography"><p>The homomorphic encrypted vote to audit.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">paillierKey</span>: <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a></span>
+<div class="tsd-comment tsd-typography"><p>Optional explicit Paillier public key.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.ZKPVerificationReport.html" class="tsd-signature-type tsd-kind-interface">ZKPVerificationReport</a></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L294">client/index.ts:294</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="verifyvote"><span>verify<wbr/>Vote</span><a href="#verifyvote" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -203,7 +249,7 @@ is wrong. This is intentionally not caught; callers must handle it.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L270">client/index.ts:270</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L333">client/index.ts:333</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="serialize"><span>serialize</span><a href="#serialize" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -241,7 +287,7 @@ privacy model.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L306">client/index.ts:306</a></li></ul></aside></div></li></ul></section>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L369">client/index.ts:369</a></li></ul></aside></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="deserialize"><span>deserialize</span><a href="#deserialize" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -277,7 +323,7 @@ malformed or required fields are missing or invalid.</p>
 
 </div></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/AnonVote/js/blob/94fab019258b8433432850091ad5e48643857fb6/src/client/index.ts#L343">client/index.ts:343</a></li></ul></aside></div></li></ul></section></section></details></div>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client/index.ts#L406">client/index.ts:406</a></li></ul></aside></div></li></ul></section></section></details></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
@@ -295,7 +341,7 @@ malformed or required fields are missing or invalid.</p>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
 <div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
-<div><a href="#createelection"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>create<wbr/>Election</span></a><a href="#castvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote</span></a><a href="#verifyvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote</span></a><a href="#serialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>serialize</span></a><a href="#deserialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>deserialize</span></a></div></details></div></details></div>
+<div><a href="#createelection"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>create<wbr/>Election</span></a><a href="#castvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote</span></a><a href="#castvotehomomorphic"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote<wbr/>Homomorphic</span></a><a href="#verifyvotezkp"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote<wbr/>ZKP</span></a><a href="#verifyvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote</span></a><a href="#serialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>serialize</span></a><a href="#deserialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>deserialize</span></a></div></details></div></details></div>
 <div class="site-menu">
 <nav class="tsd-navigation"><a href="../modules.html">@anonvote/crypto - v0.1.0</a>
 <ul class="tsd-small-nested-navigation" id="tsd-nav-container">

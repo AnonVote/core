@@ -1,5 +1,12 @@
 import { getRandomBytes, bytesToHex } from "./random";
-import { encryptVote, decryptVote } from "./crypto";
+import {
+  encryptVote,
+  decryptVote,
+  encryptVoteHomomorphic,
+  verifyVoteZKP,
+  tallyHomomorphic,
+  verifyHomomorphicTallyProof,
+} from "./crypto";
 import { ValidationError } from "./errors";
 import { withRetry, resolveRetryConfig } from "./retry";
 import { getCurrentKeyHex, lookupKeyVersion } from "./keyManagement";
@@ -12,7 +19,11 @@ import type {
   CreateElectionParams,
   CastVoteParams,
   EncryptedPayload,
-  EncryptedPayloadWithKeyRef,
+  PaillierPublicKey,
+  PaillierPrivateKey,
+  HomomorphicEncryptedVote,
+  TallyDecryptionProof,
+  ZKPVerificationReport,
 } from "./types";
 import type { KeyManager } from "./keyManagement";
 
@@ -384,6 +395,71 @@ export class AnonVoteClient {
       // Decryption failed - invalid payload
       return false;
     }
+  }
+
+  /**
+   * Casts a homomorphic vote with a Zero-Knowledge Proof (NIZK).
+   *
+   * @param params - Vote parameters including optionIndex, totalOptions, ballotId, and publicKey.
+   * @returns {@link HomomorphicEncryptedVote}
+   */
+  castVoteHomomorphic(params: {
+    ballotId: string;
+    optionIndex: number;
+    totalOptions: number;
+    publicKey: PaillierPublicKey;
+  }): HomomorphicEncryptedVote {
+    if (!params.ballotId || params.ballotId.trim().length === 0) {
+      throw new ValidationError("ballotId is required");
+    }
+    if (params.optionIndex < 0 || params.optionIndex >= params.totalOptions) {
+      throw new ValidationError("optionIndex out of bounds");
+    }
+    if (!params.publicKey) {
+      throw new ValidationError("publicKey is required");
+    }
+
+    return encryptVoteHomomorphic(
+      params.optionIndex,
+      params.totalOptions,
+      params.ballotId,
+      params.publicKey,
+    );
+  }
+
+  /**
+   * Verifies a Zero-Knowledge Proof attached to an encrypted vote.
+   *
+   * @param vote - Homomorphic encrypted vote
+   * @param publicKey - Paillier public key
+   */
+  verifyVoteZKP(
+    vote: HomomorphicEncryptedVote,
+    publicKey: PaillierPublicKey,
+  ): ZKPVerificationReport {
+    return verifyVoteZKP(vote, publicKey);
+  }
+
+  /**
+   * Homomorphically aggregates encrypted votes into a verifiable tally result.
+   */
+  tallyHomomorphic(
+    votes: HomomorphicEncryptedVote[],
+    publicKey: PaillierPublicKey,
+    privateKey: PaillierPrivateKey,
+    merkleRoot = "",
+  ): TallyDecryptionProof {
+    return tallyHomomorphic(votes, publicKey, privateKey, merkleRoot);
+  }
+
+  /**
+   * Verifies a homomorphic tally decryption proof.
+   */
+  verifyTallyProof(
+    proof: TallyDecryptionProof,
+    publicKey: PaillierPublicKey,
+  ): boolean {
+    return verifyHomomorphicTallyProof(proof, publicKey);
   }
 
   /**

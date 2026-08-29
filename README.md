@@ -22,15 +22,22 @@ This package is the canonical source of all crypto and token logic used across t
 
 ## What's in this package
 
-### Cryptographic utilities (`src/crypto.ts`)
+### Zero-Knowledge Proof (ZKP) & Homomorphic Primitives (`src/zkp/`)
 
-| Export                       | Description                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `hashIdentifier(id)`         | SHA-256 hash of a voter identifier. Trims and lowercases before hashing. Never store originals — only hashes.      |
-| `generateToken()`            | Generates a 32-byte (256-bit) CSPRNG token as a hex string. Used for one-time voter tokens.                        |
-| `hashToken(token)`           | SHA-256 hash of a raw token. Only the hash is ever persisted — the raw value is given to the voter and discarded.  |
-| `encryptVote(optionId, key)` | AES-256-GCM encryption of a vote option ID. Returns an `EncryptedPayload` object with `iv`, `authTag`, and `ciphertext` — all lowercase hex strings (see `DECISIONS.md`). Requires a 32-byte hex key. |
-| `decryptVote(payload, key)`  | Decrypts a vote payload produced by `encryptVote`. Used only by the result tally engine.                           |
+| Export | Description | Runtime |
+| --- | --- | --- |
+| `generatePaillierKeyPair(bits?)` | Generates a Paillier key pair for additive homomorphic encryption ($D(\prod c_i) = \sum m_i$). | Cross-runtime |
+| `encryptVoteHomomorphic(optIndex, totalOpts, ballotId, pk)` | Encrypts a vote vector and generates a Non-Interactive Zero-Knowledge (NIZK) 1-of-$k$ validity proof. | Cross-runtime |
+| `verifyVoteZKP(vote, pk)` | Verifies a voter's zero-knowledge validity proof without decrypting the ballot. | Cross-runtime |
+| `tallyHomomorphic(votes, pk, sk, merkleRoot?)` | Computes the aggregated election results algebraically without decrypting any individual vote. | Cross-runtime |
+| `verifyHomomorphicTallyProof(proof, pk)` | Cryptographically audits and verifies the tally decryption proof. | Cross-runtime |
+| `generateThresholdKeyShares(sk, K, N)` | Splits Paillier private key across $N$ trustees requiring $K$ shares for tally decryption. | Cross-runtime |
+| `combineThresholdDecryptions(shares, aggC, pk, K, mu)` | Combines $K$ trustee decryption shares to recover the final aggregate tally. | Cross-runtime |
+| `buildMerkleTree(leafHashes)` | Builds a cryptographic Merkle commitment tree for ballot auditability. | Cross-runtime |
+| `generateMerkleProof(leaves, idx)` / `verifyMerkleProof(proof)` | Generates and verifies on-chain vote inclusion proofs for voters. | Cross-runtime |
+
+### Standard Cryptographic Utilities (`src/crypto.ts`)
+
 | Export                       | Description                                                                                                        | Edge runtime support |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------- |
 | `hashIdentifier(id)`         | SHA-256 hash of a voter identifier. Trims and lowercases before hashing. Never store originals — only hashes.      | No — Node.js `crypto` only |
@@ -39,6 +46,7 @@ This package is the canonical source of all crypto and token logic used across t
 | `hashToken(token)`           | SHA-256 hash of a raw token. Only the hash is ever persisted — the raw value is given to the voter and discarded.  | No — Node.js `crypto` only |
 | `encryptVote(optionId, key)` | AES-256-GCM encryption of a vote option ID. Returns an `EncryptedPayload` object with `iv`, `authTag`, and `ciphertext` — all lowercase hex strings (see `DECISIONS.md`). Requires a 32-byte hex key. | No — Node.js `crypto` only |
 | `decryptVote(payload, key)`  | Decrypts a vote payload produced by `encryptVote`. Used only by the result tally engine.                           | No — Node.js `crypto` only |
+
 
 ### Types (`src/types.ts`)
 
@@ -92,16 +100,47 @@ const storedHash = hashToken(rawToken);        // store only this; discard rawTo
 const BALLOT_KEY = process.env.BALLOT_ENCRYPTION_KEY!; // 64-char hex
 const payload: EncryptedPayload = encryptVote("option-uuid-here", BALLOT_KEY);
 
-// Decrypt during result tally
-const optionId = decryptVote(payload, BALLOT_KEY);
-// Encrypt a vote option (requires a 64-char hex key)
-const BALLOT_KEY = process.env.BALLOT_ENCRYPTION_KEY!;
-const encrypted = encryptVote("option-uuid-here", BALLOT_KEY);
-// encrypted === { ciphertext: "...", iv: "...", authTag: "..." }
-
 // Decrypt during result tally (tally engine only)
-const optionId = decryptVote(encrypted, BALLOT_KEY);
+const optionId = decryptVote(payload, BALLOT_KEY);
 ```
+
+### Usage: Zero-Knowledge Proofs & Homomorphic Tallying
+
+```typescript
+import {
+  generatePaillierKeyPair,
+  encryptVoteHomomorphic,
+  verifyVoteZKP,
+  tallyHomomorphic,
+  verifyHomomorphicTallyProof,
+  buildMerkleTree,
+  generateMerkleProof,
+  verifyMerkleProof,
+} from "@anonvote/crypto";
+
+// 1. Generate election keypair (Paillier additive homomorphic)
+const keyPair = generatePaillierKeyPair(2048);
+
+// 2. Voter casts vote for Option 0 (out of 3 options) with NIZK Proof
+const vote = encryptVoteHomomorphic(0, 3, "ballot-123", keyPair.publicKey);
+
+// 3. Auditor verifies ballot validity WITHOUT decrypting
+const report = verifyVoteZKP(vote, keyPair.publicKey);
+console.log(report.isValid); // true
+
+// 4. Anchor vote commitments on-chain via Merkle Tree
+const merkleTree = buildMerkleTree([vote.receiptHash]);
+const voterProof = generateMerkleProof([vote.receiptHash], 0);
+console.log(verifyMerkleProof(voterProof)); // true (voter verifies inclusion)
+
+// 5. Homomorphic Tallying: Compute sum without individual vote decryption
+const tallyProof = tallyHomomorphic([vote], keyPair.publicKey, keyPair.privateKey, merkleTree.root);
+console.log(tallyProof.tallyResults); // [1, 0, 0]
+
+// 6. Third party audits the tally proof
+console.log(verifyHomomorphicTallyProof(tallyProof, keyPair.publicKey)); // true
+```
+
 
 ---
 

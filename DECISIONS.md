@@ -85,3 +85,21 @@ New files created:
 The existing `src/client.ts` (lower-level, retry-focused) is preserved and continues
 to be exported from the root entry point. The new `src/client/index.ts` is the
 developer-facing SDK.
+
+## ADR-002: Zero-Knowledge Proof (ZKP) and Additive Homomorphic Infrastructure
+
+**Status:** Accepted  
+**Date:** 2026-08-23  
+
+### Context
+AnonVote previously relied on AES-256-GCM symmetric encryption for vote privacy. While secure in transit, AES-256-GCM required the backend tally engine to decrypt individual ballots to sum votes, introducing tally manipulation risks and preventing cryptographic verification of results on Stellar.
+
+### Decision
+Implement a layered cryptographic infrastructure based on:
+1. **Paillier Additive Homomorphic Encryption** for ballot encryption and serverless tally summation ($D(\prod c_i) = \sum m_i$).
+2. **CDS94 / Chaum-Pedersen Non-Interactive Zero-Knowledge Proofs (NIZK)** for 1-of-$k$ vote vector validity and sum-to-1 ballot proofs.
+3. **$K$-of-$N$ Shamir Secret Sharing & Threshold Decryption** across election trustees so no single party can decrypt results.
+4. **Merkle Tree Commitments** for individual voter inclusion proofs anchored to Stellar.
+
+See detailed architecture document in [`docs/adr/0002-zkp-and-homomorphic-vote-verification.md`](docs/adr/0002-zkp-and-homomorphic-vote-verification.md).
+
