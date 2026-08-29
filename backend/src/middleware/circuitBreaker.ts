@@ -254,6 +254,45 @@ export function dbCircuitBreakerMiddleware(
 /**
  * Wrap async database operations to record success/failure in circuit breaker.
  */
+export function circuitBreakerMiddleware(
+  breaker: CircuitBreaker,
+  options: { timeoutMs?: number } = {},
+) {
+  const timeoutMs = options.timeoutMs ?? Number(process.env.VOTE_CIRCUIT_TIMEOUT_MS || 1000);
+  return (_req: Request, res: Response, next: NextFunction): void => {
+    if (!breaker.allowRequest()) {
+      const metrics = breaker.getMetrics();
+      res.setHeader("Retry-After", String(Math.max(1, Math.ceil((metrics.stateChangedAt + Number(process.env.VOTE_CIRCUIT_BREAKER_DURATION_MS || 30000) - Date.now()) / 1000))));
+      res.status(503).json({ error: { code: "CIRCUIT_OPEN", message: "Vote submission is temporarily unavailable." } });
+      return;
+    }
+    const startedAt = Date.now();
+    let settled = false;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        timedOut = true;
+        breaker.recordFailure();
+        res.setHeader("Retry-After", "1");
+        if (!res.headersSent) res.status(503).json({ error: { code: "UPSTREAM_TIMEOUT", message: "Vote submission timed out; please retry." } });
+      }
+    }, timeoutMs);
+    res.once("finish", () => {
+      settled = true;
+      clearTimeout(timer);
+      const failed = res.statusCode >= 500 || res.statusCode === 429;
+      if (!timedOut && (failed || Date.now() - startedAt > timeoutMs)) breaker.recordFailure(); else if (!timedOut) breaker.recordSuccess();
+    });
+    next();
+  };
+}
+
+export const voteCircuitBreaker = new CircuitBreaker({
+  threshold: Number(process.env.VOTE_CIRCUIT_BREAKER_THRESHOLD || 0.05),
+  duration: Number(process.env.VOTE_CIRCUIT_BREAKER_DURATION_MS || 30000),
+  sampleSize: Number(process.env.VOTE_CIRCUIT_BREAKER_SAMPLE_SIZE || 20),
+});
+
 export async function executeWithCircuitBreaker<T>(
   operation: () => Promise<T>,
   breaker: CircuitBreaker = dbCircuitBreaker,
