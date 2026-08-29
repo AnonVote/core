@@ -114,6 +114,25 @@ export type { SerializedElection } from "./client";
 // Error types
 export { AnonVoteError, ValidationError, CryptoError } from "./errors";
 
+// Key management (issue #76)
+export {
+  deriveKey,
+  deriveKeyVersion,
+  createKeyVersion,
+  generateKeyId,
+  rotateKey,
+  isRotationDue,
+  lookupKeyVersion,
+  getCurrentKeyHex,
+  SimpleKeyManager,
+} from "./keyManagement";
+export type {
+  KeyMetadata,
+  KeyVersion,
+  RotationPolicy,
+  KeyManager,
+} from "./keyManagement";
+
 // Core types
 export type {
   BallotStatus,
@@ -126,6 +145,7 @@ export type {
   EncryptedVote,
   Vote,
   EncryptedPayload,
+  EncryptedPayloadWithKeyRef,
   Organization,
   Result,
   AuditEventType,
