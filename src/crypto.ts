@@ -48,11 +48,10 @@ import { EncryptedVote } from "./types";
  * const hash = hashIdentifier("alice@example.com");
  * // hash === "3d0a9f2e..." (deterministic for the same input)
  */
+import { getPreferredAdapter } from "./cryptoAdapter";
+
 export function hashIdentifier(id: string): string {
-  return getNodeCrypto()
-    .createHash("sha256")
-    .update(normalizeIdentifier(id))
-    .digest("hex");
+  return getPreferredAdapter().hash(normalizeIdentifier(id));
 }
 
 /**
@@ -133,28 +132,7 @@ export function hashToken(token: string): string {
  * // encrypted === { ciphertext: "...", iv: "...", authTag: "..." }
  */
 export function encryptVote(option: string, key: string): EncryptedPayload {
-  if (key.length !== 64) {
-    throw new ValidationError(
-      "encryption key must be a 64-character hex string (32 bytes)",
-    );
-  }
-
-  const { createCipheriv } = getNodeCrypto();
-  const keyBuffer = Buffer.from(key, "hex");
-  const iv = Buffer.from(getRandomBytes(12)); // 96-bit IV for GCM
-  const cipher = createCipheriv("aes-256-gcm", keyBuffer, iv);
-
-  const encrypted = Buffer.concat([
-    cipher.update(option, "utf8"),
-    cipher.final(),
-  ]);
-  const authTag = cipher.getAuthTag();
-
-  return {
-    ciphertext: encrypted.toString("hex"),
-    iv: iv.toString("hex"),
-    authTag: authTag.toString("hex"),
-  };
+  return getPreferredAdapter().encrypt(option, key);
 }
 
 /**
@@ -175,24 +153,7 @@ export function encryptVote(option: string, key: string): EncryptedPayload {
  * // option === "Yes"
  */
 export function decryptVote(payload: EncryptedPayload, key: string): string {
-  const { createDecipheriv } = getNodeCrypto();
-  const keyBuffer = Buffer.from(key, "hex");
-  const iv = Buffer.from(payload.iv, "hex");
-  const authTag = Buffer.from(payload.authTag, "hex");
-  const ciphertext = Buffer.from(payload.ciphertext, "hex");
-
-  const decipher = createDecipheriv("aes-256-gcm", keyBuffer, iv);
-  decipher.setAuthTag(authTag);
-
-  try {
-    return (
-      decipher.update(ciphertext).toString("utf8") + decipher.final("utf8")
-    );
-  } catch {
-    throw new CryptoError(
-      "Failed to decrypt vote: payload has been tampered with or the key is incorrect",
-    );
-  }
+  return getPreferredAdapter().decrypt(payload, key);
 }
 
 /**
