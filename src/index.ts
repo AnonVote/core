@@ -107,9 +107,31 @@ export {
 } from "./retry";
 export type { RetryConfig } from "./types";
 
-// Client SDK
+// Client SDK (local election/vote operations)
 export { AnonVoteClient } from "./client";
 export type { SerializedElection } from "./client";
+
+// HTTP API Client SDK (full backend integration)
+export { AnonVoteClient as AnonVoteHttpClient } from "./client/AnonVoteClient";
+export type {
+  AnonVoteClientConfig as HttpClientConfig,
+  UploadResult,
+  TokenBatch,
+  VoteResult,
+  OptionResult,
+  BallotResults,
+  VerificationReport,
+} from "./client/AnonVoteClient";
+
+// HTTP Client error types
+export {
+  InvalidTokenError,
+  BallotClosedError,
+  BallotNotFoundError,
+  AuthError,
+  TimeoutError,
+  ApiError,
+} from "./client/errors";
 
 // Error types
 export { AnonVoteError, ValidationError, CryptoError } from "./errors";
