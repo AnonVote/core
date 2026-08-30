@@ -456,7 +456,9 @@ export function clearValidationCache(): void {
 
 /**
  * Logs validation results to console
+ * Exception: Documented utility logger enabled when `logResults` option is true.
  */
+/* eslint-disable no-console -- Documented utility logger for FIPS 140-2 compliance report output */
 function logValidationResult(result: FIPSValidationResult): void {
   console.log('\n=== FIPS 140-2 Compliance Validation ===');
   console.log(`Timestamp: ${result.timestamp.toISOString()}`);
@@ -485,6 +487,7 @@ function logValidationResult(result: FIPSValidationResult): void {
   
   console.log('\n======================================\n');
 }
+/* eslint-enable no-console */
 
 /**
  * Runtime validation on module load
