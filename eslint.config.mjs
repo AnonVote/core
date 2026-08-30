@@ -52,9 +52,9 @@ const config = [
     },
   },
 
-  // ── tests/ — syntax-only linting (no type-aware rules) ────────────────────
+  // ── tests/ & test files — syntax-only linting (exceptions for console allowed in tests) ────────
   {
-    files: ["tests/**/*.ts"],
+    files: ["tests/**/*.ts", "src/**/*.test.ts", "src/**/*.spec.ts"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -66,8 +66,8 @@ const config = [
       "@typescript-eslint": tsPlugin,
     },
     rules: {
-      /** No console in tests either. */
-      "no-console": "error",
+      /** Console output is allowed in tests for debugging and test reporting. */
+      "no-console": "off",
 
       /** No explicit any in tests. */
       "@typescript-eslint/no-explicit-any": "error",
