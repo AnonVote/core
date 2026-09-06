@@ -1,17 +1,29 @@
 {
-  "name": "anon-vote",
+  "name": "anon-vote-monorepo",
   "version": "1.0.0",
-  "description": "AnonVote monorepo",
+  "description": "AnonVote - Unified Turborepo monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend",
+    "packages/crypto",
+    "packages/contracts"
+  ],
   "scripts": {
-    "dev": "concurrently \"docker-compose up -d\" \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
-    "dev:backend": "npm run dev --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend",
-    "build:backend": "npm run build --prefix backend",
-    "build:frontend": "npm run build --prefix frontend",
-    "test:backend": "npm run test --prefix backend",
-    "test:frontend": "npm run test --prefix frontend"
+    "dev": "turbo run dev --parallel",
+    "dev:backend": "turbo run dev --filter=backend",
+    "dev:frontend": "turbo run dev --filter=frontend",
+    "build": "turbo run build",
+    "build:backend": "turbo run build --filter=backend",
+    "build:frontend": "turbo run build --filter=frontend",
+    "test": "turbo run test",
+    "test:backend": "turbo run test --filter=backend",
+    "test:frontend": "turbo run test --filter=frontend",
+    "lint": "turbo run lint"
   },
   "devDependencies": {
+    "turbo": "^2.0.0",
     "concurrently": "^9.2.1"
   },
   "dependencies": {
