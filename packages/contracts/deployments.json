@@ -1,0 +1,23 @@
+{
+  "_comment": "Updated by deploy.sh (or manually, for the initial deployment). Do not edit historical entries.",
+  "_schema": {
+    "contract_id": "Stellar contract address (C...)",
+    "transaction_id": "Deployment transaction hash (null until confirmed)",
+    "timestamp": "ISO 8601 UTC timestamp of deployment",
+    "wasm_hash": "SHA-256 of the deployed WASM binary",
+    "git_commit": "Short git SHA at time of deployment",
+    "rpc_url": "Soroban RPC endpoint used for deployment"
+  },
+  "testnet": {
+    "contract_id": "CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH",
+    "transaction_id": "2da3aab9addbc922d3430530716d15071848472e875b5c1595709388945b3b23",
+    "timestamp": "2026-08-16T16:45:21Z",
+    "wasm_hash": "d366202b16d3d37ce19bbb10bdd6d179fb2b826ceab75cd011cf6c4e5c2e6960",
+    "git_commit": "aca417a",
+    "rpc_url": "https://soroban-testnet.stellar.org",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "admin": "GA6D2UIEACZO25AG2BUGPLQAZW3JJJZSGYH4LVUW5JMWQQ3SFQDK4UVL",
+    "upload_transaction_id": "aab80b37708d4081a71326cf289b9429ed7b73b7999c44925da1dd578c3c7bf4",
+    "initialize_transaction_id": "0ed95dea3867a8c34f5fbf16d8d87d1bd7562be97b5004e314ae1a7718268944"
+  }
+}

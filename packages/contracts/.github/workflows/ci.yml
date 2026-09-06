@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  contract:
+    name: Rust — build & test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            anonvote/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('anonvote/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Build WASM (release)
+        working-directory: anonvote
+        run: cargo build --target wasm32-unknown-unknown --release --locked
+
+      - name: Verify WASM output exists and is non-empty
+        working-directory: anonvote
+        run: |
+          WASM=target/wasm32-unknown-unknown/release/anonvote.wasm
+          if [[ ! -f "$WASM" ]]; then
+            echo "Error: $WASM not found after build"
+            exit 1
+          fi
+          SIZE=$(wc -c < "$WASM")
+          if [[ "$SIZE" -eq 0 ]]; then
+            echo "Error: $WASM is empty"
+            exit 1
+          fi
+          echo "WASM OK — ${SIZE} bytes at $WASM"
+
+      - name: Run cargo tests
+        working-directory: anonvote
+        run: cargo test --locked
+
+  service:
+    name: TypeScript — npm test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache npm modules
+        uses: actions/cache@v4
+        with:
+          path: service/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('service/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: service
+        run: npm install
+
+      - name: Run TypeScript tests
+        working-directory: service
+        run: npm test
