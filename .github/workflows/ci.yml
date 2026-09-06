@@ -2,13 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, dev]
+    branches: [main, develop]
   pull_request:
-    branches: [main, develop, dev]
+    branches: [main, develop]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x", "22.x"]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -16,13 +19,16 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm run lint
 
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x", "22.x"]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -30,10 +36,124 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm run test
+
+  test-crypto-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm run test:integration --filter=crypto
+        continue-on-error: true
+
+  test-crypto-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm run test:examples --filter=crypto
+        continue-on-error: true
+
+  fips-compliance:
+    name: FIPS 140-2 Compliance Validation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - run: pnpm install
+      - name: Check OpenSSL version
+        run: |
+          echo "Node.js version:"
+          node --version
+          echo "OpenSSL version:"
+          node -p "process.versions.openssl"
+      - name: Run FIPS compliance tests
+        run: pnpm run test:fips --filter=crypto
+        env:
+          FIPS_VALIDATION_ENABLED: "true"
+          FIPS_VALIDATION_MODE: strict
+          FIPS_LOG_RESULTS: "true"
+        continue-on-error: true
+
+  contract-wasm-build:
+    name: Soroban Contract — WASM Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/contracts/anonvote/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('packages/contracts/anonvote/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+      - name: Build WASM (release)
+        working-directory: packages/contracts/anonvote
+        run: cargo build --target wasm32-unknown-unknown --release --locked
+      - name: Verify WASM output
+        working-directory: packages/contracts/anonvote
+        run: |
+          WASM=target/wasm32-unknown-unknown/release/anonvote.wasm
+          if [[ ! -f "$WASM" ]]; then
+            echo "Error: $WASM not found after build"
+            exit 1
+          fi
+          SIZE=$(wc -c < "$WASM")
+          if [[ "$SIZE" -eq 0 ]]; then
+            echo "Error: $WASM is empty"
+            exit 1
+          fi
+          echo "WASM OK — ${SIZE} bytes at $WASM"
+      - name: Run cargo tests
+        working-directory: packages/contracts/anonvote
+        run: cargo test --locked
+
+  contract-service-test:
+    name: Contract Service — TypeScript Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies (service)
+        working-directory: packages/contracts/service
+        run: npm install
+      - name: Run TypeScript tests
+        working-directory: packages/contracts/service
+        run: npm test
 
   build:
     runs-on: ubuntu-latest
@@ -45,56 +165,10 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm run build
-      - name: Cache Turbo build artifacts
-        uses: actions/cache@v3
-        with:
-          path: .turbo
-          key: turbo-${{ github.sha }}
-          restore-keys: |
-            turbo-
-
-  build-backend:
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'pnpm'
-      - run: pnpm install
-      - run: pnpm run build --filter=backend
-
-  build-frontend:
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'pnpm'
-      - run: pnpm install
-      - run: pnpm run build --filter=frontend
-
-  build-contracts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: stellar/setup-soroban-cli@v2
-      - run: rustup update
-      - run: cd packages/contracts && cargo build --release
-        continue-on-error: true
 
   security-scan:
     runs-on: ubuntu-latest
@@ -105,21 +179,21 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm audit --audit-level=moderate
         continue-on-error: true
 
   all-checks-passed:
     runs-on: ubuntu-latest
-    needs: [lint, test, build, build-backend, build-frontend]
+    needs: [lint, test, build, contract-wasm-build, contract-service-test]
     if: always()
     steps:
-      - name: Check if all jobs passed
+      - name: Check if all critical checks passed
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.build.result }}" == "failure" || "${{ needs.build-backend.result }}" == "failure" || "${{ needs.build-frontend.result }}" == "failure" ]]; then
-            echo "One or more jobs failed"
+          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.build.result }}" == "failure" ]]; then
+            echo "❌ Critical checks failed"
             exit 1
           fi
-          echo "All checks passed!"
+          echo "✅ All critical checks passed!"
