@@ -1,0 +1,395 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>AnonVoteClient | @anonvote/crypto - v0.1.0</title><meta name="description" content="Documentation for @anonvote/crypto"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">@anonvote/crypto - v0.1.0</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/index.html">index</a></li>
+<li><a href="" aria-current="page">AnonVoteClient</a></li></ul>
+<h1>Class AnonVoteClient</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>The primary SDK interface for interacting with AnonVote.</p>
+<p><code>AnonVoteClient</code> provides a minimal, consistent, and framework-agnostic API
+for creating elections, casting votes, verifying encrypted payloads, and
+serializing/deserializing election objects. It encapsulates all cryptographic
+operations so callers never need to handle raw keys or payloads directly.</p>
+</div>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example">Example<a href="#example" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">AnonVoteClient</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">client</span><span class="hl-1"> = </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">AnonVoteClient</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">encryptionKey:</span><span class="hl-1"> </span><span class="hl-2">process</span><span class="hl-1">.</span><span class="hl-2">env</span><span class="hl-1">.</span><span class="hl-5">BALLOT_ENCRYPTION_KEY</span><span class="hl-1">!,</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">election</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">createElection</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">title:</span><span class="hl-1"> </span><span class="hl-3">&quot;Board Election 2024&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">description:</span><span class="hl-1"> </span><span class="hl-3">&quot;Elect the new board members&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">options:</span><span class="hl-1"> [</span><span class="hl-3">&quot;Alice&quot;</span><span class="hl-1">, </span><span class="hl-3">&quot;Bob&quot;</span><span class="hl-1">, </span><span class="hl-3">&quot;Charlie&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-2">startTime:</span><span class="hl-1"> </span><span class="hl-2">Date</span><span class="hl-1">.</span><span class="hl-6">now</span><span class="hl-1">(),</span><br/><span class="hl-1">  </span><span class="hl-2">endTime:</span><span class="hl-1"> </span><span class="hl-2">Date</span><span class="hl-1">.</span><span class="hl-6">now</span><span class="hl-1">() + </span><span class="hl-8">7</span><span class="hl-1"> * </span><span class="hl-8">24</span><span class="hl-1"> * </span><span class="hl-8">60</span><span class="hl-1"> * </span><span class="hl-8">60</span><span class="hl-1"> * </span><span class="hl-8">1000</span><span class="hl-1">,</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">receipt</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">castVote</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">ballotId:</span><span class="hl-1"> </span><span class="hl-2">election</span><span class="hl-1">.</span><span class="hl-2">id</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">voteOption:</span><span class="hl-1"> </span><span class="hl-2">election</span><span class="hl-1">.</span><span class="hl-2">options</span><span class="hl-1">[</span><span class="hl-8">0</span><span class="hl-1">].</span><span class="hl-2">text</span><span class="hl-1">,</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">isValid</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">verifyVote</span><span class="hl-1">(</span><span class="hl-2">receipt</span><span class="hl-1">.</span><span class="hl-2">encryptedPayload</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div></section><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L76">client.ts:76</a></li></ul></aside>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="properties">Properties<a href="#properties" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#onretry" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>on<wbr/>Retry?</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#execute" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>execute</span></a>
+<a href="#createelection" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>create<wbr/>Election</span></a>
+<a href="#castvote" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote</span></a>
+<a href="#verifyvote" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote</span></a>
+<a href="#castvotehomomorphic" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote<wbr/>Homomorphic</span></a>
+<a href="#verifyvotezkp" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote<wbr/>ZKP</span></a>
+<a href="#tallyhomomorphic" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>tally<wbr/>Homomorphic</span></a>
+<a href="#verifytallyproof" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Tally<wbr/>Proof</span></a>
+<a href="#serialize" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>serialize</span></a>
+<a href="#deserialize" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>deserialize</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructoranonvoteclient"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">AnonVoteClient</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">config</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/index.ClientConfig.html" class="tsd-signature-type tsd-kind-interface">ClientConfig</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">AnonVoteClient</a><a href="#constructoranonvoteclient" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Creates a new <code>AnonVoteClient</code> instance.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">config</span>: <a href="../interfaces/index.ClientConfig.html" class="tsd-signature-type tsd-kind-interface">ClientConfig</a><span class="tsd-signature-symbol"> = {}</span></span>
+<div class="tsd-comment tsd-typography"><p>Optional client configuration. When <code>encryptionKey</code> is
+provided here it is used as the default for all operations
+that require a key; individual method calls can override it.
+If omitted, an <code>encryptionKey</code> must be supplied explicitly
+in each method call that requires one.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">AnonVoteClient</a></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L105">client.ts:105</a></li></ul></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="properties-1">Properties<a href="#properties-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="onretry"><code class="tsd-tag">Optional</code><span>on<wbr/>Retry</span><a href="#onretry" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-signature"><span class="tsd-kind-property">onRetry</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">attempt</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">delayMs</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">error</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span></div>
+<div class="tsd-comment tsd-typography"><p>Optional callback invoked before each retry attempt. Receives the
+1-based attempt number, the computed backoff delay in milliseconds, and
+the error that caused the retry. Override this on the instance to add
+custom logging without violating the no-console lint rule.</p>
+</div>
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-1">Example<a href="#example-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">client</span><span class="hl-1"> = </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">AnonVoteClient</span><span class="hl-1">({ </span><span class="hl-2">encryptionKey:</span><span class="hl-1"> </span><span class="hl-2">key</span><span class="hl-1"> });</span><br/><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">onRetry</span><span class="hl-1"> = (</span><span class="hl-2">attempt</span><span class="hl-1">, </span><span class="hl-2">delayMs</span><span class="hl-1">, </span><span class="hl-2">error</span><span class="hl-1">) </span><span class="hl-4">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-2">myLogger</span><span class="hl-1">.</span><span class="hl-6">warn</span><span class="hl-1">(</span><span class="hl-3">`Retry attempt </span><span class="hl-4">${</span><span class="hl-2">attempt</span><span class="hl-4">}</span><span class="hl-3"> after </span><span class="hl-4">${</span><span class="hl-2">delayMs</span><span class="hl-4">}</span><span class="hl-3">ms`</span><span class="hl-1">, </span><span class="hl-2">error</span><span class="hl-1">);</span><br/><span class="hl-1">};</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L94">client.ts:94</a></li></ul></aside></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="execute"><span>execute</span><a href="#execute" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="execute-1"><span class="tsd-kind-call-signature">execute</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#executet">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">operation</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#executet">T</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#executet">T</a><span class="tsd-signature-symbol">&gt;</span><a href="#execute-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Executes an async operation with automatic retry and exponential backoff
+using the client's configured <a href="../interfaces/index.RetryConfig.html" class="tsd-kind-interface">RetryConfig</a>.</p>
+<p>Useful for wrapping HTTP calls that talk to the AnonVote backend:</p>
+</div>
+<section class="tsd-panel">
+<h4>Type Parameters</h4>
+<ul class="tsd-type-parameter-list">
+<li><span id="executet"><span class="tsd-kind-type-parameter">T</span></span></li></ul></section>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">operation</span>: <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#executet">T</a><span class="tsd-signature-symbol">&gt;</span></span>
+<div class="tsd-comment tsd-typography"><p>Async operation to execute and potentially retry.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a class="tsd-signature-type tsd-kind-type-parameter" href="#executet">T</a><span class="tsd-signature-symbol">&gt;</span></h4><p>The resolved value of the operation.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-2">Example<a href="#example-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">result</span><span class="hl-1"> = </span><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">execute</span><span class="hl-1">(() </span><span class="hl-4">=&gt;</span><br/><span class="hl-1">  </span><span class="hl-6">fetch</span><span class="hl-1">(</span><span class="hl-3">`</span><span class="hl-4">${</span><span class="hl-2">apiUrl</span><span class="hl-4">}</span><span class="hl-3">/ballots`</span><span class="hl-1">, { </span><span class="hl-2">method:</span><span class="hl-1"> </span><span class="hl-3">&quot;POST&quot;</span><span class="hl-1">, </span><span class="hl-2">body:</span><span class="hl-1"> </span><span class="hl-5">JSON</span><span class="hl-1">.</span><span class="hl-6">stringify</span><span class="hl-1">(</span><span class="hl-2">data</span><span class="hl-1">) })</span><br/><span class="hl-1">    .</span><span class="hl-6">then</span><span class="hl-1">(</span><span class="hl-4">async</span><span class="hl-1"> (</span><span class="hl-2">res</span><span class="hl-1">) </span><span class="hl-4">=&gt;</span><span class="hl-1"> {</span><br/><span class="hl-1">      </span><span class="hl-0">if</span><span class="hl-1"> (!</span><span class="hl-2">res</span><span class="hl-1">.</span><span class="hl-2">ok</span><span class="hl-1">) </span><span class="hl-0">throw</span><span class="hl-1"> </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">HttpError</span><span class="hl-1">(</span><span class="hl-2">res</span><span class="hl-1">.</span><span class="hl-2">status</span><span class="hl-1">, </span><span class="hl-2">res</span><span class="hl-1">.</span><span class="hl-2">statusText</span><span class="hl-1">);</span><br/><span class="hl-1">      </span><span class="hl-0">return</span><span class="hl-1"> </span><span class="hl-2">res</span><span class="hl-1">.</span><span class="hl-6">json</span><span class="hl-1">();</span><br/><span class="hl-1">    })</span><br/><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L130">client.ts:130</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="createelection"><span>create<wbr/>Election</span><a href="#createelection" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="createelection-1"><span class="tsd-kind-call-signature">createElection</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">params</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.CreateElectionParams.html" class="tsd-signature-type tsd-kind-interface">CreateElectionParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a><a href="#createelection-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Creates a new election object.</p>
+<p>Validates all inputs, generates a unique election ID, assigns IDs to each
+option, and returns a fully formed <a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> ready for storage or
+submission.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">params</span>: <a href="../interfaces/index.CreateElectionParams.html" class="tsd-signature-type tsd-kind-interface">CreateElectionParams</a></span>
+<div class="tsd-comment tsd-typography"><p>The election creation parameters including title,
+description, options array, and start/end times.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a></h4><p>A strongly typed <a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> object.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws">Throws<a href="#throws" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p><a href="index.ValidationError.html" class="tsd-kind-class">ValidationError</a> if <code>title</code> or <code>description</code> is empty, if
+<code>options</code> is empty or contains blank entries, if <code>startTime</code> or
+<code>endTime</code> is not a valid date or timestamp, or if <code>endTime</code> is not
+after <code>startTime</code>.</p>
+</div>
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-3">Example<a href="#example-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">election</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">createElection</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">title:</span><span class="hl-1"> </span><span class="hl-3">&quot;Q1 Budget Vote&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">description:</span><span class="hl-1"> </span><span class="hl-3">&quot;Approve or reject the Q1 budget proposal.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">options:</span><span class="hl-1"> [</span><span class="hl-3">&quot;Approve&quot;</span><span class="hl-1">, </span><span class="hl-3">&quot;Reject&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-2">startTime:</span><span class="hl-1"> </span><span class="hl-3">&quot;2024-03-01T00:00:00Z&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">endTime:</span><span class="hl-1"> </span><span class="hl-3">&quot;2024-03-08T00:00:00Z&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">});</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L160">client.ts:160</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="castvote"><span>cast<wbr/>Vote</span><a href="#castvote" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="castvote-1"><span class="tsd-kind-call-signature">castVote</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">params</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.CastVoteParams.html" class="tsd-signature-type tsd-kind-interface">CastVoteParams</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.VoteReceipt.html" class="tsd-signature-type tsd-kind-interface">VoteReceipt</a><a href="#castvote-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Casts a vote for a specific option in an election.</p>
+<p>Validates all inputs, encrypts the selected option using AES-256-GCM via
+<a href="../functions/index.encryptVote.html" class="tsd-kind-function">encryptVote</a>, and returns a <a href="../interfaces/index.VoteReceipt.html" class="tsd-kind-interface">VoteReceipt</a> containing the
+encrypted payload ready for submission.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">params</span>: <a href="../interfaces/index.CastVoteParams.html" class="tsd-signature-type tsd-kind-interface">CastVoteParams</a></span>
+<div class="tsd-comment tsd-typography"><p>The vote casting parameters: <code>ballotId</code>, <code>voteOption</code>, and
+an optional <code>encryptionKey</code> (falls back to the key in the
+client config if not provided).</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.VoteReceipt.html" class="tsd-signature-type tsd-kind-interface">VoteReceipt</a></h4><p>A <a href="../interfaces/index.VoteReceipt.html" class="tsd-kind-interface">VoteReceipt</a> containing the encrypted payload, receipt ID,
+and timestamp.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws-1">Throws<a href="#throws-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p><a href="index.ValidationError.html" class="tsd-kind-class">ValidationError</a> if <code>ballotId</code> or <code>voteOption</code> is empty, or
+if no <code>encryptionKey</code> is available from params or client config.</p>
+</div>
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws-2">Throws<a href="#throws-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p><a href="index.ValidationError.html" class="tsd-kind-class">ValidationError</a> if the resolved <code>encryptionKey</code> is not a
+valid 64-character hex string (propagated from <a href="../functions/index.encryptVote.html" class="tsd-kind-function">encryptVote</a>).</p>
+</div>
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-4">Example<a href="#example-4" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">receipt</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">castVote</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">ballotId:</span><span class="hl-1"> </span><span class="hl-2">election</span><span class="hl-1">.</span><span class="hl-2">id</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">voteOption:</span><span class="hl-1"> </span><span class="hl-3">&quot;Alice&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">});</span><br/><span class="hl-7">// receipt.encryptedPayload contains the AES-256-GCM ciphertext</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L271">client.ts:271</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="verifyvote"><span>verify<wbr/>Vote</span><a href="#verifyvote" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="verifyvote-1"><span class="tsd-kind-call-signature">verifyVote</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">encryptedPayload</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.EncryptedPayload.html" class="tsd-signature-type tsd-kind-interface">EncryptedPayload</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">encryptionKey</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#verifyvote-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Verifies that an encrypted vote payload is valid and can be decrypted.</p>
+<p>Attempts to decrypt the payload using the provided or configured encryption
+key. Returns <code>true</code> if decryption succeeds and produces a non-empty string;
+returns <code>false</code> for any failure including missing fields, missing key, or
+authentication tag mismatch.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">encryptedPayload</span>: <a href="../interfaces/index.EncryptedPayload.html" class="tsd-signature-type tsd-kind-interface">EncryptedPayload</a></span>
+<div class="tsd-comment tsd-typography"><p>The <a href="../interfaces/index.EncryptedPayload.html" class="tsd-kind-interface">EncryptedPayload</a> to verify, as
+returned by <a href="#castvote" class="tsd-kind-method">castVote</a>.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">encryptionKey</span>: <span class="tsd-signature-type">string</span></span>
+<div class="tsd-comment tsd-typography"><p>Optional 64-character hex key. Falls back to the
+key supplied in the client config.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p><code>true</code> if the payload decrypts successfully; <code>false</code> otherwise.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-5">Example<a href="#example-5" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">isValid</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">verifyVote</span><span class="hl-1">(</span><span class="hl-2">receipt</span><span class="hl-1">.</span><span class="hl-2">encryptedPayload</span><span class="hl-1">);</span><br/><span class="hl-2">console</span><span class="hl-1">.</span><span class="hl-6">log</span><span class="hl-1">(</span><span class="hl-2">isValid</span><span class="hl-1">); </span><span class="hl-7">// true</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L331">client.ts:331</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="castvotehomomorphic"><span>cast<wbr/>Vote<wbr/>Homomorphic</span><a href="#castvotehomomorphic" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="castvotehomomorphic-1"><span class="tsd-kind-call-signature">castVoteHomomorphic</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">params</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{</span><br/>        <span class="tsd-kind-property">ballotId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">optionIndex</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">totalOptions</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>        <span class="tsd-kind-property">publicKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><a href="#castvotehomomorphic-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Casts a homomorphic vote with a Zero-Knowledge Proof (NIZK).</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">params</span>: <span class="tsd-signature-symbol">{</span><br/>    <span class="tsd-kind-property">ballotId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">optionIndex</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">totalOptions</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">;</span><br/>    <span class="tsd-kind-property">publicKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></span>
+<div class="tsd-comment tsd-typography"><p>Vote parameters including optionIndex, totalOptions, ballotId, and publicKey.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a></h4><p><a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-kind-interface">HomomorphicEncryptedVote</a></p>
+<aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L365">client.ts:365</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="verifyvotezkp"><span>verify<wbr/>Vote<wbr/>ZKP</span><a href="#verifyvotezkp" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="verifyvotezkp-1"><span class="tsd-kind-call-signature">verifyVoteZKP</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">vote</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">publicKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.ZKPVerificationReport.html" class="tsd-signature-type tsd-kind-interface">ZKPVerificationReport</a><a href="#verifyvotezkp-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Verifies a Zero-Knowledge Proof attached to an encrypted vote.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">vote</span>: <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a></span>
+<div class="tsd-comment tsd-typography"><p>Homomorphic encrypted vote</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">publicKey</span>: <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a></span>
+<div class="tsd-comment tsd-typography"><p>Paillier public key</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.ZKPVerificationReport.html" class="tsd-signature-type tsd-kind-interface">ZKPVerificationReport</a></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L395">client.ts:395</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="tallyhomomorphic"><span>tally<wbr/>Homomorphic</span><a href="#tallyhomomorphic" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="tallyhomomorphic-1"><span class="tsd-kind-call-signature">tallyHomomorphic</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">votes</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">publicKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">privateKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPrivateKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPrivateKey</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">merkleRoot</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.TallyDecryptionProof.html" class="tsd-signature-type tsd-kind-interface">TallyDecryptionProof</a><a href="#tallyhomomorphic-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Homomorphically aggregates encrypted votes into a verifiable tally result.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">votes</span>: <a href="../interfaces/index.HomomorphicEncryptedVote.html" class="tsd-signature-type tsd-kind-interface">HomomorphicEncryptedVote</a><span class="tsd-signature-symbol">[]</span></span></li>
+<li><span><span class="tsd-kind-parameter">publicKey</span>: <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a></span></li>
+<li><span><span class="tsd-kind-parameter">privateKey</span>: <a href="../interfaces/index.PaillierPrivateKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPrivateKey</a></span></li>
+<li><span><span class="tsd-kind-parameter">merkleRoot</span>: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> = &quot;&quot;</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.TallyDecryptionProof.html" class="tsd-signature-type tsd-kind-interface">TallyDecryptionProof</a></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L405">client.ts:405</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="verifytallyproof"><span>verify<wbr/>Tally<wbr/>Proof</span><a href="#verifytallyproof" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="verifytallyproof-1"><span class="tsd-kind-call-signature">verifyTallyProof</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">proof</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.TallyDecryptionProof.html" class="tsd-signature-type tsd-kind-interface">TallyDecryptionProof</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">publicKey</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#verifytallyproof-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Verifies a homomorphic tally decryption proof.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">proof</span>: <a href="../interfaces/index.TallyDecryptionProof.html" class="tsd-signature-type tsd-kind-interface">TallyDecryptionProof</a></span></li>
+<li><span><span class="tsd-kind-parameter">publicKey</span>: <a href="../interfaces/index.PaillierPublicKey.html" class="tsd-signature-type tsd-kind-interface">PaillierPublicKey</a></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L417">client.ts:417</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="serialize"><span>serialize</span><a href="#serialize" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="serialize-1"><span class="tsd-kind-call-signature">serialize</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">election</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.SerializedElection.html" class="tsd-signature-type tsd-kind-interface">SerializedElection</a><a href="#serialize-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Serializes an <a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> object to a JSON-safe payload.</p>
+<p>Produces a <a href="../interfaces/index.SerializedElection.html" class="tsd-kind-interface">SerializedElection</a> where all date fields are ISO 8601
+strings. Suitable for storing in a database, sending over an API, or
+submitting to a blockchain transaction.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">election</span>: <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a></span>
+<div class="tsd-comment tsd-typography"><p>The <a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> object to serialize.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.SerializedElection.html" class="tsd-signature-type tsd-kind-interface">SerializedElection</a></h4><p>A <a href="../interfaces/index.SerializedElection.html" class="tsd-kind-interface">SerializedElection</a> with all fields as plain strings.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws-3">Throws<a href="#throws-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p><a href="index.ValidationError.html" class="tsd-kind-class">ValidationError</a> if <code>election</code> is not a valid object.</p>
+</div>
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-6">Example<a href="#example-6" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">payload</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">serialize</span><span class="hl-1">(</span><span class="hl-2">election</span><span class="hl-1">);</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">json</span><span class="hl-1"> = </span><span class="hl-5">JSON</span><span class="hl-1">.</span><span class="hl-6">stringify</span><span class="hl-1">(</span><span class="hl-2">payload</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L441">client.ts:441</a></li></ul></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="deserialize"><span>deserialize</span><a href="#deserialize" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="deserialize-1"><span class="tsd-kind-call-signature">deserialize</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">payload</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.SerializedElection.html" class="tsd-signature-type tsd-kind-interface">SerializedElection</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a><a href="#deserialize-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Deserializes a <a href="../interfaces/index.SerializedElection.html" class="tsd-kind-interface">SerializedElection</a> payload back into an
+<a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> object.</p>
+<p>Validates all required fields and their types before returning. Useful for
+reconstructing an election from a stored JSON payload or an API response.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">payload</span>: <a href="../interfaces/index.SerializedElection.html" class="tsd-signature-type tsd-kind-interface">SerializedElection</a></span>
+<div class="tsd-comment tsd-typography"><p>The <a href="../interfaces/index.SerializedElection.html" class="tsd-kind-interface">SerializedElection</a> payload to deserialize.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/index.Election.html" class="tsd-signature-type tsd-kind-interface">Election</a></h4><p>A strongly typed <a href="../interfaces/index.Election.html" class="tsd-kind-interface">Election</a> object.</p>
+
+<div class="tsd-comment tsd-typography">
+<div class="tsd-tag-throws">
+<h4 class="tsd-anchor-link" id="throws-4">Throws<a href="#throws-4" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><p><a href="index.ValidationError.html" class="tsd-kind-class">ValidationError</a> if <code>payload</code> is not a valid object, or if
+any required field (<code>id</code>, <code>title</code>, <code>description</code>, <code>options</code>,
+<code>startTime</code>, <code>endTime</code>, <code>createdAt</code>) is missing or of the wrong type.</p>
+</div>
+<div class="tsd-tag-example">
+<h4 class="tsd-anchor-link" id="example-7">Example<a href="#example-7" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h4><pre><code class="typescript"><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">election</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">deserialize</span><span class="hl-1">(</span><span class="hl-5">JSON</span><span class="hl-1">.</span><span class="hl-6">parse</span><span class="hl-1">(</span><span class="hl-2">storedJson</span><span class="hl-1">));</span>
+</code><button type="button">Copy</button></pre>
+
+</div></div><aside class="tsd-sources">
+<ul>
+<li>Defined in <a href="https://github.com/AnonVote/js/blob/44daf9dd088f98d5583905915a3ecbdfba9e5ea8/src/client.ts#L475">client.ts:475</a></li></ul></aside></div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Properties"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Properties</summary>
+<div><a href="#onretry"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Property"><use href="../assets/icons.svg#icon-1024"></use></svg><span>on<wbr/>Retry</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#execute"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>execute</span></a><a href="#createelection"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>create<wbr/>Election</span></a><a href="#castvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote</span></a><a href="#verifyvote"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote</span></a><a href="#castvotehomomorphic"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>cast<wbr/>Vote<wbr/>Homomorphic</span></a><a href="#verifyvotezkp"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Vote<wbr/>ZKP</span></a><a href="#tallyhomomorphic"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>tally<wbr/>Homomorphic</span></a><a href="#verifytallyproof"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>verify<wbr/>Tally<wbr/>Proof</span></a><a href="#serialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>serialize</span></a><a href="#deserialize"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>deserialize</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">@anonvote/crypto - v0.1.0</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

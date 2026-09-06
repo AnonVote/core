@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts.map
+coverage/
+.env
+tests/bundler-compat/esbuild/bundle.out.js
+tests/bundler-compat/webpack/bundle.out.js
+tests/bundler-compat/vite/bundle.out.js
+tests/bundler-compat/vite/bundle.out.mjs

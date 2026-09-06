@@ -1,0 +1,54 @@
+name: Crypto Benchmarks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run typecheck:bench
+
+      - name: Run benchmarks on this branch
+        run: npm run bench > pr-benchmarks.txt
+
+      - name: Run memory profile on this branch
+        run: npm run bench:memory > pr-memory-profile.txt
+
+      - name: Compare against main
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main
+          git worktree add /tmp/main-branch origin/main
+          cd /tmp/main-branch
+          npm ci
+          npm run bench > /tmp/main-benchmarks.txt || echo "no baseline available on main" > /tmp/main-benchmarks.txt
+
+          echo "## Benchmark comparison: PR vs main" >> $GITHUB_STEP_SUMMARY
+          echo "### PR branch" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat $GITHUB_WORKSPACE/pr-benchmarks.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### main branch" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/main-benchmarks.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_This is a manual side-by-side, not an automated pass/fail gate. Review for regressions before merging._" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            pr-benchmarks.txt
+            pr-memory-profile.txt

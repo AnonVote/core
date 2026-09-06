@@ -1,0 +1,80 @@
+name: FIPS 140-2 Compliance Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  fips-compliance:
+    name: Validate FIPS 140-2 Compliance
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check OpenSSL version
+        run: |
+          echo "Node.js version:"
+          node --version
+          echo "OpenSSL version:"
+          node -p "process.versions.openssl"
+      
+      - name: Run FIPS compliance tests
+        run: npm run test:fips
+        env:
+          FIPS_VALIDATION_ENABLED: true
+          FIPS_VALIDATION_MODE: strict
+          FIPS_LOG_RESULTS: true
+      
+      - name: Run full test suite
+        run: npm test
+      
+      - name: Validate FIPS compliance
+        run: npm run validate:fips
+        continue-on-error: false
+      
+      - name: Generate compliance report
+        if: always()
+        run: |
+          echo "# FIPS 140-2 Compliance Report" > fips-report.md
+          echo "" >> fips-report.md
+          echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> fips-report.md
+          echo "**Node.js**: $(node --version)" >> fips-report.md
+          echo "**OpenSSL**: $(node -p 'process.versions.openssl')" >> fips-report.md
+          echo "" >> fips-report.md
+          echo "## Test Results" >> fips-report.md
+          echo "" >> fips-report.md
+          npm run test:fips -- --verbose >> fips-report.md 2>&1 || true
+      
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: fips-compliance-report-node-${{ matrix.node-version }}
+          path: fips-report.md
+          retention-days: 90
+      
+      - name: Check for compliance violations
+        run: |
+          if npm run validate:fips | grep -q "NON-COMPLIANT"; then
+            echo "❌ FIPS compliance violations detected!"
+            exit 1
+          else
+            echo "✅ FIPS compliance validated successfully"
+          fi

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts", "src/client/index.ts"],
+  "out": "docs",
+  "exclude": ["**/*.test.ts", "tests/**", "benchmarks/**", "test-consumer/**"],
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "theme": "default",
+  "readme": "docs/GUIDE.md",
+  "name": "@anonvote/crypto",
+  "includeVersion": true,
+  "githubPages": true,
+  "cleanOutputDir": false,
+  "sort": ["source-order"],
+  "blockTags": [
+    "@param",
+    "@returns",
+    "@throws",
+    "@example",
+    "@see",
+    "@description",
+    "@security",
+    "@warning",
+    "@deprecated",
+    "@remarks",
+    "@default"
+  ],
+  "sourceLinkTemplate": "https://github.com/AnonVote/js/blob/{gitRevision}/{path}#L{line}"
+}

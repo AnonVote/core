@@ -1,0 +1,107 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>@anonvote/crypto - v0.1.0</title><meta name="description" content="Documentation for @anonvote/crypto"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script><script async src="assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="index.html" class="title">@anonvote/crypto - v0.1.0</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<h1>@anonvote/crypto - v0.1.0</h1></div>
+<div class="tsd-panel tsd-typography"><h1 id="anonvotecrypto-guide" class="tsd-anchor-link">@anonvote/crypto Guide<a href="#anonvotecrypto-guide" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p>This guide walks through the full voting workflow using <code>@anonvote/crypto</code>, from
+generating voter tokens through encrypting and verifying a vote. For per-function
+details (parameters, return types, thrown errors), browse the API reference
+generated alongside this page.</p>
+<h2 id="voting-workflow-walkthrough" class="tsd-anchor-link">Voting workflow walkthrough<a href="#voting-workflow-walkthrough" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>A ballot goes through four stages: eligibility, token issuance, voting, and tally.</p>
+<h3 id="1-eligibility" class="tsd-anchor-link">1. Eligibility<a href="#1-eligibility" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Voter identifiers are never stored in plaintext. Hash each identifier with
+<code>hashIdentifier</code> before persisting it to an eligibility list.</p>
+<pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">hashIdentifier</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">identifierHash</span><span class="hl-1"> = </span><span class="hl-6">hashIdentifier</span><span class="hl-1">(</span><span class="hl-3">&quot;alice@example.com&quot;</span><span class="hl-1">);</span><br/><span class="hl-7">// store identifierHash — never the raw email</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="2-token-generation-and-validation" class="tsd-anchor-link">2. Token generation and validation<a href="#2-token-generation-and-validation" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Each eligible voter receives a one-time token. Only the token's hash is stored
+server-side; the raw value is handed to the voter and then discarded.</p>
+<pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">generateToken</span><span class="hl-1">, </span><span class="hl-2">hashToken</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">rawToken</span><span class="hl-1"> = </span><span class="hl-6">generateToken</span><span class="hl-1">(); </span><span class="hl-7">// give this to the voter</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">storedHash</span><span class="hl-1"> = </span><span class="hl-6">hashToken</span><span class="hl-1">(</span><span class="hl-2">rawToken</span><span class="hl-1">); </span><span class="hl-7">// persist only this</span>
+</code><button type="button">Copy</button></pre>
+
+<p>At vote time, the backend looks up the incoming raw token by re-hashing it with
+<code>hashToken</code> and comparing against the stored hash. A token that doesn't match, or
+has already been consumed, must be rejected before a vote is accepted.</p>
+<h3 id="3-vote-encryption-and-decryption" class="tsd-anchor-link">3. Vote encryption and decryption<a href="#3-vote-encryption-and-decryption" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>A voter's option is encrypted client-side with AES-256-GCM before it ever
+reaches the server. Only the encrypted payload is transmitted.</p>
+<pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">encryptVote</span><span class="hl-1">, </span><span class="hl-2">decryptVote</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">BALLOT_KEY</span><span class="hl-1"> = </span><span class="hl-2">process</span><span class="hl-1">.</span><span class="hl-2">env</span><span class="hl-1">.</span><span class="hl-5">BALLOT_ENCRYPTION_KEY</span><span class="hl-1">!; </span><span class="hl-7">// 64-char hex</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">encrypted</span><span class="hl-1"> = </span><span class="hl-6">encryptVote</span><span class="hl-1">(</span><span class="hl-3">&quot;Alice&quot;</span><span class="hl-1">, </span><span class="hl-5">BALLOT_KEY</span><span class="hl-1">);</span><br/><span class="hl-7">// encrypted === { ciphertext, iv, authTag }</span><br/><br/><span class="hl-7">// Later, during tally:</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">option</span><span class="hl-1"> = </span><span class="hl-6">decryptVote</span><span class="hl-1">(</span><span class="hl-2">encrypted</span><span class="hl-1">, </span><span class="hl-5">BALLOT_KEY</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<p><code>verifyVoteHash</code> lets a third party confirm that a specific option was the one
+encrypted, without decrypting or revealing any other payload:</p>
+<pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">verifyVoteHash</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">matches</span><span class="hl-1"> = </span><span class="hl-6">verifyVoteHash</span><span class="hl-1">(</span><span class="hl-3">&quot;Alice&quot;</span><span class="hl-1">, </span><span class="hl-2">encrypted</span><span class="hl-1">, </span><span class="hl-5">BALLOT_KEY</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="4-tally" class="tsd-anchor-link">4. Tally<a href="#4-tally" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Only the result tally engine should call <code>decryptVote</code>. Each encrypted vote is
+decrypted, counted per option, and the raw option values are discarded once the
+tally is complete.</p>
+<h2 id="integration-with-backend" class="tsd-anchor-link">Integration with backend<a href="#integration-with-backend" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p><code>AnonVoteClient</code> (available at the <code>@anonvote/crypto/client</code> subpath) wraps the
+primitives above into a minimal, framework-agnostic API for creating elections
+and casting votes. It performs no network calls itself — pair it with your own
+backend integration for persistence and submission.</p>
+<pre><code class="typescript"><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">AnonVoteClient</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;@anonvote/crypto/client&quot;</span><span class="hl-1">;</span><br/><span class="hl-0">import</span><span class="hl-1"> { </span><span class="hl-2">randomBytes</span><span class="hl-1"> } </span><span class="hl-0">from</span><span class="hl-1"> </span><span class="hl-3">&quot;crypto&quot;</span><span class="hl-1">;</span><br/><br/><span class="hl-7">// Generate a fresh key per ballot — never reuse across ballots</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">ballotKey</span><span class="hl-1"> = </span><span class="hl-6">randomBytes</span><span class="hl-1">(</span><span class="hl-8">32</span><span class="hl-1">).</span><span class="hl-6">toString</span><span class="hl-1">(</span><span class="hl-3">&quot;hex&quot;</span><span class="hl-1">);</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">client</span><span class="hl-1"> = </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">AnonVoteClient</span><span class="hl-1">({ </span><span class="hl-2">ballotKey</span><span class="hl-1"> });</span><br/><br/><span class="hl-7">// 1. Create an election (pure client-side, no network)</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">election</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">createElection</span><span class="hl-1">({</span><br/><span class="hl-1">  </span><span class="hl-2">title:</span><span class="hl-1"> </span><span class="hl-3">&quot;Board Election 2026&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">description:</span><span class="hl-1"> </span><span class="hl-3">&quot;Elect two new board members.&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">  </span><span class="hl-2">options:</span><span class="hl-1"> [</span><span class="hl-3">&quot;Alice&quot;</span><span class="hl-1">, </span><span class="hl-3">&quot;Bob&quot;</span><span class="hl-1">, </span><span class="hl-3">&quot;Abstain&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">  </span><span class="hl-2">startTime:</span><span class="hl-1"> </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">Date</span><span class="hl-1">(),</span><br/><span class="hl-1">  </span><span class="hl-2">endTime:</span><span class="hl-1"> </span><span class="hl-4">new</span><span class="hl-1"> </span><span class="hl-6">Date</span><span class="hl-1">(</span><span class="hl-2">Date</span><span class="hl-1">.</span><span class="hl-6">now</span><span class="hl-1">() + </span><span class="hl-8">7</span><span class="hl-1"> * </span><span class="hl-8">24</span><span class="hl-1"> * </span><span class="hl-8">60</span><span class="hl-1"> * </span><span class="hl-8">60</span><span class="hl-1"> * </span><span class="hl-8">1000</span><span class="hl-1">),</span><br/><span class="hl-1">});</span><br/><br/><span class="hl-7">// 2. Cast a vote — pass the option UUID, not the label</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">ballot</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">castVote</span><span class="hl-1">(</span><span class="hl-2">election</span><span class="hl-1">, </span><span class="hl-2">election</span><span class="hl-1">.</span><span class="hl-2">options</span><span class="hl-1">[</span><span class="hl-8">0</span><span class="hl-1">].</span><span class="hl-2">id</span><span class="hl-1">);</span><br/><br/><span class="hl-7">// 3. Verify locally before submitting</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">result</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">verifyVote</span><span class="hl-1">(</span><span class="hl-2">ballot</span><span class="hl-1">);</span><br/><span class="hl-2">console</span><span class="hl-1">.</span><span class="hl-6">log</span><span class="hl-1">(</span><span class="hl-2">result</span><span class="hl-1">.</span><span class="hl-2">confirmed</span><span class="hl-1">); </span><span class="hl-7">// true</span><br/><br/><span class="hl-7">// 4. Serialize for server submission — optionId is intentionally excluded</span><br/><span class="hl-4">const</span><span class="hl-1"> </span><span class="hl-5">json</span><span class="hl-1"> = </span><span class="hl-2">client</span><span class="hl-1">.</span><span class="hl-6">serialize</span><span class="hl-1">(</span><span class="hl-2">ballot</span><span class="hl-1">);</span><br/><span class="hl-0">await</span><span class="hl-1"> </span><span class="hl-6">fetch</span><span class="hl-1">(</span><span class="hl-3">&quot;/api/votes&quot;</span><span class="hl-1">, { </span><span class="hl-2">method:</span><span class="hl-1"> </span><span class="hl-3">&quot;POST&quot;</span><span class="hl-1">, </span><span class="hl-2">body:</span><span class="hl-1"> </span><span class="hl-2">json</span><span class="hl-1"> });</span>
+</code><button type="button">Copy</button></pre>
+
+<p>The constructor throws immediately if <code>ballotKey</code> is not a valid
+64-character hex string, <code>castVote</code> never logs the chosen <code>optionId</code>, and
+<code>serialize</code> omits <code>optionId</code> so only the encrypted payload ever reaches your
+backend.</p>
+<h2 id="common-pitfalls-and-solutions" class="tsd-anchor-link">Common pitfalls and solutions<a href="#common-pitfalls-and-solutions" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<ul>
+<li><strong>Reusing a ballot encryption key across ballots.</strong> Generate a fresh key per
+ballot with <code>crypto.randomBytes(32).toString(&quot;hex&quot;)</code>. Reusing a key defeats
+the per-ballot isolation the encryption model relies on.</li>
+<li><strong>Hashing an identifier without normalizing first.</strong> <code>hashIdentifier</code> already
+normalizes internally, but if you hash identifiers anywhere else in your own
+code, apply the same normalization or lookups will silently fail to match.</li>
+<li><strong>Persisting raw tokens.</strong> Only <code>hashToken</code>'s output belongs in storage. If a
+raw token is ever logged or persisted, treat it as compromised and reissue.</li>
+<li><strong>Calling <code>decryptVote</code> outside the tally engine.</strong> Decryption should only
+happen where the tally is computed. Anywhere else, prefer <code>verifyVoteHash</code> for
+verification without decrypting.</li>
+<li><strong>Comparing decrypted values with <code>===</code> in security-sensitive code.</strong> Use a
+constant-time comparison for anything that compares secret-derived values, to
+avoid leaking information through timing.</li>
+</ul>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#anonvotecrypto-guide"><span>@anonvote/crypto <wbr/>Guide</span></a>
+<ul>
+<li><a href="#voting-workflow-walkthrough"><span>Voting workflow walkthrough</span></a></li>
+<li>
+<ul>
+<li><a href="#1-eligibility"><span>1. <wbr/>Eligibility</span></a></li>
+<li><a href="#2-token-generation-and-validation"><span>2. <wbr/>Token generation and validation</span></a></li>
+<li><a href="#3-vote-encryption-and-decryption"><span>3. <wbr/>Vote encryption and decryption</span></a></li>
+<li><a href="#4-tally"><span>4. <wbr/>Tally</span></a></li></ul></li>
+<li><a href="#integration-with-backend"><span>Integration with backend</span></a></li>
+<li><a href="#common-pitfalls-and-solutions"><span>Common pitfalls and solutions</span></a></li></ul></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="modules.html">@anonvote/crypto - v0.1.0</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>
