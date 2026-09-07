@@ -1,0 +1,593 @@
+
+> @anonvote/crypto@0.1.0 test C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
+> jest --runInBand
+
+FAIL tests/client.test.ts
+  ● Test suite failed to run
+
+    [96msrc/client.ts[0m:[93m22[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPublicKey'.
+
+    [7m22[0m   PaillierPublicKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m23[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPrivateKey'.
+
+    [7m23[0m   PaillierPrivateKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m24[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'HomomorphicEncryptedVote'.
+
+    [7m24[0m   HomomorphicEncryptedVote,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m25[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'TallyDecryptionProof'.
+
+    [7m25[0m   TallyDecryptionProof,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m26[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'ZKPVerificationReport'.
+
+    [7m26[0m   ZKPVerificationReport,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m314[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m314[0m     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m364[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m364[0m     const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+PASS tests/fipsCompliance.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T12:08:54.127Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+FAIL tests/keyManagement.test.ts
+  ● Test suite failed to run
+
+    [96msrc/client.ts[0m:[93m22[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPublicKey'.
+
+    [7m22[0m   PaillierPublicKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m23[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPrivateKey'.
+
+    [7m23[0m   PaillierPrivateKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m24[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'HomomorphicEncryptedVote'.
+
+    [7m24[0m   HomomorphicEncryptedVote,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m25[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'TallyDecryptionProof'.
+
+    [7m25[0m   TallyDecryptionProof,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m26[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'ZKPVerificationReport'.
+
+    [7m26[0m   ZKPVerificationReport,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m314[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m314[0m     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m364[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m364[0m     const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+PASS tests/sdk-client.test.ts
+FAIL tests/AnonVoteClient.test.ts
+  ● Test suite failed to run
+
+    [96mtests/AnonVoteClient.test.ts[0m:[93m377[0m:[93m41[0m - [91merror[0m[90m TS2304: [0mCannot find name 'DOMException'.
+
+    [7m377[0m             setTimeout(() => reject(new DOMException("Aborted", "AbortError")), 100);
+    [7m   [0m [91m                                        ~~~~~~~~~~~~[0m
+
+PASS tests/crypto.test.ts
+FAIL tests/examples.test.ts
+  ● Test suite failed to run
+
+    [96msrc/client.ts[0m:[93m22[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPublicKey'.
+
+    [7m22[0m   PaillierPublicKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m23[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPrivateKey'.
+
+    [7m23[0m   PaillierPrivateKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m24[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'HomomorphicEncryptedVote'.
+
+    [7m24[0m   HomomorphicEncryptedVote,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m25[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'TallyDecryptionProof'.
+
+    [7m25[0m   TallyDecryptionProof,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m26[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'ZKPVerificationReport'.
+
+    [7m26[0m   ZKPVerificationReport,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m314[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m314[0m     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m364[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m364[0m     const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+FAIL tests/random.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T12:08:56.330Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T12:08:56.573Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T12:08:56.621Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+  ● edge runtime simulation › imports the public entry point with no Node crypto available
+
+
+
+
+
+  ● edge runtime simulation › generates valid, distinct tokens with no Node crypto available
+
+
+
+
+
+  ● edge runtime simulation › constructs the client with no Node crypto available
+
+
+
+
+
+PASS tests/zkp-proofs.test.ts
+PASS tests/zkp-math.test.ts
+FAIL tests/errors.test.ts
+  ● Test suite failed to run
+
+    [96msrc/client.ts[0m:[93m22[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPublicKey'.
+
+    [7m22[0m   PaillierPublicKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m23[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPrivateKey'.
+
+    [7m23[0m   PaillierPrivateKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m24[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'HomomorphicEncryptedVote'.
+
+    [7m24[0m   HomomorphicEncryptedVote,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m25[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'TallyDecryptionProof'.
+
+    [7m25[0m   TallyDecryptionProof,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m26[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'ZKPVerificationReport'.
+
+    [7m26[0m   ZKPVerificationReport,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m314[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m314[0m     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m364[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m364[0m     const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+FAIL tests/zkp-integration.test.ts
+  ● Test suite failed to run
+
+    [96msrc/client.ts[0m:[93m22[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPublicKey'.
+
+    [7m22[0m   PaillierPublicKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m23[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'PaillierPrivateKey'.
+
+    [7m23[0m   PaillierPrivateKey,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m24[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'HomomorphicEncryptedVote'.
+
+    [7m24[0m   HomomorphicEncryptedVote,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m25[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'TallyDecryptionProof'.
+
+    [7m25[0m   TallyDecryptionProof,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m26[0m:[93m3[0m - [91merror[0m[90m TS2305: [0mModule '"./types"' has no exported member 'ZKPVerificationReport'.
+
+    [7m26[0m   ZKPVerificationReport,
+    [7m  [0m [91m  ~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m314[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m314[0m     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/client.ts[0m:[93m364[0m:[93m48[0m - [91merror[0m[90m TS2304: [0mCannot find name 'EncryptedPayloadWithKeyRef'.
+
+    [7m364[0m     const payloadWithRef = encryptedPayload as EncryptedPayloadWithKeyRef;
+    [7m   [0m [91m                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+Terminate batch job (Y/N)? 
