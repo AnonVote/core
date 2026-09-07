@@ -5,7 +5,7 @@ edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
-path = "contracts-src/lib.rs"
+path = "src/lib.rs"
 
 [dependencies]
 soroban-sdk = { version = "=21.0.0", features = ["alloc"] }
