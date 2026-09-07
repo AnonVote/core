@@ -1,6 +1,7 @@
 {
   "name": "@anonvote/crypto",
   "version": "0.1.0",
+  "type": "module",
   "description": "Cryptographic primitives and token utilities for the AnonVote ecosystem",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

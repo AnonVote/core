@@ -29,7 +29,12 @@ jobs:
           node-version: "22.x"
           cache: "pnpm"
       - run: pnpm install
-      - run: pnpm run test
+      - name: Run tests
+        run: pnpm run test
+        env:
+          SOROBAN_CONTRACT_ID: "CAUWQNFJP7TGZW4I7S2LYQ5IEUQJVKXB5JRFIVZFKPX6UVZVACADPMJ"
+          SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
+          NODE_ENV: "test"
 
   test-crypto-integration:
     runs-on: ubuntu-latest
