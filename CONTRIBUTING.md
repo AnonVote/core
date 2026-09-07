@@ -31,11 +31,13 @@ core/
 ### Making Changes
 
 1. Create a feature branch from `develop`:
+
    ```bash
    git checkout -b feature/your-feature develop
    ```
 
 2. Make your changes and commit:
+
    ```bash
    git commit -m "feat: description of your change"
    ```
@@ -50,12 +52,14 @@ core/
 ### Testing
 
 Run tests locally before pushing:
+
 ```bash
 pnpm run test
 pnpm run lint
 ```
 
 For package-specific tests:
+
 ```bash
 pnpm run test --filter=crypto
 pnpm run test --filter=backend
@@ -90,26 +94,31 @@ pnpm run dev            # Run dev servers
 ## Working with Packages
 
 ### Crypto Package (`packages/crypto/`)
+
 - FIPS 140-2 compliance required for cryptographic changes
 - Integration tests: `pnpm run test:integration --filter=crypto`
 - Examples: `pnpm run test:examples --filter=crypto`
 
 ### Contracts Package (`packages/contracts/`)
-- Rust contracts: Build with `cargo build --target wasm32-unknown-unknown --release`
+
+- Rust contracts: Build with `cargo build --target wasm32v1-none --release`
 - TypeScript service: Located in `packages/contracts/service/`
 - Test: `npm test` in the service directory
 
 ### Backend (`apps/backend/`)
+
 - Express API server
 - Run: `pnpm run dev:backend`
 
 ### Frontend (`apps/frontend/`)
+
 - React application
 - Run: `pnpm run dev:frontend`
 
 ## CI/CD Pipeline
 
 Our automated checks include:
+
 - Linting (multiple Node versions)
 - Unit tests (18.x, 20.x, 22.x)
 - FIPS compliance validation

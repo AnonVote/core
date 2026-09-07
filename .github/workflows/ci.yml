@@ -91,12 +91,12 @@ jobs:
   contract-wasm-build:
     name: Soroban Contract — WASM Build & Test
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          toolchain: "1.84"
+          targets: wasm32v1-none
       - uses: actions/cache@v4
         with:
           path: |
@@ -107,10 +107,10 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-
       - name: Build WASM (release)
-        run: cargo build --target wasm32-unknown-unknown --release --locked
+        run: cargo build --target wasm32v1-none --release --locked
       - name: Verify WASM output
         run: |
-          WASM=target/wasm32-unknown-unknown/release/anonvote.wasm
+          WASM=target/wasm32v1-none/release/anonvote.wasm
           if [[ ! -f "$WASM" ]]; then
             echo "Error: $WASM not found after build"
             exit 1

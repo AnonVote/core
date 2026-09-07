@@ -21,7 +21,7 @@
     "test:backend": "turbo run test --filter=backend",
     "test:frontend": "turbo run test --filter=frontend",
     "lint": "turbo run lint",
-    "build:contracts": "cargo build --target wasm32-unknown-unknown --release --locked"
+    "build:contracts": "cargo build --target wasm32v1-none --release --locked"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

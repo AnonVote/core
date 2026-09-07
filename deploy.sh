@@ -18,10 +18,10 @@ set -euo pipefail
 NETWORK="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTRACT_DIR="$SCRIPT_DIR/contracts/anonvote"
-WASM_PATH="$CONTRACT_DIR/target/wasm32-unknown-unknown/release/anonvote.wasm"
+WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/anonvote.wasm"
 DEPLOYMENTS_FILE="$SCRIPT_DIR/deployments.json"
 CONTRACT_NAME="anonvote"
-RUST_TOOLCHAIN="1.81.0"   # see contracts/anonvote/.cargo/config.toml for why
+RUST_TOOLCHAIN="1.84"   # Soroban SDK 27.0.6 requires 1.84+ with wasm32v1-none target
 
 usage() {
   echo "Usage: $0 <testnet|mainnet>"
@@ -59,7 +59,7 @@ if ! rustup toolchain list | grep -q "^${RUST_TOOLCHAIN}"; then
   echo "Error: rustc ${RUST_TOOLCHAIN} is required to build a Soroban-compatible WASM."
   echo "       Install it with:"
   echo "         rustup toolchain install ${RUST_TOOLCHAIN}"
-  echo "         rustup target add wasm32-unknown-unknown --toolchain ${RUST_TOOLCHAIN}"
+  echo "         rustup target add wasm32v1-none --toolchain ${RUST_TOOLCHAIN}"
   exit 1
 fi
 
@@ -77,11 +77,11 @@ echo "WASM:        $WASM_PATH"
 echo "Deployments: $DEPLOYMENTS_FILE"
 echo ""
 
-# ---------- 1. Build (rustc 1.81 avoids reference-types the host rejects) ----------
+# ---------- 1. Build (rustc 1.84+ with wasm32v1-none for Soroban SDK 27.0.6 compatibility) ----------
 echo ">>> Building contract with rustc ${RUST_TOOLCHAIN}..."
 rustup run "$RUST_TOOLCHAIN" cargo build \
   --manifest-path "$CONTRACT_DIR/Cargo.toml" \
-  --target wasm32-unknown-unknown --release --locked
+  --target wasm32v1-none --release --locked
 
 if [[ ! -f "$WASM_PATH" ]]; then
   echo "Error: WASM not found at $WASM_PATH"

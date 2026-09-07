@@ -46,7 +46,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.shell_env
 
 # Add WebAssembly target
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32v1-none
 
 # Verify installation
 rustc --version
@@ -129,7 +129,7 @@ cd contracts/contracts/anonvote
 Compile the Soroban contract to WebAssembly:
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release
+cargo build --target wasm32v1-none --release
 ```
 
 This compiles the Rust contract code to a `.wasm` file that runs on Soroban.
@@ -144,7 +144,7 @@ Finished `release` profile [optimized] target(s) in 2.34s
 **Output file location:**
 
 ```
-target/wasm32-unknown-unknown/release/anonvote.wasm
+target/wasm32v1-none/release/anonvote.wasm
 ```
 
 #### Step 3: Verify Build Artifacts
@@ -152,13 +152,13 @@ target/wasm32-unknown-unknown/release/anonvote.wasm
 Confirm the WASM file was created and is not empty:
 
 ```bash
-ls -lh target/wasm32-unknown-unknown/release/anonvote.wasm
+ls -lh target/wasm32v1-none/release/anonvote.wasm
 ```
 
 Output example:
 
 ```
--rw-r--r-- 1 user staff 150K Jun 17 2026 target/wasm32-unknown-unknown/release/anonvote.wasm
+-rw-r--r-- 1 user staff 150K Jun 17 2026 target/wasm32v1-none/release/anonvote.wasm
 ```
 
 **What to verify:**
@@ -171,9 +171,10 @@ Output example:
 
 Record the SHA-256 checksum of the compiled contract for verification:
 
+````bash
 ```bash
-sha256sum target/wasm32-unknown-unknown/release/anonvote.wasm
-```
+sha256sum target/wasm32v1-none/release/anonvote.wasm
+````
 
 Example output:
 
@@ -193,7 +194,7 @@ Deploy the compiled WASM to Stellar testnet:
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --wasm target/wasm32v1-none/release/anonvote.wasm \
   --source $STELLAR_SECRET_KEY \
   --network testnet
 ```
@@ -255,7 +256,7 @@ The process is identical to testnet, but use `--network mainnet` in all commands
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --wasm target/wasm32v1-none/release/anonvote.wasm \
   --source $STELLAR_SECRET_KEY \
   --network mainnet
 ```
@@ -290,7 +291,7 @@ stellar contract invoke \
 
 ```bash
 # Your local checksum (from earlier)
-local_checksum=$(sha256sum target/wasm32-unknown-unknown/release/anonvote.wasm | awk '{print $1}')
+local_checksum=$(sha256sum target/wasm32v1-none/release/anonvote.wasm | awk '{print $1}')
 echo "Local: $local_checksum"
 
 # You'll also see it on Stellar Explorer as "Code Hash"
@@ -316,7 +317,7 @@ Code Hash: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1
 Compare with your local build:
 
 ```bash
-sha256sum target/wasm32-unknown-unknown/release/anonvote.wasm
+sha256sum target/wasm32v1-none/release/anonvote.wasm
 ```
 
 If they match, the deployed contract is bytecode-identical to your source code.

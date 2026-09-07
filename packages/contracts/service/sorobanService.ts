@@ -10,9 +10,9 @@
  *
  * TO ACTIVATE:
  * 1. Build the contract:
- *      cd contracts/anonvote && cargo build --target wasm32-unknown-unknown --release
+ *      cd contracts/anonvote && cargo build --target wasm32v1-none --release
  * 2. Deploy to testnet:
- *      stellar contract deploy --wasm target/wasm32-unknown-unknown/release/anonvote.wasm --network testnet
+ *      stellar contract deploy --wasm target/wasm32v1-none/release/anonvote.wasm --network testnet
  * 3. Initialize:
  *      stellar contract invoke --id <CONTRACT_ID> --network testnet -- initialize --admin <PUBLIC_KEY>
  * 4. Set SOROBAN_CONTRACT_ID=<CONTRACT_ID> in backend/.env
@@ -37,9 +37,9 @@ import { createHash } from "crypto";
  *   CONTRACT_ERROR       → false (logic error in the call; retry is wrong)
  */
 export enum SorobanServiceErrorCode {
-  NETWORK_ERROR      = "NETWORK_ERROR",
-  CONTRACT_ERROR     = "CONTRACT_ERROR",
-  SIMULATION_FAILED  = "SIMULATION_FAILED",
+  NETWORK_ERROR = "NETWORK_ERROR",
+  CONTRACT_ERROR = "CONTRACT_ERROR",
+  SIMULATION_FAILED = "SIMULATION_FAILED",
   TRANSACTION_FAILED = "TRANSACTION_FAILED",
 }
 
@@ -49,11 +49,14 @@ export enum SorobanServiceErrorCode {
  * them (with backoff). Contract logic errors and transaction failures are
  * deterministic — retrying them will produce the same result.
  */
-export const SOROBAN_SERVICE_ERROR_RETRYABLE: Record<SorobanServiceErrorCode, boolean> = {
-  [SorobanServiceErrorCode.NETWORK_ERROR]:      true,
-  [SorobanServiceErrorCode.SIMULATION_FAILED]:  true,
+export const SOROBAN_SERVICE_ERROR_RETRYABLE: Record<
+  SorobanServiceErrorCode,
+  boolean
+> = {
+  [SorobanServiceErrorCode.NETWORK_ERROR]: true,
+  [SorobanServiceErrorCode.SIMULATION_FAILED]: true,
   [SorobanServiceErrorCode.TRANSACTION_FAILED]: false,
-  [SorobanServiceErrorCode.CONTRACT_ERROR]:     false,
+  [SorobanServiceErrorCode.CONTRACT_ERROR]: false,
 };
 
 /**
@@ -104,7 +107,10 @@ export class SorobanServiceError extends Error {
  * Logs full internal details before throwing — callers should NOT log these
  * details in API responses.
  */
-function throwFromInvokeResult(method: string, result: SorobanInvokeResult): never {
+function throwFromInvokeResult(
+  method: string,
+  result: SorobanInvokeResult,
+): never {
   const { errorCode, errorMessage } = result;
   // Internal log — full details are safe here, not exposed to clients
   console.error(
@@ -140,62 +146,69 @@ function throwFromInvokeResult(method: string, result: SorobanInvokeResult): nev
 // ── Error codes matching ContractError enum in lib.rs ─────────────────────────
 
 export enum SorobanErrorCode {
-  AdminUnauthorized      = 1,
-  AlreadyInitialized     = 2,
-  NotInitialized         = 3,
-  BallotNotFound         = 4,
-  BallotAlreadyExists    = 5,
+  AdminUnauthorized = 1,
+  AlreadyInitialized = 2,
+  NotInitialized = 3,
+  BallotNotFound = 4,
+  BallotAlreadyExists = 5,
   ResultAlreadyPublished = 6,
-  CounterOverflow        = 7,
-  InvalidBallotHash      = 8,
+  CounterOverflow = 7,
+  InvalidBallotHash = 8,
   UpgradeAlreadyScheduled = 9,
-  NoUpgradeScheduled    = 10,
-  TimeLockNotExpired      = 11,
-  BallotExpired           = 12,
-  ContractPaused          = 13,
-  LimitExceeded           = 14,
-  InvalidApprovalConfig   = 15,
-  DuplicateApprover       = 16,
-  ApproverUnauthorized    = 17,
-  OperationNotFound       = 18,
+  NoUpgradeScheduled = 10,
+  TimeLockNotExpired = 11,
+  BallotExpired = 12,
+  ContractPaused = 13,
+  LimitExceeded = 14,
+  InvalidApprovalConfig = 15,
+  DuplicateApprover = 16,
+  ApproverUnauthorized = 17,
+  OperationNotFound = 18,
   OperationAlreadyApproved = 19,
-  OperationNotPending     = 20,
-  OperationExpired        = 21,
-  SameAdmin               = 22,
+  OperationNotPending = 20,
+  OperationExpired = 21,
+  SameAdmin = 22,
   // Non-contract errors
-  SimulationFailed       = 100,
-  TransactionFailed      = 101,
-  NetworkError           = 102,
-  NotConfigured          = 103,
+  SimulationFailed = 100,
+  TransactionFailed = 101,
+  NetworkError = 102,
+  NotConfigured = 103,
 }
 
 const ERROR_MESSAGES: Record<SorobanErrorCode, string> = {
-  [SorobanErrorCode.AdminUnauthorized]:      "Caller is not the contract admin",
-  [SorobanErrorCode.AlreadyInitialized]:     "Contract already initialized",
-  [SorobanErrorCode.NotInitialized]:         "Contract not initialized",
-  [SorobanErrorCode.BallotNotFound]:         "Ballot does not exist on-chain",
-  [SorobanErrorCode.BallotAlreadyExists]:    "Ballot already recorded by a different admin",
-  [SorobanErrorCode.ResultAlreadyPublished]: "A different result hash is already published for this ballot",
-  [SorobanErrorCode.CounterOverflow]:        "Counter has reached u32::MAX",
-  [SorobanErrorCode.InvalidBallotHash]:      "Ballot hash must not be empty",
+  [SorobanErrorCode.AdminUnauthorized]: "Caller is not the contract admin",
+  [SorobanErrorCode.AlreadyInitialized]: "Contract already initialized",
+  [SorobanErrorCode.NotInitialized]: "Contract not initialized",
+  [SorobanErrorCode.BallotNotFound]: "Ballot does not exist on-chain",
+  [SorobanErrorCode.BallotAlreadyExists]:
+    "Ballot already recorded by a different admin",
+  [SorobanErrorCode.ResultAlreadyPublished]:
+    "A different result hash is already published for this ballot",
+  [SorobanErrorCode.CounterOverflow]: "Counter has reached u32::MAX",
+  [SorobanErrorCode.InvalidBallotHash]: "Ballot hash must not be empty",
   [SorobanErrorCode.UpgradeAlreadyScheduled]: "An upgrade is already scheduled",
-  [SorobanErrorCode.NoUpgradeScheduled]:    "No upgrade is currently scheduled",
-  [SorobanErrorCode.TimeLockNotExpired]:      "Time lock has not yet expired for the scheduled upgrade",
-  [SorobanErrorCode.BallotExpired]:          "Ballot has expired",
-  [SorobanErrorCode.ContractPaused]:         "Contract is currently paused",
-  [SorobanErrorCode.LimitExceeded]:          "Ballot token or vote limit exceeded",
-  [SorobanErrorCode.InvalidApprovalConfig]:  "Invalid M-of-N approval configuration",
-  [SorobanErrorCode.DuplicateApprover]:      "Duplicate address in approver list",
-  [SorobanErrorCode.ApproverUnauthorized]:   "Caller is not a configured approver for this operation",
-  [SorobanErrorCode.OperationNotFound]:      "Operation not found",
-  [SorobanErrorCode.OperationAlreadyApproved]: "Approver has already approved this operation",
-  [SorobanErrorCode.OperationNotPending]:    "Operation is not in pending status",
-  [SorobanErrorCode.OperationExpired]:       "Operation approval window has expired",
-  [SorobanErrorCode.SameAdmin]:              "New admin must be different from the current admin",
-  [SorobanErrorCode.SimulationFailed]:       "Transaction simulation failed",
-  [SorobanErrorCode.TransactionFailed]:      "Transaction submission failed",
-  [SorobanErrorCode.NetworkError]:           "Network or RPC error",
-  [SorobanErrorCode.NotConfigured]:          "Contract ID or secret key not configured",
+  [SorobanErrorCode.NoUpgradeScheduled]: "No upgrade is currently scheduled",
+  [SorobanErrorCode.TimeLockNotExpired]:
+    "Time lock has not yet expired for the scheduled upgrade",
+  [SorobanErrorCode.BallotExpired]: "Ballot has expired",
+  [SorobanErrorCode.ContractPaused]: "Contract is currently paused",
+  [SorobanErrorCode.LimitExceeded]: "Ballot token or vote limit exceeded",
+  [SorobanErrorCode.InvalidApprovalConfig]:
+    "Invalid M-of-N approval configuration",
+  [SorobanErrorCode.DuplicateApprover]: "Duplicate address in approver list",
+  [SorobanErrorCode.ApproverUnauthorized]:
+    "Caller is not a configured approver for this operation",
+  [SorobanErrorCode.OperationNotFound]: "Operation not found",
+  [SorobanErrorCode.OperationAlreadyApproved]:
+    "Approver has already approved this operation",
+  [SorobanErrorCode.OperationNotPending]: "Operation is not in pending status",
+  [SorobanErrorCode.OperationExpired]: "Operation approval window has expired",
+  [SorobanErrorCode.SameAdmin]:
+    "New admin must be different from the current admin",
+  [SorobanErrorCode.SimulationFailed]: "Transaction simulation failed",
+  [SorobanErrorCode.TransactionFailed]: "Transaction submission failed",
+  [SorobanErrorCode.NetworkError]: "Network or RPC error",
+  [SorobanErrorCode.NotConfigured]: "Contract ID or secret key not configured",
 };
 
 // ── Public interfaces ─────────────────────────────────────────────────────────
@@ -258,10 +271,10 @@ export interface SorobanConfig {
 }
 
 export enum BallotState {
-  Active          = "Active",
-  Expired         = "Expired",
+  Active = "Active",
+  Expired = "Expired",
   ResultPublished = "ResultPublished",
-  Archived        = "Archived",
+  Archived = "Archived",
 }
 
 export interface BallotMetadata {
@@ -384,7 +397,9 @@ export interface VoteRepository {
 }
 
 export interface TallyRepository {
-  createTallyResult(record: PersistedTallyResult): Promise<PersistedTallyResult>;
+  createTallyResult(
+    record: PersistedTallyResult,
+  ): Promise<PersistedTallyResult>;
 }
 
 export interface VoteSubmissionInput {
@@ -532,7 +547,9 @@ export interface BallotLimits {
   maxVotes: number;
 }
 
-function makeError(code: SorobanErrorCode): Pick<SorobanInvokeResult, "errorCode" | "errorMessage"> {
+function makeError(
+  code: SorobanErrorCode,
+): Pick<SorobanInvokeResult, "errorCode" | "errorMessage"> {
   return { errorCode: code, errorMessage: ERROR_MESSAGES[code] };
 }
 
@@ -565,7 +582,9 @@ function assertCircuitClosed(config: SorobanConfig, operation: string): void {
   if (elapsedMs >= policy.resetTimeoutMs) {
     state.openedAt = null;
     state.failures = 0;
-    console.warn(`[Soroban] ${operation}: circuit breaker half-open after ${elapsedMs}ms`);
+    console.warn(
+      `[Soroban] ${operation}: circuit breaker half-open after ${elapsedMs}ms`,
+    );
     return;
   }
 
@@ -581,7 +600,11 @@ function recordCircuitSuccess(config: SorobanConfig): void {
   state.openedAt = null;
 }
 
-function recordCircuitFailure(config: SorobanConfig, operation: string, err: SorobanServiceError): void {
+function recordCircuitFailure(
+  config: SorobanConfig,
+  operation: string,
+  err: SorobanServiceError,
+): void {
   if (!err.retryable) return;
   const policy = config.circuitBreakerPolicy ?? DEFAULT_CIRCUIT_BREAKER_POLICY;
   const state = getCircuitBreakerState(config);
@@ -608,7 +631,8 @@ async function withSorobanRpcResilience<T>(
   fn: () => Promise<T>,
   overridePolicy?: RpcRetryPolicy,
 ): Promise<T> {
-  const retryPolicy = overridePolicy ?? config.rpcRetryPolicy ?? DEFAULT_RPC_RETRY_POLICY;
+  const retryPolicy =
+    overridePolicy ?? config.rpcRetryPolicy ?? DEFAULT_RPC_RETRY_POLICY;
   let attempt = 0;
   let delayMs = retryPolicy.initialDelayMs;
 
@@ -665,7 +689,9 @@ async function readContractOrThrow(
  * Parse a Soroban contract error code out of a simulation error string.
  * Contract errors are surfaced as "Error(Contract, #N)" in the XDR diagnostics.
  */
-function parseContractErrorCode(errorText: string): SorobanErrorCode | undefined {
+function parseContractErrorCode(
+  errorText: string,
+): SorobanErrorCode | undefined {
   // Soroban encodes contract errors as "Error(Contract, #<code>)"
   const match = errorText.match(/Error\(Contract,\s*#(\d+)\)/);
   if (match && match[1] !== undefined) {
@@ -714,7 +740,9 @@ const EVENT_TYPE_TO_SYMBOL: Record<SorobanAuditEventType, string> = {
 const SOROBAN_EVENT_PAGE_LIMIT = 100;
 const SOROBAN_EVENT_MAX_PAGES = 25;
 
-function normalizeEventType(eventType: unknown): SorobanAuditEventType | string {
+function normalizeEventType(
+  eventType: unknown,
+): SorobanAuditEventType | string {
   const key = String(eventType ?? "").trim();
   return EVENT_SYMBOL_TO_TYPE[key] ?? key;
 }
@@ -747,13 +775,18 @@ function getEventValue(event: any): unknown {
   return scValToNativeSafe(event.value);
 }
 
-function getEventTypeFromTopics(topics: unknown[]): SorobanAuditEventType | string {
+function getEventTypeFromTopics(
+  topics: unknown[],
+): SorobanAuditEventType | string {
   // Filter out known namespace prefixes ("audit", "govern", "admin") then
   // look up the remaining topic symbol in the event type map.
   const NAMESPACE_PREFIXES = new Set(["audit", "govern", "admin"]);
   const eventTopic = topics.find((topic) => {
     const value = String(topic ?? "");
-    return !NAMESPACE_PREFIXES.has(value) && EVENT_SYMBOL_TO_TYPE[value] !== undefined;
+    return (
+      !NAMESPACE_PREFIXES.has(value) &&
+      EVENT_SYMBOL_TO_TYPE[value] !== undefined
+    );
   });
   return normalizeEventType(eventTopic ?? "");
 }
@@ -771,7 +804,9 @@ export function parseSorobanEvent(event: unknown): SorobanEventData {
   const timestamp = parseLedgerClosedAt(raw.ledgerClosedAt);
 
   const parsed: SorobanEventData = {
-    id: String(raw.id ?? raw.pagingToken ?? `${raw.ledger ?? ""}:${topics.join(":")}`),
+    id: String(
+      raw.id ?? raw.pagingToken ?? `${raw.ledger ?? ""}:${topics.join(":")}`,
+    ),
     pagingToken: raw.pagingToken,
     ledger: Number(raw.ledger ?? 0),
     ledgerClosedAt: raw.ledgerClosedAt,
@@ -801,35 +836,49 @@ export function parseSorobanEvent(event: unknown): SorobanEventData {
       parsed.ballotIdHash = String(tuple[0] ?? "");
       break;
     case "admin_rotated":
-      parsed.previousAdmin = tuple[0] !== undefined ? String(tuple[0]) : undefined;
+      parsed.previousAdmin =
+        tuple[0] !== undefined ? String(tuple[0]) : undefined;
       parsed.newAdmin = tuple[1] !== undefined ? String(tuple[1]) : undefined;
-      parsed.transitionedAt = tuple[2] !== undefined ? Number(tuple[2]) : undefined;
+      parsed.transitionedAt =
+        tuple[2] !== undefined ? Number(tuple[2]) : undefined;
       break;
     case "upgrade_scheduled":
       parsed.admin = tuple[0] !== undefined ? String(tuple[0]) : undefined;
-      parsed.newWasmHash = tuple[1] !== undefined ? String(tuple[1]) : undefined;
-      parsed.scheduledAt = tuple[2] !== undefined ? Number(tuple[2]) : undefined;
-      parsed.executableAt = tuple[3] !== undefined ? Number(tuple[3]) : undefined;
+      parsed.newWasmHash =
+        tuple[1] !== undefined ? String(tuple[1]) : undefined;
+      parsed.scheduledAt =
+        tuple[2] !== undefined ? Number(tuple[2]) : undefined;
+      parsed.executableAt =
+        tuple[3] !== undefined ? Number(tuple[3]) : undefined;
       break;
     case "upgrade_canceled":
       parsed.admin = tuple[0] !== undefined ? String(tuple[0]) : undefined;
-      parsed.newWasmHash = tuple[1] !== undefined ? String(tuple[1]) : undefined;
+      parsed.newWasmHash =
+        tuple[1] !== undefined ? String(tuple[1]) : undefined;
       break;
     case "upgrade_executed":
-      parsed.newWasmHash = tuple[0] !== undefined ? String(tuple[0]) : undefined;
+      parsed.newWasmHash =
+        tuple[0] !== undefined ? String(tuple[0]) : undefined;
       break;
     case "state_transition":
       parsed.ballotIdHash = String(tuple[0] ?? "");
       parsed.newState = tuple[1] !== undefined ? String(tuple[1]) : undefined;
-      parsed.transitionedAt = tuple[2] !== undefined ? Number(tuple[2]) : undefined;
+      parsed.transitionedAt =
+        tuple[2] !== undefined ? Number(tuple[2]) : undefined;
       break;
   }
 
   return parsed;
 }
 
-function matchesEventFilter(event: SorobanEventData, filter: SorobanEventFilter): boolean {
-  if (filter.eventType && event.eventType !== normalizeEventType(filter.eventType)) {
+function matchesEventFilter(
+  event: SorobanEventData,
+  filter: SorobanEventFilter,
+): boolean {
+  if (
+    filter.eventType &&
+    event.eventType !== normalizeEventType(filter.eventType)
+  ) {
     return false;
   }
   if (filter.ballotIdHash && event.ballotIdHash !== filter.ballotIdHash) {
@@ -855,11 +904,16 @@ function matchesEventFilter(event: SorobanEventData, filter: SorobanEventFilter)
 function buildTopicFilter(eventType?: string): string[][] | undefined {
   if (!eventType) return undefined;
   const normalized = normalizeEventType(eventType);
-  const symbol = EVENT_TYPE_TO_SYMBOL[normalized as SorobanAuditEventType] ?? eventType;
+  const symbol =
+    EVENT_TYPE_TO_SYMBOL[normalized as SorobanAuditEventType] ?? eventType;
 
   try {
-    const auditTopic = StellarSdk.nativeToScVal("audit", { type: "symbol" as any }).toXDR("base64");
-    const eventTopic = StellarSdk.nativeToScVal(symbol, { type: "symbol" as any }).toXDR("base64");
+    const auditTopic = StellarSdk.nativeToScVal("audit", {
+      type: "symbol" as any,
+    }).toXDR("base64");
+    const eventTopic = StellarSdk.nativeToScVal(symbol, {
+      type: "symbol" as any,
+    }).toXDR("base64");
     return [[auditTopic], [eventTopic]];
   } catch {
     return undefined;
@@ -879,20 +933,28 @@ export async function invokeContract(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] ${method}: invalid config — ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] ${method}: invalid config — ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
 
   try {
     const keypair = config.sourceKeypair;
-    const server   = new StellarSdk.SorobanRpc.Server(config.rpcUrl, { allowHttp: false });
-    const account  = await server.getAccount(keypair.publicKey());
+    const server = new StellarSdk.SorobanRpc.Server(config.rpcUrl, {
+      allowHttp: false,
+    });
+    const account = await server.getAccount(keypair.publicKey());
 
-    const scArgs   = args.map(({ value, type }) =>
+    const scArgs = args.map(({ value, type }) =>
       StellarSdk.nativeToScVal(value, { type: type as any }),
     );
 
-    const contract  = new StellarSdk.Contract(config.contractId);
+    const contract = new StellarSdk.Contract(config.contractId);
     const operation = contract.call(method, ...scArgs);
 
     const tx = new StellarSdk.TransactionBuilder(account, {
@@ -909,14 +971,21 @@ export async function invokeContract(
       // Defensive: isSimulationError type-guards `.error` as present, but RPC
       // responses are not guaranteed to honor that — fall back to a generic
       // message rather than interpolating `undefined` into logs/errorMessage.
-      const errorText    = simulation.error || "Unknown simulation error (no detail provided by RPC)";
+      const errorText =
+        simulation.error ||
+        "Unknown simulation error (no detail provided by RPC)";
       const contractCode = parseContractErrorCode(errorText);
-      const code    = contractCode ?? SorobanErrorCode.SimulationFailed;
-      const message = contractCode
-        ? ERROR_MESSAGES[contractCode]
-        : errorText;
-      console.error(`[Soroban] ${method} simulation failed — code ${code}: ${message}`);
-      return { txHash: "", success: false, errorCode: code, errorMessage: message };
+      const code = contractCode ?? SorobanErrorCode.SimulationFailed;
+      const message = contractCode ? ERROR_MESSAGES[contractCode] : errorText;
+      console.error(
+        `[Soroban] ${method} simulation failed — code ${code}: ${message}`,
+      );
+      return {
+        txHash: "",
+        success: false,
+        errorCode: code,
+        errorMessage: message,
+      };
     }
 
     const preparedTx = StellarSdk.SorobanRpc.assembleTransaction(
@@ -929,18 +998,23 @@ export async function invokeContract(
 
     if (sendResult.status === "ERROR") {
       console.error(`[Soroban] ${method} send failed:`, sendResult.errorResult);
-      return { txHash: "", success: false, ...makeError(SorobanErrorCode.TransactionFailed) };
+      return {
+        txHash: "",
+        success: false,
+        ...makeError(SorobanErrorCode.TransactionFailed),
+      };
     }
 
-    const txHash      = sendResult.hash;
+    const txHash = sendResult.hash;
     const retryPolicy = config.retryPolicy ?? DEFAULT_RETRY_POLICY;
 
     let getResult = await server.getTransaction(txHash);
-    let attempts  = 0;
-    let delayMs   = retryPolicy.initialDelayMs;
+    let attempts = 0;
+    let delayMs = retryPolicy.initialDelayMs;
 
     while (
-      getResult.status === StellarSdk.SorobanRpc.Api.GetTransactionStatus.NOT_FOUND &&
+      getResult.status ===
+        StellarSdk.SorobanRpc.Api.GetTransactionStatus.NOT_FOUND &&
       attempts < retryPolicy.maxAttempts
     ) {
       console.log(
@@ -952,7 +1026,10 @@ export async function invokeContract(
       delayMs = Math.round(delayMs * retryPolicy.backoffMultiplier);
     }
 
-    if (getResult.status === StellarSdk.SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
+    if (
+      getResult.status ===
+      StellarSdk.SorobanRpc.Api.GetTransactionStatus.SUCCESS
+    ) {
       const returnValue = getResult.returnValue
         ? StellarSdk.scValToNative(getResult.returnValue)
         : undefined;
@@ -961,10 +1038,18 @@ export async function invokeContract(
     }
 
     console.error(`[Soroban] ${method} transaction failed:`, getResult);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.TransactionFailed) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.TransactionFailed),
+    };
   } catch (err) {
     console.error(`[Soroban] ${method} network error:`, err);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NetworkError) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NetworkError),
+    };
   }
 }
 
@@ -977,27 +1062,37 @@ export async function readContract(
   config: SorobanConfig,
   method: string,
   args: { value: unknown; type: string }[],
-): Promise<{ value: unknown | null; errorCode?: SorobanErrorCode; errorMessage?: string }> {
+): Promise<{
+  value: unknown | null;
+  errorCode?: SorobanErrorCode;
+  errorMessage?: string;
+}> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) {
-    console.warn(`[Soroban] ${method}: invalid config — ${contractCheck.error.message}`);
+    console.warn(
+      `[Soroban] ${method}: invalid config — ${contractCheck.error.message}`,
+    );
     return { value: null, ...makeError(SorobanErrorCode.NotConfigured) };
   }
   if (!config.sourceKeypair) {
-    console.warn(`[Soroban] ${method}: invalid sourceKeypair — must be a valid Keypair instance`);
+    console.warn(
+      `[Soroban] ${method}: invalid sourceKeypair — must be a valid Keypair instance`,
+    );
     return { value: null, ...makeError(SorobanErrorCode.NotConfigured) };
   }
 
   try {
     const keypair = config.sourceKeypair;
-    const server  = new StellarSdk.SorobanRpc.Server(config.rpcUrl, { allowHttp: false });
+    const server = new StellarSdk.SorobanRpc.Server(config.rpcUrl, {
+      allowHttp: false,
+    });
     const account = await server.getAccount(keypair.publicKey());
 
-    const scArgs  = args.map(({ value, type }) =>
+    const scArgs = args.map(({ value, type }) =>
       StellarSdk.nativeToScVal(value, { type: type as any }),
     );
 
-    const contract  = new StellarSdk.Contract(config.contractId);
+    const contract = new StellarSdk.Contract(config.contractId);
     const operation = contract.call(method, ...scArgs);
 
     const tx = new StellarSdk.TransactionBuilder(account, {
@@ -1011,11 +1106,15 @@ export async function readContract(
     const simulation = await server.simulateTransaction(tx);
 
     if (StellarSdk.SorobanRpc.Api.isSimulationError(simulation)) {
-      const errorText     = simulation.error || "Unknown simulation error (no detail provided by RPC)";
-      const contractCode  = parseContractErrorCode(errorText);
-      const code    = contractCode ?? SorobanErrorCode.SimulationFailed;
+      const errorText =
+        simulation.error ||
+        "Unknown simulation error (no detail provided by RPC)";
+      const contractCode = parseContractErrorCode(errorText);
+      const code = contractCode ?? SorobanErrorCode.SimulationFailed;
       const message = contractCode ? ERROR_MESSAGES[contractCode] : errorText;
-      console.error(`[Soroban] ${method} read failed — code ${code}: ${message}`);
+      console.error(
+        `[Soroban] ${method} read failed — code ${code}: ${message}`,
+      );
       return { value: null, errorCode: code, errorMessage: message };
     }
 
@@ -1045,12 +1144,16 @@ export async function sorobanFilterEvents(
   filter: SorobanEventFilter = {},
 ): Promise<SorobanEventData[]> {
   if (!config.contractId) {
-    console.warn("[Soroban] sorobanFilterEvents: no contract ID, skipping event query");
+    console.warn(
+      "[Soroban] sorobanFilterEvents: no contract ID, skipping event query",
+    );
     return [];
   }
 
   try {
-    const server = new StellarSdk.SorobanRpc.Server(config.rpcUrl, { allowHttp: false });
+    const server = new StellarSdk.SorobanRpc.Server(config.rpcUrl, {
+      allowHttp: false,
+    });
     const events: SorobanEventData[] = [];
     let cursor: string | undefined;
     let pages = 0;
@@ -1081,8 +1184,11 @@ export async function sorobanFilterEvents(
       }
 
       const lastEvent = pageEvents[pageEvents.length - 1];
-      const nextCursor = response.cursor
-        ?? (pageEvents.length === SOROBAN_EVENT_PAGE_LIMIT ? lastEvent?.pagingToken : undefined);
+      const nextCursor =
+        response.cursor ??
+        (pageEvents.length === SOROBAN_EVENT_PAGE_LIMIT
+          ? lastEvent?.pagingToken
+          : undefined);
       cursor = nextCursor && nextCursor !== cursor ? nextCursor : undefined;
       pages++;
     } while (cursor && pages < SOROBAN_EVENT_MAX_PAGES);
@@ -1113,7 +1219,11 @@ export async function sorobanRecordBallot(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanRecordBallot: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const ballotLimits = limits ?? { maxTokens: 10000, maxVotes: 10000 };
@@ -1121,7 +1231,10 @@ export async function sorobanRecordBallot(
     { value: caller, type: "address" },
     { value: ballotIdHash, type: "string" },
     {
-      value: { max_tokens: ballotLimits.maxTokens, max_votes: ballotLimits.maxVotes },
+      value: {
+        max_tokens: ballotLimits.maxTokens,
+        max_votes: ballotLimits.maxVotes,
+      },
       type: "map",
     },
   ]);
@@ -1150,8 +1263,14 @@ export async function sorobanRecordBallotsBatch(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] sorobanRecordBallotsBatch: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] sorobanRecordBallotsBatch: ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
 
   const caller = config.sourceKeypair.publicKey();
@@ -1189,7 +1308,11 @@ export async function sorobanRecordToken(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanRecordToken: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const result = await invokeContract(config, "record_token", [
@@ -1213,13 +1336,21 @@ export async function sorobanRecordVote(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanRecordVote: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
-  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.recordVote, [
-    { value: caller, type: "address" },
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const result = await invokeContract(
+    config,
+    ANONVOTE_CONTRACT_METHODS.recordVote,
+    [
+      { value: caller, type: "address" },
+      { value: ballotIdHash, type: "string" },
+    ],
+  );
   if (!result.success) {
     throwFromInvokeResult("sorobanRecordVote", result);
   }
@@ -1240,20 +1371,33 @@ export async function sorobanRecordResult(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanRecordResult: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
-  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.recordResult, [
-    { value: caller, type: "address" },
-    { value: ballotIdHash, type: "string" },
-    { value: resultHash, type: "string" },
-  ]);
-
-  if (!result.success && result.errorCode === SorobanErrorCode.ResultAlreadyPublished) {
-    // Check if the on-chain hash matches ours (idempotent re-record)
-    const { value: onChainHash } = await readContract(config, "get_result_hash", [
+  const result = await invokeContract(
+    config,
+    ANONVOTE_CONTRACT_METHODS.recordResult,
+    [
+      { value: caller, type: "address" },
       { value: ballotIdHash, type: "string" },
-    ]);
+      { value: resultHash, type: "string" },
+    ],
+  );
+
+  if (
+    !result.success &&
+    result.errorCode === SorobanErrorCode.ResultAlreadyPublished
+  ) {
+    // Check if the on-chain hash matches ours (idempotent re-record)
+    const { value: onChainHash } = await readContract(
+      config,
+      "get_result_hash",
+      [{ value: ballotIdHash, type: "string" }],
+    );
     if (onChainHash === resultHash) {
       console.log(
         `[Soroban] sorobanRecordResult: result already published with matching hash — treating as success`,
@@ -1295,13 +1439,21 @@ export async function sorobanExpireBallot(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanExpireBallot: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
-  const result = await invokeContract(config, ANONVOTE_CONTRACT_METHODS.expireBallot, [
-    { value: caller, type: "address" },
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const result = await invokeContract(
+    config,
+    ANONVOTE_CONTRACT_METHODS.expireBallot,
+    [
+      { value: caller, type: "address" },
+      { value: ballotIdHash, type: "string" },
+    ],
+  );
   if (!result.success) {
     throwFromInvokeResult("sorobanExpireBallot", result);
   }
@@ -1489,7 +1641,11 @@ export async function sorobanRotateAdmin(
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
     console.warn(`[Soroban] sorobanRotateAdmin: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const result = await invokeContract(config, "rotate_admin", [
@@ -1511,12 +1667,24 @@ export async function sorobanRotateAdmin(
  */
 export async function sorobanGetRotationHistory(
   config: SorobanConfig,
-): Promise<Array<{ oldAdmin: string; newAdmin: string; rotatedAt: number }> | null> {
+): Promise<Array<{
+  oldAdmin: string;
+  newAdmin: string;
+  rotatedAt: number;
+}> | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value, errorCode } = await readContract(config, "get_rotation_history", []);
+  const { value, errorCode } = await readContract(
+    config,
+    "get_rotation_history",
+    [],
+  );
   if (errorCode !== undefined) return null;
-  const raw = value as Array<{ old_admin: string; new_admin: string; rotated_at: number }> | null;
+  const raw = value as Array<{
+    old_admin: string;
+    new_admin: string;
+    rotated_at: number;
+  }> | null;
   if (!Array.isArray(raw)) return [];
   return raw.map((r) => ({
     oldAdmin: String(r.old_admin ?? ""),
@@ -1537,8 +1705,14 @@ export async function sorobanTransitionBallotState(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] sorobanTransitionBallotState: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] sorobanTransitionBallotState: ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const result = await invokeContract(config, "transition_ballot_state", [
@@ -1574,13 +1748,19 @@ export async function sorobanGetAuditCounts(
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
   const [tokensRes, votesRes, consistentRes] = await Promise.all([
-    readContract(config, "get_tokens_issued", [{ value: ballotIdHash, type: "string" }]),
-    readContract(config, "get_votes_cast",    [{ value: ballotIdHash, type: "string" }]),
-    readContract(config, "is_consistent",     [{ value: ballotIdHash, type: "string" }]),
+    readContract(config, "get_tokens_issued", [
+      { value: ballotIdHash, type: "string" },
+    ]),
+    readContract(config, "get_votes_cast", [
+      { value: ballotIdHash, type: "string" },
+    ]),
+    readContract(config, "is_consistent", [
+      { value: ballotIdHash, type: "string" },
+    ]),
   ]);
   return {
     tokensIssued: (tokensRes.value ?? null) as number | null,
-    votesCast:    (votesRes.value  ?? null) as number | null,
+    votesCast: (votesRes.value ?? null) as number | null,
     isConsistent: (consistentRes.value as boolean) ?? false,
   };
 }
@@ -1628,9 +1808,15 @@ export async function verifyBallotConsistency(
   }
 
   const [tokensRes, votesRes, consistentRes] = await Promise.all([
-    readContract(config, "get_tokens_issued", [{ value: ballotIdHash, type: "string" }]),
-    readContract(config, "get_votes_cast", [{ value: ballotIdHash, type: "string" }]),
-    readContract(config, "is_consistent", [{ value: ballotIdHash, type: "string" }]),
+    readContract(config, "get_tokens_issued", [
+      { value: ballotIdHash, type: "string" },
+    ]),
+    readContract(config, "get_votes_cast", [
+      { value: ballotIdHash, type: "string" },
+    ]),
+    readContract(config, "is_consistent", [
+      { value: ballotIdHash, type: "string" },
+    ]),
   ]);
 
   const failedRead = [tokensRes, votesRes, consistentRes].find(
@@ -1663,7 +1849,9 @@ export async function verifyBallotConsistency(
 
   const summary =
     `tokens_issued(chain)=${tokensIssuedOnChain}, votes_cast(chain)=${votesCastOnChain}` +
-    (databaseVoteCount !== undefined ? `, votes_cast(db)=${databaseVoteCount}` : "");
+    (databaseVoteCount !== undefined
+      ? `, votes_cast(db)=${databaseVoteCount}`
+      : "");
 
   if (consistent) {
     console.log(
@@ -1720,9 +1908,11 @@ export async function sorobanGetBallotState(
 ): Promise<BallotStateSnapshot | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value } = await readContract(config, ANONVOTE_CONTRACT_METHODS.getBallotState, [
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const { value } = await readContract(
+    config,
+    ANONVOTE_CONTRACT_METHODS.getBallotState,
+    [{ value: ballotIdHash, type: "string" }],
+  );
   return value as BallotStateSnapshot | null;
 }
 
@@ -1762,9 +1952,11 @@ export async function sorobanGetBallotCreatedAt(
 ): Promise<number | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value, errorCode } = await readContract(config, "get_ballot_created_at", [
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const { value, errorCode } = await readContract(
+    config,
+    "get_ballot_created_at",
+    [{ value: ballotIdHash, type: "string" }],
+  );
   if (errorCode !== undefined) return null;
   // Contract returns Option<u64>: None → undefined/null, Some(ts) → number
   if (value === null || value === undefined) return null;
@@ -1800,7 +1992,7 @@ export async function sorobanVerifyResultProof(
 
   const voteMerkleProofSc = {
     index: voteMerkleProof.index,
-    path: voteMerkleProof.path.map(p => Buffer.from(p, "hex")),
+    path: voteMerkleProof.path.map((p) => Buffer.from(p, "hex")),
     vote_hash: Buffer.from(voteMerkleProof.vote_hash, "hex"),
   };
 
@@ -1822,11 +2014,17 @@ export async function sorobanGetBallotMetadata(
 ): Promise<BallotMetadata | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value, errorCode } = await readContract(config, "get_ballot_metadata", [
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const { value, errorCode } = await readContract(
+    config,
+    "get_ballot_metadata",
+    [{ value: ballotIdHash, type: "string" }],
+  );
   if (errorCode !== undefined) return null;
-  const raw = value as { created_at: number; admin: string; is_active: boolean } | null;
+  const raw = value as {
+    created_at: number;
+    admin: string;
+    is_active: boolean;
+  } | null;
   if (!raw) return null;
   return {
     created_at: Number(raw.created_at ?? 0),
@@ -1845,7 +2043,8 @@ export async function sorobanGetVersion(
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
   const { value, errorCode } = await readContract(config, "get_version", []);
-  if (errorCode !== undefined || value === null || value === undefined) return null;
+  if (errorCode !== undefined || value === null || value === undefined)
+    return null;
   return String(value);
 }
 
@@ -1863,7 +2062,11 @@ export async function sorobanGetBallotStats(
     { value: ballotIdHash, type: "string" },
   ]);
   if (errorCode !== undefined) return null;
-  const raw = value as { tokens_issued: number; votes_cast: number; result_hash: string | null } | null;
+  const raw = value as {
+    tokens_issued: number;
+    votes_cast: number;
+    result_hash: string | null;
+  } | null;
   if (!raw) return null;
   return {
     tokens_issued: Number(raw.tokens_issued ?? 0),
@@ -1881,7 +2084,11 @@ export async function sorobanGetAllBallots(
 ): Promise<string[]> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return [];
-  const { value, errorCode } = await readContract(config, "get_all_ballots", []);
+  const { value, errorCode } = await readContract(
+    config,
+    "get_all_ballots",
+    [],
+  );
   if (errorCode !== undefined) return [];
   return Array.isArray(value) ? value.map(String) : [];
 }
@@ -1913,9 +2120,11 @@ export async function sorobanIsBallotFinalized(
 ): Promise<boolean | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
-  const { value, errorCode } = await readContract(config, "is_ballot_finalized", [
-    { value: ballotIdHash, type: "string" },
-  ]);
+  const { value, errorCode } = await readContract(
+    config,
+    "is_ballot_finalized",
+    [{ value: ballotIdHash, type: "string" }],
+  );
   if (errorCode !== undefined) return null;
   return (value as boolean) ?? false;
 }
@@ -1946,8 +2155,14 @@ export async function sorobanScheduleUpgrade(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] sorobanScheduleUpgrade: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] sorobanScheduleUpgrade: ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const result = await invokeContract(config, "schedule_upgrade", [
@@ -1970,8 +2185,14 @@ export async function sorobanCancelUpgrade(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] sorobanCancelUpgrade: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] sorobanCancelUpgrade: ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const caller = config.sourceKeypair.publicKey();
   const result = await invokeContract(config, "cancel_upgrade", [
@@ -1993,8 +2214,14 @@ export async function sorobanExecuteUpgrade(
 ): Promise<SorobanInvokeResult> {
   const configCheck = validateSorobanConfig(config);
   if (!configCheck.valid) {
-    console.warn(`[Soroban] sorobanExecuteUpgrade: ${configCheck.error.message}`);
-    return { txHash: "", success: false, ...makeError(SorobanErrorCode.NotConfigured) };
+    console.warn(
+      `[Soroban] sorobanExecuteUpgrade: ${configCheck.error.message}`,
+    );
+    return {
+      txHash: "",
+      success: false,
+      ...makeError(SorobanErrorCode.NotConfigured),
+    };
   }
   const result = await invokeContract(config, "execute_upgrade", []);
   if (!result.success && result.errorCode !== undefined) {
@@ -2010,11 +2237,19 @@ export async function sorobanExecuteUpgrade(
  */
 export async function sorobanGetPendingUpgrade(
   config: SorobanConfig,
-): Promise<{ newWasmHash: string; scheduledAt: number; executableAt: number } | null> {
+): Promise<{
+  newWasmHash: string;
+  scheduledAt: number;
+  executableAt: number;
+} | null> {
   const contractCheck = validateContractId(config.contractId);
   if (!contractCheck.valid) return null;
   const { value } = await readContract(config, "get_pending_upgrade", []);
-  return value as { newWasmHash: string; scheduledAt: number; executableAt: number } | null;
+  return value as {
+    newWasmHash: string;
+    scheduledAt: number;
+    executableAt: number;
+  } | null;
 }
 
 // ── Config helpers ────────────────────────────────────────────────────────────
@@ -2096,8 +2331,10 @@ export function createDefaultMainnetConfig(params: {
  */
 export function createSorobanService(config: SorobanConfig) {
   return {
-    invokeContract: (method: string, args: { value: unknown; type: string }[]) =>
-      invokeContract(config, method, args),
+    invokeContract: (
+      method: string,
+      args: { value: unknown; type: string }[],
+    ) => invokeContract(config, method, args),
 
     readContract: (method: string, args: { value: unknown; type: string }[]) =>
       readContract(config, method, args),
@@ -2115,8 +2352,11 @@ export function createSorobanService(config: SorobanConfig) {
     sorobanRecordVote: (ballotIdHash: string) =>
       sorobanRecordVote(config, ballotIdHash),
 
-    recordVote: (ballotIdHash: string, encryptedVote: EncryptedVote, options?: BackendFlowOptions) =>
-      recordVote(config, ballotIdHash, encryptedVote, options),
+    recordVote: (
+      ballotIdHash: string,
+      encryptedVote: EncryptedVote,
+      options?: BackendFlowOptions,
+    ) => recordVote(config, ballotIdHash, encryptedVote, options),
 
     sorobanRecordResult: (ballotIdHash: string, resultHash: string) =>
       sorobanRecordResult(config, ballotIdHash, resultHash),
@@ -2151,11 +2391,12 @@ export function createSorobanService(config: SorobanConfig) {
     sorobanRotateAdmin: (newAdminPublicKey: string) =>
       sorobanRotateAdmin(config, newAdminPublicKey),
 
-    sorobanGetRotationHistory: () =>
-      sorobanGetRotationHistory(config),
+    sorobanGetRotationHistory: () => sorobanGetRotationHistory(config),
 
-    sorobanTransitionBallotState: (ballotIdHash: string, newState: BallotState) =>
-      sorobanTransitionBallotState(config, ballotIdHash, newState),
+    sorobanTransitionBallotState: (
+      ballotIdHash: string,
+      newState: BallotState,
+    ) => sorobanTransitionBallotState(config, ballotIdHash, newState),
 
     sorobanGetAuditCounts: (ballotIdHash: string) =>
       sorobanGetAuditCounts(config, ballotIdHash),
@@ -2176,7 +2417,13 @@ export function createSorobanService(config: SorobanConfig) {
       ballotIdHash: string,
       voteMerkleProof: MerkleProof,
       resultHash: string,
-    ) => sorobanVerifyResultProof(config, ballotIdHash, voteMerkleProof, resultHash),
+    ) =>
+      sorobanVerifyResultProof(
+        config,
+        ballotIdHash,
+        voteMerkleProof,
+        resultHash,
+      ),
 
     sorobanGetBallotMetadata: (ballotIdHash: string) =>
       sorobanGetBallotMetadata(config, ballotIdHash),
@@ -2184,8 +2431,7 @@ export function createSorobanService(config: SorobanConfig) {
     sorobanGetBallotStats: (ballotIdHash: string) =>
       sorobanGetBallotStats(config, ballotIdHash),
 
-    sorobanGetAllBallots: () =>
-      sorobanGetAllBallots(config),
+    sorobanGetAllBallots: () => sorobanGetAllBallots(config),
 
     sorobanBallotIsActive: (ballotIdHash: string) =>
       sorobanBallotIsActive(config, ballotIdHash),
@@ -2199,20 +2445,18 @@ export function createSorobanService(config: SorobanConfig) {
     sorobanScheduleUpgrade: (newWasmHash: string) =>
       sorobanScheduleUpgrade(config, newWasmHash),
 
-    sorobanCancelUpgrade: () =>
-      sorobanCancelUpgrade(config),
+    sorobanCancelUpgrade: () => sorobanCancelUpgrade(config),
 
-    sorobanExecuteUpgrade: () =>
-      sorobanExecuteUpgrade(config),
+    sorobanExecuteUpgrade: () => sorobanExecuteUpgrade(config),
 
-    sorobanGetPendingUpgrade: () =>
-      sorobanGetPendingUpgrade(config),
+    sorobanGetPendingUpgrade: () => sorobanGetPendingUpgrade(config),
 
-    sorobanGetVersion: () =>
-      sorobanGetVersion(config),
+    sorobanGetVersion: () => sorobanGetVersion(config),
 
-    verifyBallotConsistency: (ballotIdHash: string, databaseVoteCount?: number) =>
-      verifyBallotConsistency(config, ballotIdHash, databaseVoteCount),
+    verifyBallotConsistency: (
+      ballotIdHash: string,
+      databaseVoteCount?: number,
+    ) => verifyBallotConsistency(config, ballotIdHash, databaseVoteCount),
 
     hashTallyResult: (localResult: TallyResultPayload) =>
       hashTallyResult(localResult),

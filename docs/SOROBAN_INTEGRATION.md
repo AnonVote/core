@@ -23,22 +23,22 @@ POST /api/votes ─▶ privacyEngine.submitVote()
 
 Supporting pieces:
 
-| Component | File | Responsibility |
-|---|---|---|
-| RPC primitives | `backend/src/services/sorobanService.ts` | `invokeContract`, `readContract`, per-method helpers, **throws typed `SorobanError`s** |
-| Error types | `backend/src/services/sorobanErrors.ts` | `NETWORK_ERROR`/`RPC_ERROR`/`SIMULATION_FAILED` (retryable) vs `CONTRACT_ERROR`/`CONFIG_ERROR` (permanent) |
-| Resilience | `backend/src/services/sorobanResilient.ts` | exponential backoff (1s→2s→4s), circuit breaker, call logging |
-| Batching | `backend/src/services/voteSubmissionBatcher.ts` | threshold/timeout flush, dedupe, duplicate-fallback split, dead-letter queue |
-| State sync | `backend/src/services/contractStateManager.ts` | every-minute chain↔DB reconciliation + divergence alerts |
-| Replay worker | `backend/src/workers/stellarRetryWorker.ts` | drains legacy `stellar_retry_queue` rows into the batcher |
-| Observability | `backend/src/services/sorobanMetrics.ts`, `routes/admin.ts` | metrics + breaker + DLQ admin endpoints |
-| Contract | `contracts/anonvote/src/lib.rs` | `record_ballot`, `record_token`, `record_vote` (idempotent), `batch_record_votes`, `record_result`, `has_vote`, `get_tokens_issued`, `get_votes_cast`, `is_consistent` |
+| Component      | File                                                        | Responsibility                                                                                                                                                         |
+| -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RPC primitives | `backend/src/services/sorobanService.ts`                    | `invokeContract`, `readContract`, per-method helpers, **throws typed `SorobanError`s**                                                                                 |
+| Error types    | `backend/src/services/sorobanErrors.ts`                     | `NETWORK_ERROR`/`RPC_ERROR`/`SIMULATION_FAILED` (retryable) vs `CONTRACT_ERROR`/`CONFIG_ERROR` (permanent)                                                             |
+| Resilience     | `backend/src/services/sorobanResilient.ts`                  | exponential backoff (1s→2s→4s), circuit breaker, call logging                                                                                                          |
+| Batching       | `backend/src/services/voteSubmissionBatcher.ts`             | threshold/timeout flush, dedupe, duplicate-fallback split, dead-letter queue                                                                                           |
+| State sync     | `backend/src/services/contractStateManager.ts`              | every-minute chain↔DB reconciliation + divergence alerts                                                                                                               |
+| Replay worker  | `backend/src/workers/stellarRetryWorker.ts`                 | drains legacy `stellar_retry_queue` rows into the batcher                                                                                                              |
+| Observability  | `backend/src/services/sorobanMetrics.ts`, `routes/admin.ts` | metrics + breaker + DLQ admin endpoints                                                                                                                                |
+| Contract       | `contracts/anonvote/src/lib.rs`                             | `record_ballot`, `record_token`, `record_vote` (idempotent), `batch_record_votes`, `record_result`, `has_vote`, `get_tokens_issued`, `get_votes_cast`, `is_consistent` |
 
 ---
 
 ## 2. Prerequisities
 
-- Rust with `wasm32-unknown-unknown` target and the `stellar` CLI (Soroban 22).
+- Rust 1.84+ with `wasm32v1-none` target and the `stellar` CLI (Soroban 27.0.6).
 - A Stellar **testnet** funding account. Fund it via
   <https://laboratory.stellar.org/#account-creator> (Friendbot on the right).
 
@@ -50,11 +50,11 @@ Supporting pieces:
 cd contracts/anonvote
 
 # 1. Build the WASM
-cargo build --target wasm32-unknown-unknown --release
+cargo build --target wasm32v1-none --release
 
 # 2. Deploy to testnet
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/anonvote.wasm \
+  --wasm target/wasm32v1-none/release/anonvote.wasm \
   --source <SECRET_KEY> \
   --network testnet
 
@@ -168,9 +168,13 @@ contract counters (`get_tokens_issued`, `get_votes_cast`, `is_consistent`)
 against raw DB row counts. A mismatch produces:
 
 ```json
-{"level":"error","alert":"CONTRACT_STATE_DIVERGENCE","ballotId":"...",
- "chain":{"tokensIssued":2,"votesCast":5,"isConsistent":false},
- "db":{"tokensIssued":2,"votesCast":1}}
+{
+  "level": "error",
+  "alert": "CONTRACT_STATE_DIVERGENCE",
+  "ballotId": "...",
+  "chain": { "tokensIssued": 2, "votesCast": 5, "isConsistent": false },
+  "db": { "tokensIssued": 2, "votesCast": 1 }
+}
 ```
 
 **Contract counters count on-chain calls, not weighted sums** — comparisons are
@@ -203,11 +207,11 @@ structured logger.
 
 ### Alerts to wire into your monitoring
 
-| Alert | Trigger |
-|---|---|
-| `SOROBAN_SUBMISSION_PAUSED` | circuit breaker OPEN |
-| `CONTRACT_STATE_DIVERGENCE` | chain counters ≠ DB counters |
-| `VOTE_DEAD_LETTERED` | a vote exhausted all retries and went to the DLQ |
+| Alert                       | Trigger                                          |
+| --------------------------- | ------------------------------------------------ |
+| `SOROBAN_SUBMISSION_PAUSED` | circuit breaker OPEN                             |
+| `CONTRACT_STATE_DIVERGENCE` | chain counters ≠ DB counters                     |
+| `VOTE_DEAD_LETTERED`        | a vote exhausted all retries and went to the DLQ |
 
 ---
 
@@ -231,7 +235,7 @@ recorded it), and the DLQ row is resolved.
 
 ## 10. Deployment checklist
 
-1. [ ] `cargo build --target wasm32-unknown-unknown --release` in `contracts/anonvote`
+1. [ ] `cargo build --target wasm32v1-none --release` in `contracts/anonvote`
 2. [ ] Deploy + `initialize` the contract on testnet (section 3)
 3. [ ] `SOROBAN_CONTRACT_ID`, `STELLAR_SECRET_KEY`, `DATA_ENCRYPTION_KEY` set in `backend/.env`
 4. [ ] `npx prisma migrate deploy` + `npx prisma generate`
@@ -239,14 +243,14 @@ recorded it), and the DLQ row is resolved.
 6. [ ] Run the DB-backed suite: `npm test` (needs Postgres)
 7. [ ] `cargo test` in `contracts/anonvote`
    - If you hit `trait bound ChaCha20Rng: ed25519_dalek::rand_core::CryptoRng
-     is not satisfied`, run:
+is not satisfied`, run:
      `cargo update -p ed25519-dalek@3.0.0 --precise 2.1.1`
      (the contract's Cargo.lock is gitignored, so re-apply this per checkout).
 8. [ ] Warm-up: create a ballot, issue a token, cast a vote, verify
-      `GET /api/admin/soroban/metrics` shows `configured: true` and the batch
-      anchored the vote.
+       `GET /api/admin/soroban/metrics` shows `configured: true` and the batch
+       anchored the vote.
 9. [ ] Confirm DB state matches contract state:
-      `POST /api/admin/soroban/state-sync` → `diverged: 0`.
+       `POST /api/admin/soroban/state-sync` → `diverged: 0`.
 
 ---
 
