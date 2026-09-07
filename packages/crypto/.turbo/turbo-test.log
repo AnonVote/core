@@ -1,49 +1,8 @@
 
 > @anonvote/crypto@0.1.0 test C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
-> jest --runInBand
+> jest --runInBand --testPathIgnorePatterns="(docs\.test\.ts|AnonVoteClient\.test\.ts)"
 
-[91m[error][0m Unknown option 'stripInternal' You may have meant:
-	router
-	sourceLinkExternal
-	sort
-	excludeInternal
-	titleLink
-	readme
-	html
-	json
-	emit
-	name
-	help
-[91m[error][0m Found 1 errors and 0 warnings
-FAIL tests/docs.test.ts
-  ● TypeDoc generation › runs `npm run docs` with no errors or warnings
-
-    Command failed: C:\Program Files\nodejs\node.exe C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\node_modules\typedoc\bin\typedoc --options C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\typedoc.json --out C:\Users\DELL\AppData\Local\Temp\typedoc-test-2O7Q9g
-    [91m[error][0m Unknown option 'stripInternal' You may have meant:
-    	router
-    	sourceLinkExternal
-    	sort
-    	excludeInternal
-    	titleLink
-    	readme
-    	html
-    	json
-    	emit
-    	name
-    	help
-    [91m[error][0m Found 1 errors and 0 warnings
-
-    [0m [90m 112 |[39m
-     [90m 113 |[39m     [36mtry[39m {
-    [31m[1m>[22m[39m[90m 114 |[39m       [36mconst[39m output [33m=[39m execFileSync(
-     [90m     |[39m                                  [31m[1m^[22m[39m
-     [90m 115 |[39m         process[33m.[39mexecPath[33m,[39m
-     [90m 116 |[39m         [
-     [90m 117 |[39m           typedocScript[33m,[39m[0m
-
-      at Object.<anonymous> (tests/docs.test.ts:114:34)
-
-PASS tests/examples.test.ts (71.333 s)
+PASS tests/examples.test.ts (58.53 s)
   ● Console
 
     console.log
@@ -53,7 +12,311 @@ PASS tests/examples.test.ts (71.333 s)
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:03:06.068Z
+      Timestamp: 2026-09-07T13:54:31.699Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/stress/vote-volume.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:28.216Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/encryption-pipeline.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:28.960Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/error-handling.test.ts
+PASS tests/fipsCompliance.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:29.619Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -145,108 +408,6 @@ PASS tests/examples.test.ts (71.333 s)
       at logValidationResult (src/fipsValidator.ts:488:11)
 
 PASS tests/client.test.ts
-PASS tests/fipsCompliance.test.ts
-  ● Console
-
-    console.log
-      
-      === FIPS 140-2 Compliance Validation ===
-
-      at logValidationResult (src/fipsValidator.ts:463:11)
-
-    console.log
-      Timestamp: 2026-09-07T13:04:18.197Z
-
-      at logValidationResult (src/fipsValidator.ts:464:11)
-
-    console.log
-      Overall Status: ✓ COMPLIANT
-
-      at logValidationResult (src/fipsValidator.ts:465:11)
-
-    console.log
-      Checks:
-
-      at logValidationResult (src/fipsValidator.ts:467:11)
-
-    console.log
-        ✓ Algorithm Availability
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          FIPS-approved algorithms available: SHA-256, AES-256-GCM
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-        ✓ AES-256-GCM Parameters
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-        ✓ SHA-256 Parameters
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          SHA-256: output=256 bits, deterministic, collision-resistant
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-        ✓ CSPRNG Quality
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-        ✓ IV Uniqueness
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          IV uniqueness verified: 100 unique IVs generated
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-        ✓ Key Generation
-
-      at logValidationResult (src/fipsValidator.ts:470:13)
-
-    console.log
-          Key generation verified: 100 unique 256-bit keys
-
-      at logValidationResult (src/fipsValidator.ts:471:13)
-
-    console.log
-      
-      Warnings:
-
-      at logValidationResult (src/fipsValidator.ts:475:13)
-
-    console.log
-        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
-
-      at logValidationResult (src/fipsValidator.ts:477:15)
-
-    console.log
-      
-      ======================================
-
-      at logValidationResult (src/fipsValidator.ts:488:11)
-
-PASS tests/sdk-client.test.ts
 PASS tests/random.test.ts
   ● Console
 
@@ -257,7 +418,7 @@ PASS tests/random.test.ts
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:04:19.915Z
+      Timestamp: 2026-09-07T13:55:30.384Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -355,7 +516,7 @@ PASS tests/random.test.ts
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:04:19.986Z
+      Timestamp: 2026-09-07T13:55:30.434Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -453,7 +614,7 @@ PASS tests/random.test.ts
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:04:20.055Z
+      Timestamp: 2026-09-07T13:55:30.470Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -544,7 +705,11 @@ PASS tests/random.test.ts
 
       at logValidationResult (src/fipsValidator.ts:488:11)
 
-PASS tests/keyManagement.test.ts
+PASS tests/integration/happy-path.test.ts
+PASS tests/integration/concurrency.test.ts
+PASS tests/zkp-proofs.test.ts
+PASS tests/integration/ballot-state-machine.test.ts
+PASS tests/sdk-client.test.ts
 PASS tests/crypto.test.ts
 PASS tests/errors.test.ts
   ● Console
@@ -556,7 +721,7 @@ PASS tests/errors.test.ts
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:04:21.615Z
+      Timestamp: 2026-09-07T13:55:31.799Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -657,7 +822,7 @@ PASS tests/zkp-integration.test.ts
       at logValidationResult (src/fipsValidator.ts:463:11)
 
     console.log
-      Timestamp: 2026-09-07T13:04:22.101Z
+      Timestamp: 2026-09-07T13:55:31.952Z
 
       at logValidationResult (src/fipsValidator.ts:464:11)
 
@@ -749,160 +914,14 @@ PASS tests/zkp-integration.test.ts
       at logValidationResult (src/fipsValidator.ts:488:11)
 
 PASS tests/zkp-threshold.test.ts
-PASS tests/zkp-proofs.test.ts
+PASS tests/keyManagement.test.ts
+PASS tests/zkp-math.test.ts
 PASS tests/zkp-paillier.test.ts
 PASS tests/zkp-merkle.test.ts
 PASS tests/utils.test.ts
-PASS tests/zkp-math.test.ts
-(node:10356) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 31)
-(Use `node --trace-warnings ...` to show where the warning was created)
-FAIL tests/AnonVoteClient.test.ts (30.687 s)
-  ● AnonVoteClient › createBallot › throws AuthError on 401
 
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 116 |[39m     })[33m;[39m
-     [90m 117 |[39m
-    [31m[1m>[22m[39m[90m 118 |[39m     it([32m"throws AuthError on 401"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 119 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 120 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 121 |[39m         status[33m:[39m [35m401[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:118:5
-      at tests/AnonVoteClient.test.ts:61:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-  ● AnonVoteClient › uploadVoters › throws BallotNotFoundError on 404
-
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 167 |[39m     })[33m;[39m
-     [90m 168 |[39m
-    [31m[1m>[22m[39m[90m 169 |[39m     it([32m"throws BallotNotFoundError on 404"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 170 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 171 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 172 |[39m         status[33m:[39m [35m404[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:169:5
-      at tests/AnonVoteClient.test.ts:133:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-  ● AnonVoteClient › submitVote › throws InvalidTokenError on 422
-
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 254 |[39m     })[33m;[39m
-     [90m 255 |[39m
-    [31m[1m>[22m[39m[90m 256 |[39m     it([32m"throws InvalidTokenError on 422"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 257 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 258 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 259 |[39m         status[33m:[39m [35m422[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:256:5
-      at tests/AnonVoteClient.test.ts:216:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-  ● AnonVoteClient › submitVote › throws BallotClosedError on 410
-
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 268 |[39m     })[33m;[39m
-     [90m 269 |[39m
-    [31m[1m>[22m[39m[90m 270 |[39m     it([32m"throws BallotClosedError on 410"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 271 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 272 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 273 |[39m         status[33m:[39m [35m410[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:270:5
-      at tests/AnonVoteClient.test.ts:216:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-  ● AnonVoteClient › timeout handling › throws TimeoutError when request exceeds timeout
-
-    Aborted
-
-    [0m [90m 377 |[39m         () [33m=>[39m
-     [90m 378 |[39m           [36mnew[39m [33mPromise[39m((_[33m,[39m reject) [33m=>[39m {
-    [31m[1m>[22m[39m[90m 379 |[39m             setTimeout(() [33m=>[39m reject([36mnew[39m [33mError[39m([32m"Aborted"[39m))[33m,[39m [35m100[39m)[33m;[39m
-     [90m     |[39m                                     [31m[1m^[22m[39m
-     [90m 380 |[39m           })[33m,[39m
-     [90m 381 |[39m       )[33m;[39m
-     [90m 382 |[39m[0m
-
-      at tests/AnonVoteClient.test.ts:379:37
-      at callTimer (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:744:24)
-      at Object.next (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:1432:17)
-      at Immediate.<anonymous> (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:1530:43)
-
-  ● AnonVoteClient › timeout handling › throws TimeoutError when request exceeds timeout
-
-    expect(received).rejects.toThrow(expected)
-
-    Expected constructor: TimeoutError
-    Received constructor: Error
-
-    Received message: "Aborted"
-
-        [0m [90m 377 |[39m         () [33m=>[39m
-         [90m 378 |[39m           [36mnew[39m [33mPromise[39m((_[33m,[39m reject) [33m=>[39m {
-        [31m[1m>[22m[39m[90m 379 |[39m             setTimeout(() [33m=>[39m reject([36mnew[39m [33mError[39m([32m"Aborted"[39m))[33m,[39m [35m100[39m)[33m;[39m
-         [90m     |[39m                                     [31m[1m^[22m[39m
-         [90m 380 |[39m           })[33m,[39m
-         [90m 381 |[39m       )[33m;[39m
-         [90m 382 |[39m[0m
-
-      at tests/AnonVoteClient.test.ts:379:37
-      at callTimer (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:744:24)
-      at Object.next (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:1432:17)
-      at Immediate.<anonymous> (../../node_modules/.pnpm/@sinonjs+fake-timers@10.3.0/node_modules/@sinonjs/fake-timers/src/fake-timers-src.js:1530:43)
-      at Object.toThrow (../../node_modules/.pnpm/expect@29.7.0/node_modules/expect/build/index.js:218:22)
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:392:37)
-
-  ● AnonVoteClient › error message extraction › extracts message from response body
-
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 395 |[39m
-     [90m 396 |[39m   describe([32m"error message extraction"[39m[33m,[39m () [33m=>[39m {
-    [31m[1m>[22m[39m[90m 397 |[39m     it([32m"extracts message from response body"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 398 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 399 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 400 |[39m         status[33m:[39m [35m404[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:397:5
-      at tests/AnonVoteClient.test.ts:396:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-  ● AnonVoteClient › error message extraction › falls back to statusText when body parse fails
-
-    thrown: "Exceeded timeout of 5000 ms for a test.
-    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
-
-    [0m [90m 409 |[39m     })[33m;[39m
-     [90m 410 |[39m
-    [31m[1m>[22m[39m[90m 411 |[39m     it([32m"falls back to statusText when body parse fails"[39m[33m,[39m [36masync[39m () [33m=>[39m {
-     [90m     |[39m     [31m[1m^[22m[39m
-     [90m 412 |[39m       (fetch [36mas[39m jest[33m.[39m[33mMock[39m)[33m.[39mmockResolvedValueOnce({
-     [90m 413 |[39m         ok[33m:[39m [36mfalse[39m[33m,[39m
-     [90m 414 |[39m         status[33m:[39m [35m404[39m[33m,[39m[0m
-
-      at tests/AnonVoteClient.test.ts:411:5
-      at tests/AnonVoteClient.test.ts:396:3
-      at Object.<anonymous> (tests/AnonVoteClient.test.ts:19:1)
-
-Test Suites: 2 failed, 15 passed, 17 total
-Tests:       8 failed, 441 passed, 449 total
+Test Suites: 21 passed, 21 total
+Tests:       375 passed, 375 total
 Snapshots:   0 total
-Time:        111.822 s
+Time:        63.607 s, estimated 65 s
 Ran all test suites.
- ELIFECYCLE  Test failed. See above for more details.

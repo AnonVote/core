@@ -5,7 +5,7 @@
 
 [7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mC:/Users/DELL/OneDrive/Documents/Codes/anon/core/packages/contracts[39m
 
- [32m✓[39m service/sorobanService.events.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[90m 10[2mms[22m[39m
+ [32m✓[39m service/sorobanService.events.test.ts [2m ([22m[2m2 tests[22m[2m)[22m[90m 11[2mms[22m[39m
 [90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — mocked RPC[2m > [22m[2mreturns success and a txHash when simulation + send + confirmation all succeed[22m[39m
 [Soroban] record_ballot succeeded — tx: tx-abc
 
@@ -24,8 +24,8 @@
 [90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mrecordVote calls the real record_vote contract method and returns the tx hash[22m[39m
 [Soroban] record_vote succeeded — tx: tx-vote-1
 
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mpersists the encrypted vote only after Soroban confirmation with soroban_tx_id[22m[39m
 [90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mdoes not store a vote when the contract rejects the vote[22m[39m
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mpersists the encrypted vote only after Soroban confirmation with soroban_tx_id[22m[39m
 [Soroban] record_vote succeeded — tx: tx-vote-db
 [Soroban] record_vote simulation failed — code 4: Ballot does not exist on-chain
 
@@ -42,10 +42,13 @@
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
     at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 [Soroban] recordVote: attempt 1/3 failed — code=NETWORK_ERROR, retryable=true, contractError=none
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mapplies the configured backoff multiplier to successive retry delays[22m[39m
+[Soroban] record_ballot: tx tx-backoff not yet confirmed — retry 3/5 in 225ms
 
 [90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mretries transient RPC failures up to three attempts with backoff[22m[39m
 [Soroban] record_vote network error: Error: timeout
@@ -57,19 +60,75 @@
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
     at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 [Soroban] recordVote: attempt 2/3 failed — code=NETWORK_ERROR, retryable=true, contractError=none
-
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mapplies the configured backoff multiplier to successive retry delays[22m[39m
-[Soroban] record_ballot: tx tx-backoff not yet confirmed — retry 3/5 in 225ms
 
 [90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mapplies the configured backoff multiplier to successive retry delays[22m[39m
 [Soroban] record_ballot succeeded — tx: tx-backoff
 
 [90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
 [Soroban] record_ballot: tx tx-stuck not yet confirmed — retry 1/3 in 10ms
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
+[Soroban] record_ballot: tx tx-stuck not yet confirmed — retry 2/3 in 20ms
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
+[Soroban] record_ballot: tx tx-stuck not yet confirmed — retry 3/3 in 40ms
+
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mretries transient RPC failures up to three attempts with backoff[22m[39m
+<empty line>
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mretries transient RPC failures up to three attempts with backoff[22m[39m
+[Soroban] record_vote succeeded — tx: tx-after-retry
+
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mopens the circuit breaker and prevents cascading RPC calls[22m[39m
+[Soroban] record_vote network error: Error: RPC unavailable
+    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.integration.test.ts:163:51
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
+    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mtally publishes the local result hash and reads is_consistent from Soroban[22m[39m
+[Soroban] record_result succeeded — tx: tx-tally-1
+
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mpersists TallyResult with soroban_tx_id and is_consistent[22m[39m
+    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+[Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
+[Soroban] record_result succeeded — tx: tx-tally-db
+
+[Soroban] recordVote: attempt 1/1 failed — code=NETWORK_ERROR, retryable=true, contractError=none
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mretries transient is_consistent read failures before persisting tally[22m[39m
+[Soroban] record_result succeeded — tx: tx-tally-read-retry
+[Soroban] record_vote network error: Error: RPC unavailable
+
+    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.integration.test.ts:163:51
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
+    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
+    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+[Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
+[Soroban] recordVote: attempt 1/1 failed — code=NETWORK_ERROR, retryable=true, contractError=none
+[Soroban] recordVote: circuit breaker opened after 2 retryable failures for https://soroban-testnet.stellar.org
+
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mdoes not retry deterministic contract errors[22m[39m
+[Soroban] record_vote simulation failed — code 4: Ballot does not exist on-chain
+[Soroban] sorobanRecordVote threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
+[Soroban] recordVote: attempt 1/3 failed — code=CONTRACT_ERROR, retryable=false, contractError=4
+
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mretries transient is_consistent read failures before persisting tally[22m[39m
+[Soroban] is_consistent read failed — code 100: temporary RPC timeout
+[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: temporary RPC timeout
+[Soroban] tally.is_consistent: attempt 1/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordBallot throws NETWORK_ERROR on RPC rejection[22m[39m
 [Soroban] record_ballot network error: Error: connection refused
@@ -80,9 +139,9 @@
     at Object.collect (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:434:57)
     at collectTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:629:28)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:964:17)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
 [Soroban] sorobanRecordBallot threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordToken throws NETWORK_ERROR on RPC rejection[22m[39m
@@ -94,9 +153,9 @@
     at Object.collect (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:434:57)
     at collectTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:629:28)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:964:17)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
 [Soroban] sorobanRecordToken threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordVote throws NETWORK_ERROR on RPC rejection[22m[39m
@@ -108,9 +167,9 @@
     at Object.collect (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:434:57)
     at collectTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:629:28)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:964:17)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordResult throws NETWORK_ERROR on RPC rejection[22m[39m
@@ -122,9 +181,9 @@
     at Object.collect (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:434:57)
     at collectTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:629:28)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:964:17)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
 [Soroban] sorobanRecordResult threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordBallotsBatch throws NETWORK_ERROR on RPC rejection[22m[39m
@@ -136,9 +195,9 @@
     at Object.collect (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:434:57)
     at collectTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:629:28)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:964:17)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at run (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:105:3)
 [Soroban] sorobanRecordBallotsBatch threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mnetwork failure — all helpers throw NETWORK_ERROR (retryable: true)[2m > [22m[2msorobanRecordVote throws NETWORK_ERROR when getAccount rejects (DNS/TCP failure)[22m[39m
@@ -151,8 +210,8 @@
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
     at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mRPC timeout — helpers throw SIMULATION_FAILED (retryable: true)[2m > [22m[2msorobanRecordBallot throws SIMULATION_FAILED when simulation error has no contract code[22m[39m
@@ -179,6 +238,9 @@
 [Soroban] record_ballot simulation failed — code 5: Ballot already recorded by a different admin
 [Soroban] sorobanRecordBallot threw SorobanServiceError — code: BallotAlreadyExists, message: Ballot already recorded by a different admin
 
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
+[Soroban] record_vote: tx tx-stuck not yet confirmed — retry 1/2 in 1ms
+
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mcontract logic error — helpers throw CONTRACT_ERROR (retryable: false)[2m > [22m[2msorobanRecordToken throws CONTRACT_ERROR with contractErrorCode BallotNotFound[22m[39m
 [Soroban] record_token simulation failed — code 4: Ballot does not exist on-chain
 [Soroban] sorobanRecordToken threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
@@ -187,14 +249,8 @@
 [Soroban] record_vote simulation failed — code 4: Ballot does not exist on-chain
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
 
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
-[Soroban] record_vote: tx tx-stuck not yet confirmed — retry 1/2 in 1ms
-
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mcontract logic error — helpers throw CONTRACT_ERROR (retryable: false)[2m > [22m[2msorobanRecordResult throws CONTRACT_ERROR with contractErrorCode BallotNotFound[22m[39m
 [Soroban] record_result simulation failed — code 4: Ballot does not exist on-chain
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
-[Soroban] record_ballot: tx tx-stuck not yet confirmed — retry 2/3 in 20ms
-
 [Soroban] sorobanRecordResult threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
 
 [90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mcontract logic error — helpers throw CONTRACT_ERROR (retryable: false)[2m > [22m[2msorobanRecordResult throws CONTRACT_ERROR on conflicting ResultAlreadyPublished[22m[39m
@@ -214,65 +270,6 @@
 [Soroban] record_ballot send failed: fee too low
 [Soroban] sorobanRecordBallot threw SorobanServiceError — code: TransactionFailed, message: Transaction submission failed
 
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
-[Soroban] record_ballot: tx tx-stuck not yet confirmed — retry 3/3 in 40ms
-
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mretries transient RPC failures up to three attempts with backoff[22m[39m
-<empty line>
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mretries transient RPC failures up to three attempts with backoff[22m[39m
-[Soroban] record_vote succeeded — tx: tx-after-retry
-
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mopens the circuit breaker and prevents cascading RPC calls[22m[39m
-[Soroban] record_vote network error: Error: RPC unavailable
-    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.integration.test.ts:163:51
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mtally publishes the local result hash and reads is_consistent from Soroban[22m[39m
-[Soroban] record_result succeeded — tx: tx-tally-1
-
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
-    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mpersists TallyResult with soroban_tx_id and is_consistent[22m[39m
-[Soroban] record_result succeeded — tx: tx-tally-db
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mretries transient is_consistent read failures before persisting tally[22m[39m
-[Soroban] record_result succeeded — tx: tx-tally-read-retry
-
-    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-[Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
-[Soroban] recordVote: attempt 1/1 failed — code=NETWORK_ERROR, retryable=true, contractError=none
-[Soroban] record_vote network error: Error: RPC unavailable
-    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.integration.test.ts:163:51
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
-    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
-    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
-[Soroban] sorobanRecordVote threw SorobanServiceError — code: NetworkError, message: Network or RPC error
-[Soroban] recordVote: attempt 1/1 failed — code=NETWORK_ERROR, retryable=true, contractError=none
-[Soroban] recordVote: circuit breaker opened after 2 retryable failures for https://soroban-testnet.stellar.org
-
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend vote submission Soroban integration[2m > [22m[2mdoes not retry deterministic contract errors[22m[39m
-[Soroban] record_vote simulation failed — code 4: Ballot does not exist on-chain
-[Soroban] sorobanRecordVote threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
-[Soroban] recordVote: attempt 1/3 failed — code=CONTRACT_ERROR, retryable=false, contractError=4
-
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2mretries transient is_consistent read failures before persisting tally[22m[39m
-[Soroban] is_consistent read failed — code 100: temporary RPC timeout
-[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: temporary RPC timeout
-[Soroban] tally.is_consistent: attempt 1/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
-[Soroban] record_vote: tx tx-stuck not yet confirmed — retry 2/2 in 1ms
-
 [90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
 [Soroban] record_result succeeded — tx: tx-tally-read-fail
 
@@ -281,52 +278,163 @@
 [Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: timeout while reading consistency
 [Soroban] tally.is_consistent: attempt 1/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
 
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mruns create -> tokens -> votes -> result and reflects correct audit counts throughout[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-k9nyim06i8o
-[Soroban] record_token succeeded — tx: tx-ehli32i0hgg
-[Soroban] record_token succeeded — tx: tx-lf2ml3ungko
-[Soroban] record_token succeeded — tx: tx-rpp1elgxapq
-[Soroban] record_vote succeeded — tx: tx-jwd036w05s9
-[Soroban] record_vote succeeded — tx: tx-e92tm7p8vk
-[Soroban] record_vote succeeded — tx: tx-4ivetyub5nh
-[Soroban] record_result succeeded — tx: tx-w572flf05b
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
+[Soroban] record_vote: tx tx-stuck not yet confirmed — retry 2/2 in 1ms
 
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mview functions return accurate data throughout the ballot lifecycle[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-orqodh2x6e
-[Soroban] record_token succeeded — tx: tx-rgkrqzoaxqr
-[Soroban] record_token succeeded — tx: tx-rpothrk9m98
-[Soroban] record_vote succeeded — tx: tx-o7ntgrlevvp
-[Soroban] record_result succeeded — tx: tx-lg5aghjidi
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
+<empty line>
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
+[Soroban] is_consistent read failed — code 100: timeout while reading consistency
+[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: timeout while reading consistency
+[Soroban] tally.is_consistent: attempt 2/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
 
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same result hash as an idempotent success[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-xu8e2ufwhxl
-[Soroban] record_result succeeded — tx: tx-0k6tsnos1i9t
-[Soroban] record_result succeeded — tx: tx-d6i8xq57cit
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
+<empty line>
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
+[Soroban] is_consistent read failed — code 100: timeout while reading consistency
+[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mballot expiration Soroban integration[2m > [22m[2msorobanExpireBallot calls the real expire_ballot contract method[22m[39m
+[Soroban] expire_ballot succeeded — tx: tx-expire-1
 
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mrejects a conflicting result hash with ResultAlreadyPublished[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-aak0gxog5c5
-[Soroban] record_result succeeded — tx: tx-h36kpqtpyk
+[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: timeout while reading consistency
+[Soroban] tally.is_consistent: attempt 3/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
+[Soroban] tally.is_consistent: circuit breaker opened after 3 retryable failures for https://soroban-testnet.stellar.org
 
-[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mrejects a conflicting result hash with ResultAlreadyPublished[22m[39m
+[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mballot expiration Soroban integration[2m > [22m[2msorobanExpireBallot surfaces BallotExpired when the ballot is already expired[22m[39m
+[Soroban] expire_ballot simulation failed — code 12: Ballot has expired
+[Soroban] sorobanExpireBallot threw SorobanServiceError — code: BallotExpired, message: Ballot has expired
+
+ [32m✓[39m service/sorobanService.integration.test.ts [2m ([22m[2m18 tests[22m[2m)[22m[90m 82[2mms[22m[39m
+[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
+[Soroban] record_vote transaction failed: { status: [32m'NOT_FOUND'[39m }
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
+[Soroban] sorobanRecordVote threw SorobanServiceError — code: TransactionFailed, message: Transaction submission failed
+<empty line>
+
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordBallot resolves successfully without throwing[22m[39m
+[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves (no throw) when ResultAlreadyPublished matches on-chain hash[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-ok
+
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordToken resolves successfully without throwing[22m[39m
+[Soroban] record_token succeeded — tx: tx-token
 [Soroban] record_result simulation failed — code 6: A different result hash is already published for this ballot
-[Soroban] sorobanRecordResult: conflicting result already published for ballot ballot-hash-003
-[Soroban] sorobanRecordResult threw SorobanServiceError — code: ResultAlreadyPublished, message: A different result hash is already published for this ballot
 
-[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mreturns BallotNotFound when recording a token against a ballot that was never created[22m[39m
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same ballot by the same admin as idempotent, but a different admin as a conflict[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-0sam78gqxn0q
-[Soroban] record_ballot succeeded — tx: tx-q72zaaghxv
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordVote resolves successfully without throwing[22m[39m
 
-[Soroban] record_token simulation failed — code 4: Ballot does not exist on-chain
-[Soroban] sorobanRecordToken threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
+[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2merror details are not exposed to callers in the message[2m > [22m[2mNETWORK_ERROR message does not contain raw RPC error details[22m[39m
+[Soroban] record_vote succeeded — tx: tx-vote
 
-[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same ballot by the same admin as idempotent, but a different admin as a conflict[22m[39m
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves successfully without throwing[22m[39m
+[Soroban] record_result succeeded — tx: tx-result
+
+[Soroban] record_ballot network error: Error: internal server error: node crashed at ledger 99999
+[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves (no throw) when ResultAlreadyPublished matches on-chain hash[22m[39m
+[Soroban] sorobanRecordResult: result already published with matching hash — treating as success
+
+    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.errors.test.ts:448:7
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
+    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
+    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
+    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+[Soroban] sorobanRecordBallot threw SorobanServiceError — code: NetworkError, message: Network or RPC error
+
+[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2merror details are not exposed to callers in the message[2m > [22m[2mCONTRACT_ERROR message does not contain raw simulation diagnostic text[22m[39m
 [Soroban] record_ballot simulation failed — code 5: Ballot already recorded by a different admin
 [Soroban] sorobanRecordBallot threw SorobanServiceError — code: BallotAlreadyExists, message: Ballot already recorded by a different admin
 
+ [32m✓[39m service/sorobanService.errors.test.ts [2m ([22m[2m36 tests[22m[2m)[22m[90m 86[2mms[22m[39m
+ [32m✓[39m service/integration.test.ts [2m ([22m[2m24 tests[22m[2m)[22m[90m 76[2mms[22m[39m
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mruns create -> tokens -> votes -> result and reflects correct audit counts throughout[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-z3pswwxsq2g
+[Soroban] record_token succeeded — tx: tx-9knczi67b6a
+[Soroban] record_token succeeded — tx: tx-557muksc7d
+[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mrejects a conflicting result hash with ResultAlreadyPublished[22m[39m
+[Soroban] record_result simulation failed — code 6: A different result hash is already published for this ballot
+[Soroban] sorobanRecordResult: conflicting result already published for ballot ballot-hash-003
+[Soroban] record_token succeeded — tx: tx-gn2q3qj2k7
+[Soroban] record_vote succeeded — tx: tx-rj5jwth2rkm
+[Soroban] record_vote succeeded — tx: tx-7k69572ikc6
+[Soroban] record_vote succeeded — tx: tx-x0ldtnzty4s
+[Soroban] record_result succeeded — tx: tx-weqwpnss4e
+
+[Soroban] sorobanRecordResult threw SorobanServiceError — code: ResultAlreadyPublished, message: A different result hash is already published for this ballot
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mview functions return accurate data throughout the ballot lifecycle[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-rwi1nzsw9ph
+[Soroban] record_token succeeded — tx: tx-6ae0busjfv4
+[Soroban] record_token succeeded — tx: tx-0wqoudoy0l5h
+[Soroban] record_vote succeeded — tx: tx-c8jw9ljt74q
+[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mreturns BallotNotFound when recording a token against a ballot that was never created[22m[39m
+[Soroban] record_result succeeded — tx: tx-sf8dt5qddz
+[Soroban] record_token simulation failed — code 4: Ballot does not exist on-chain
+
+[Soroban] sorobanRecordToken threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same result hash as an idempotent success[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-t1hrw5m8hae
+[Soroban] record_result succeeded — tx: tx-ey6xs0izrsg
+[Soroban] record_result succeeded — tx: tx-265v6qkujcp
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mrejects a conflicting result hash with ResultAlreadyPublished[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-kxnsmx2lmq
+[Soroban] record_result succeeded — tx: tx-z5e44wquu3r
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same ballot by the same admin as idempotent, but a different admin as a conflict[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-1wk4w28em8n
+[Soroban] record_ballot succeeded — tx: tx-uvmkc0q334
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanResultExists returns false before publication and true after[22m[39m
+
+[Soroban] record_ballot succeeded — tx: tx-cj392zy6vh6
+[Soroban] record_result succeeded — tx: tx-vwgnm60f6mo
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mview functions do not mutate state[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-un65m2ivfg9
+[90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mtreats re-recording the same ballot by the same admin as idempotent, but a different admin as a conflict[22m[39m
+[Soroban] record_token succeeded — tx: tx-8w2a8yputk2
+[Soroban] record_ballot simulation failed — code 5: Ballot already recorded by a different admin
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanGetAuditReport returns full report matching individual reads and verifies immutability[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-x0conow7xi
+[Soroban] record_token succeeded — tx: tx-ey515wlcnwl
+[Soroban] record_vote succeeded — tx: tx-7o92qxh8ncm
+[Soroban] record_token succeeded — tx: tx-b51vn7tnx68
+[Soroban] record_result succeeded — tx: tx-smjfiaxxax
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanVerifyResultProof verifies merkle proof workflow[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-c5epxr9o76g
+[Soroban] record_result succeeded — tx: tx-r1gm0c8vf2h
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mrecord_token and record_vote succeed while Active, then reject once Expired[22m[39m
+[Soroban] sorobanRecordBallot threw SorobanServiceError — code: BallotAlreadyExists, message: Ballot already recorded by a different admin
+[Soroban] record_ballot succeeded — tx: tx-ranbtw2ab6
+[Soroban] record_token succeeded — tx: tx-w3yn2yzo1ak
+[Soroban] record_vote succeeded — tx: tx-1v3ipn7cl4h
+[Soroban] expire_ballot succeeded — tx: tx-q1z6xity5z
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mthe on-chain state transition is authoritative — get_ballot_state reflects Expired[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-krus6wwzeei
+[Soroban] expire_ballot succeeded — tx: tx-k7qcvj49pld
+
+
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mevery helper returns NotConfigured rather than throwing when config validation fails[22m[39m
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2man already-expired ballot cannot be expired again[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-5775a063x1
+[Soroban] expire_ballot succeeded — tx: tx-vo6h3ajal9b
+
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2mfull rotation flow: new admin gains privileges, old admin is locked out[22m[39m
+[Soroban] rotate_admin succeeded — tx: tx-ztnrz9uenrn
+[Soroban] rotate_admin succeeded — tx: tx-qcyefzotd7
+
 [Soroban] sorobanRecordBallot: Invalid sourceKeypair — must be a valid Keypair instance
+[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2maccumulates multiple rotation records in order[22m[39m
+[Soroban] rotate_admin succeeded — tx: tx-9b1qyf7lv3l
 [Soroban] sorobanRecordToken: Invalid sourceKeypair — must be a valid Keypair instance
+[Soroban] rotate_admin succeeded — tx: tx-i5prnd60jkh
+
 [Soroban] sorobanRecordVote: Invalid sourceKeypair — must be a valid Keypair instance
 [Soroban] sorobanRecordResult: Invalid sourceKeypair — must be a valid Keypair instance
 
@@ -334,64 +442,21 @@
 [Soroban] record_token simulation failed — code 4: Ballot does not exist on-chain
 [Soroban] sorobanRecordToken threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
 
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanResultExists returns false before publication and true after[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-uzekanz00h9
-[Soroban] record_result succeeded — tx: tx-6cze645pqp
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2mview functions do not mutate state[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-di9r3y1g07l
-[Soroban] record_token succeeded — tx: tx-jgfverkenj
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanGetAuditReport returns full report matching individual reads and verifies immutability[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-1kg2oojdtih
-[Soroban] record_token succeeded — tx: tx-jkwjdw87ia
-[Soroban] record_vote succeeded — tx: tx-7a8t2jyh3y3
-[Soroban] record_token succeeded — tx: tx-e6fv3ih83f
-[Soroban] record_result succeeded — tx: tx-awu7ufeal76
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanVerifyResultProof verifies merkle proof workflow[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-8lwv0vlt6nf
-[Soroban] record_result succeeded — tx: tx-lg794or2pz8
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mAnonVote ballot lifecycle (mocked contract, no live network)[2m > [22m[2msorobanVerifyResultProof verifies merkle proof workflow[22m[39m
 [Soroban] verify_result_proof read failed — code 4: Ballot does not exist on-chain
 
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mrecord_token and record_vote succeed while Active, then reject once Expired[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-zwv2ootg7i
-[Soroban] record_token succeeded — tx: tx-y50t0hg6vk9
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mrecord_token and record_vote succeed while Active, then reject once Expired[22m[39m
-[Soroban] record_vote succeeded — tx: tx-tjmdp8937jf
-[Soroban] expire_ballot succeeded — tx: tx-srqhjrh4n
-
 [Soroban] record_token simulation failed — code 12: Ballot has expired
 [Soroban] sorobanRecordToken threw SorobanServiceError — code: BallotExpired, message: Ballot has expired
 [Soroban] record_vote simulation failed — code 12: Ballot has expired
 [Soroban] sorobanRecordVote threw SorobanServiceError — code: BallotExpired, message: Ballot has expired
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mthe on-chain state transition is authoritative — get_ballot_state reflects Expired[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-mr1vkx91dt
-[Soroban] expire_ballot succeeded — tx: tx-1vm6wtt4opi
 
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2man already-expired ballot cannot be expired again[22m[39m
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2man already-expired ballot cannot be expired again[22m[39m
 [Soroban] expire_ballot simulation failed — code 12: Ballot has expired
-[Soroban] record_ballot succeeded — tx: tx-1ndrj4s0klx
-[Soroban] expire_ballot succeeded — tx: tx-nv6d7xe1c7b
-
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2mfull rotation flow: new admin gains privileges, old admin is locked out[22m[39m
-[Soroban] rotate_admin succeeded — tx: tx-gb09lxvd89a
-[Soroban] rotate_admin succeeded — tx: tx-he3qx55kgx
-
 [Soroban] sorobanExpireBallot threw SorobanServiceError — code: BallotExpired, message: Ballot has expired
-[90mstdout[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2maccumulates multiple rotation records in order[22m[39m
-[Soroban] rotate_admin succeeded — tx: tx-2ukhy7y8j09
 
-[Soroban] rotate_admin succeeded — tx: tx-nlvc8i4qsbf
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mBallot expiration (mocked contract, no live network)[2m > [22m[2mexpiring an unknown ballot returns BallotNotFound[22m[39m
-
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
 [Soroban] expire_ballot simulation failed — code 4: Ballot does not exist on-chain
-<empty line>
 [Soroban] sorobanExpireBallot threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
 
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2mfull rotation flow: new admin gains privileges, old admin is locked out[22m[39m
@@ -405,71 +470,6 @@
 [90mstderr[2m | service/integration.test.ts[2m > [22m[2mAdmin key rotation (mocked contract, no live network)[2m > [22m[2mreturns NotConfigured without touching RPC when config is invalid[22m[39m
 [Soroban] sorobanRotateAdmin: Invalid sourceKeypair — must be a valid Keypair instance
 
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
-[Soroban] is_consistent read failed — code 100: timeout while reading consistency
-[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: timeout while reading consistency
-[Soroban] tally.is_consistent: attempt 2/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
- [32m✓[39m service/integration.test.ts [2m ([22m[2m24 tests[22m[2m)[22m[90m 68[2mms[22m[39m
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
-<empty line>
-[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2mtransaction failure — helpers throw TRANSACTION_FAILED (retryable: false)[2m > [22m[2msorobanRecordVote throws TRANSACTION_FAILED when tx is never confirmed (maxAttempts exceeded)[22m[39m
-[Soroban] record_vote transaction failed: { status: [32m'NOT_FOUND'[39m }
-[Soroban] sorobanRecordVote threw SorobanServiceError — code: TransactionFailed, message: Transaction submission failed
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordBallot resolves successfully without throwing[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-ok
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordToken resolves successfully without throwing[22m[39m
-[Soroban] record_token succeeded — tx: tx-token
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordVote resolves successfully without throwing[22m[39m
-[Soroban] record_vote succeeded — tx: tx-vote
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves successfully without throwing[22m[39m
-[Soroban] record_result succeeded — tx: tx-result
-
-[90mstdout[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves (no throw) when ResultAlreadyPublished matches on-chain hash[22m[39m
-[Soroban] sorobanRecordResult: result already published with matching hash — treating as success
-
-[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2msuccessful calls — no throw, return SorobanInvokeResult[2m > [22m[2msorobanRecordResult resolves (no throw) when ResultAlreadyPublished matches on-chain hash[22m[39m
-[Soroban] record_result simulation failed — code 6: A different result hash is already published for this ballot
-
-[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2merror details are not exposed to callers in the message[2m > [22m[2mNETWORK_ERROR message does not contain raw RPC error details[22m[39m
-[Soroban] record_ballot network error: Error: internal server error: node crashed at ledger 99999
-    at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.errors.test.ts:448:7
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
-    at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
-[90m    at runNextTicks (node:internal/process/task_queues:64:5)[39m
-[90m    at processTimers (node:internal/timers:538:9)[39m
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-    at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-    at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
-    at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-[Soroban] sorobanRecordBallot threw SorobanServiceError — code: NetworkError, message: Network or RPC error
-
-[90mstderr[2m | service/sorobanService.errors.test.ts[2m > [22m[2merror details are not exposed to callers in the message[2m > [22m[2mCONTRACT_ERROR message does not contain raw simulation diagnostic text[22m[39m
-[Soroban] record_ballot simulation failed — code 5: Ballot already recorded by a different admin
-[Soroban] sorobanRecordBallot threw SorobanServiceError — code: BallotAlreadyExists, message: Ballot already recorded by a different admin
-
- [32m✓[39m service/sorobanService.errors.test.ts [2m ([22m[2m36 tests[22m[2m)[22m[90m 82[2mms[22m[39m
- [32m✓[39m service/sorobanService.integration.test.ts [2m ([22m[2m18 tests[22m[2m)[22m[90m 87[2mms[22m[39m
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
-<empty line>
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mbackend tally Soroban integration[2m > [22m[2msurfaces a tally consistency read failure instead of persisting an unverifiable result[22m[39m
-[Soroban] is_consistent read failed — code 100: timeout while reading consistency
-[Soroban] is_consistent threw SorobanServiceError — code: SimulationFailed, message: timeout while reading consistency
-[Soroban] tally.is_consistent: attempt 3/3 failed — code=SIMULATION_FAILED, retryable=true, contractError=none
-[Soroban] tally.is_consistent: circuit breaker opened after 3 retryable failures for https://soroban-testnet.stellar.org
-
-[90mstdout[2m | service/sorobanService.integration.test.ts[2m > [22m[2mballot expiration Soroban integration[2m > [22m[2msorobanExpireBallot calls the real expire_ballot contract method[22m[39m
-[Soroban] expire_ballot succeeded — tx: tx-expire-1
-
-[90mstderr[2m | service/sorobanService.integration.test.ts[2m > [22m[2mballot expiration Soroban integration[2m > [22m[2msorobanExpireBallot surfaces BallotExpired when the ballot is already expired[22m[39m
-[Soroban] expire_ballot simulation failed — code 12: Ballot has expired
-[Soroban] sorobanExpireBallot threw SorobanServiceError — code: BallotExpired, message: Ballot has expired
-
 [90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
 <empty line>
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2minvokeContract — exponential backoff polling[2m > [22m[2mstops after maxAttempts and returns TransactionFailed if the tx is never confirmed[22m[39m
@@ -478,15 +478,39 @@
 [90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordResult — finality guard / idempotency[2m > [22m[2mreturns success (no new tx) when ResultAlreadyPublished and on-chain hash matches[22m[39m
 [Soroban] sorobanRecordResult: result already published with matching hash — treating as success
 
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRotateAdmin — unit tests (mocked RPC)[2m > [22m[2mreturns success and a txHash when simulation and confirmation succeed[22m[39m
+[Soroban] rotate_admin succeeded — tx: tx-rotate-1
+
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordResult — finality guard / idempotency[2m > [22m[2mreturns success (no new tx) when ResultAlreadyPublished and on-chain hash matches[22m[39m
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mreturns success and a txHash when simulation and confirmation succeed[22m[39m
+[Soroban] record_ballots_batch succeeded — tx: tx-batch-1
+
 [Soroban] record_result simulation failed — code 6: A different result hash is already published for this ballot
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mapplies default limits when none are supplied for an entry[22m[39m
+
+[Soroban] record_ballots_batch succeeded — tx: tx-default
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordResult — finality guard / idempotency[2m > [22m[2mreturns ResultAlreadyPublished error when the on-chain hash differs (conflict)[22m[39m
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mcreateSorobanService[2m > [22m[2mbinds sorobanRecordBallot to config so callers don't pass it[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-factory
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mcreateSorobanService[2m > [22m[2mbinds invokeContract to config[22m[39m
+[Soroban] record_ballot succeeded — tx: tx-bound
+
 [Soroban] record_result simulation failed — code 6: A different result hash is already published for this ballot
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mreturns a consistent report when on-chain tokens_issued == votes_cast and it matches the database count[22m[39m
+[Soroban] verifyBallotConsistency: ballot ballot-ok is consistent on-chain — tokens_issued(chain)=5, votes_cast(chain)=5, votes_cast(db)=5
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mflags databaseMatchesChain: false when the database vote count disagrees with the chain[22m[39m
+[Soroban] verifyBallotConsistency: ballot ballot-drift is consistent on-chain — tokens_issued(chain)=5, votes_cast(chain)=5, votes_cast(db)=4
+
+[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mleaves databaseMatchesChain null when no database vote count is supplied[22m[39m
 [Soroban] sorobanRecordResult: conflicting result already published for ballot ballot-y
 [Soroban] sorobanRecordResult threw SorobanServiceError — code: ResultAlreadyPublished, message: A different result hash is already published for this ballot
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordResult — finality guard / idempotency[2m > [22m[2mpropagates non-finality errors (e.g. BallotNotFound) unchanged[22m[39m
+[Soroban] verifyBallotConsistency: ballot ballot-no-db-count is consistent on-chain — tokens_issued(chain)=3, votes_cast(chain)=3
+
 [Soroban] record_result simulation failed — code 4: Ballot does not exist on-chain
 [Soroban] sorobanRecordResult threw SorobanServiceError — code: BallotNotFound, message: Ballot does not exist on-chain
 
@@ -498,9 +522,6 @@
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanVerifyResultProof[2m > [22m[2mreturns null when RPC simulation fails (e.g., BallotNotFound)[22m[39m
 [Soroban] verify_result_proof read failed — code 4: Ballot does not exist on-chain
-
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRotateAdmin — unit tests (mocked RPC)[2m > [22m[2mreturns success and a txHash when simulation and confirmation succeed[22m[39m
-[Soroban] rotate_admin succeeded — tx: tx-rotate-1
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRotateAdmin — unit tests (mocked RPC)[2m > [22m[2mreturns SameAdmin error when contract rejects same-address rotation[22m[39m
 [Soroban] rotate_admin simulation failed — code 22: New admin must be different from the current admin
@@ -515,9 +536,6 @@
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanGetRotationHistory — unit tests (mocked RPC)[2m > [22m[2mreturns null when the RPC call fails[22m[39m
 [Soroban] get_rotation_history read failed — code 3: Contract not initialized
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mreturns success and a txHash when simulation and confirmation succeed[22m[39m
-[Soroban] record_ballots_batch succeeded — tx: tx-batch-1
-
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mreturns BallotAlreadyExists when any ballot in the batch already exists[22m[39m
 [Soroban] record_ballots_batch simulation failed — code 5: Ballot already recorded by a different admin
@@ -538,30 +556,18 @@
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mreturns NotConfigured without calling RPC when sourceKeypair is missing[22m[39m
 [Soroban] sorobanRecordBallotsBatch: Invalid sourceKeypair — must be a valid Keypair instance
 
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mapplies default limits when none are supplied for an entry[22m[39m
-[Soroban] record_ballots_batch succeeded — tx: tx-default
-
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2msorobanRecordBallotsBatch — unit tests (mocked RPC)[2m > [22m[2mreturns NetworkError without throwing when the RPC call rejects[22m[39m
 [Soroban] record_ballots_batch network error: Error: connection refused
     at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.test.ts:625:55
     at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mcreateSorobanService[2m > [22m[2mbinds sorobanRecordBallot to config so callers don't pass it[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-factory
-
     at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
     at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mcreateSorobanService[2m > [22m[2mbinds invokeContract to config[22m[39m
-[Soroban] record_ballot succeeded — tx: tx-bound
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
     at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mreturns a consistent report when on-chain tokens_issued == votes_cast and it matches the database count[22m[39m
-[Soroban] verifyBallotConsistency: ballot ballot-ok is consistent on-chain — tokens_issued(chain)=5, votes_cast(chain)=5, votes_cast(db)=5
-
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
 [Soroban] sorobanRecordBallotsBatch threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2mcreateSorobanService[2m > [22m[2mthrows SorobanServiceError on network error through bound methods[22m[39m
@@ -569,16 +575,13 @@
     at [90mC:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\contracts\[39mservice\sorobanService.test.ts:772:55
     at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:135:14
     at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:60:26
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mflags databaseMatchesChain: false when the database vote count disagrees with the chain[22m[39m
     at runTest (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:781:17)
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
-[Soroban] verifyBallotConsistency: ballot ballot-drift is consistent on-chain — tokens_issued(chain)=5, votes_cast(chain)=5, votes_cast(db)=4
-
     at runSuite (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:909:15)
     at runFiles (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:958:5)
     at startTests (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/@vitest+runner@1.6.1/node_modules/[4m@vitest/runner[24m/dist/index.js:967:3)
-    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
-    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@29.1.1_@noble+hashes@2.4.0_/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+    at file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+    at withEnv (file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/[4m.pnpm[24m/vitest@1.6.1_@types+node@20.19.43_jsdom@24.1.3/node_modules/[4mvitest[24m/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
 [Soroban] sorobanRecordBallot threw SorobanServiceError — code: NetworkError, message: Network or RPC error
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mreturns consistent: false when the contract reports tokens_issued != votes_cast[22m[39m
@@ -586,9 +589,6 @@
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mflags databaseMatchesChain: false when the database vote count disagrees with the chain[22m[39m
 [Soroban] verifyBallotConsistency: database vote count (4) does not match on-chain vote count (5) for ballot ballot-drift
-[90mstdout[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mleaves databaseMatchesChain null when no database vote count is supplied[22m[39m
-[Soroban] verifyBallotConsistency: ballot ballot-no-db-count is consistent on-chain — tokens_issued(chain)=3, votes_cast(chain)=3
-
 
 [90mstderr[2m | service/sorobanService.test.ts[2m > [22m[2mverifyBallotConsistency[2m > [22m[2mreturns an error report (not a throw) when the contract ID is invalid[22m[39m
 [Soroban] verifyBallotConsistency: Invalid contract ID format (ballot ballot-x)
@@ -597,10 +597,10 @@
 [Soroban] get_tokens_issued read failed — code 4: Ballot does not exist on-chain
 [Soroban] verifyBallotConsistency: contract unreachable for ballot ballot-unreachable — Ballot does not exist on-chain
 
- [32m✓[39m service/sorobanService.test.ts [2m ([22m[2m74 tests[22m[2m)[22m[90m 151[2mms[22m[39m
+ [32m✓[39m service/sorobanService.test.ts [2m ([22m[2m74 tests[22m[2m)[22m[90m 146[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
 [2m      Tests [22m [1m[32m154 passed[39m[22m[90m (154)[39m
-[2m   Start at [22m 13:59:23
-[2m   Duration [22m 4.86s[2m (transform 2.18s, setup 4ms, collect 3.88s, tests 398ms, environment 2ms, prepare 15.95s)[22m
+[2m   Start at [22m 14:54:28
+[2m   Duration [22m 1.82s[2m (transform 1.03s, setup 2ms, collect 2.07s, tests 401ms, environment 3ms, prepare 2.59s)[22m
 

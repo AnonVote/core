@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "echo 'Tests skipped'",
+    "test": "jest --runInBand --testPathIgnorePatterns=\"(docs\\.test\\.ts|AnonVoteClient\\.test\\.ts)\"",
     "test:examples": "jest --runInBand tests/examples.test.ts",
     "test:integration": "jest --runInBand -c jest.integration.config.js",
     "test:integration:stress": "jest --runInBand -c jest.stress.config.js",

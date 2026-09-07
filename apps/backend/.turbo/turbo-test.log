@@ -1,5 +1,5 @@
 
 > anon-vote-backend@1.0.0 test C:\Users\DELL\OneDrive\Documents\Codes\anon\core\apps\backend
-> echo 'Backend tests require database setup - skipped in CI'
+> echo 'Skipped (requires database)'
 
-'Backend tests require database setup - skipped in CI'
+'Skipped (requires database)'
