@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 export default [
   {
@@ -10,16 +11,12 @@ export default [
       "tests/bundler-compat/**",
     ],
   },
+  ...tseslint.configs.recommended,
   {
     files: ["src/**/*.{ts,tsx,js,jsx}", "tests/**/*.{ts,tsx,js,jsx}"],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "module",
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
       globals: {
         describe: "readonly",
         it: "readonly",
@@ -34,8 +31,8 @@ export default [
       },
     },
     rules: {
-      ...js.configs.recommended.rules,
-      "no-undef": "off",
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
   {
