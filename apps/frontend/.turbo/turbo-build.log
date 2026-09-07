@@ -2,4 +2,6 @@
 > anon-vote-frontend@1.0.0 build C:\Users\DELL\OneDrive\Documents\Codes\anon\core\apps\frontend
 > tsc && vite build
 
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
 Terminate batch job (Y/N)? 

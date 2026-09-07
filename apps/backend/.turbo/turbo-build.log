@@ -1,5 +1,25 @@
 
 > anon-vote-backend@1.0.0 build C:\Users\DELL\OneDrive\Documents\Codes\anon\core\apps\backend
-> tsc
+> prisma generate && tsc
 
-Terminate batch job (Y/N)? 
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to .\..\..\node_modules\.pnpm\@prisma+client@5.22.0_prisma@5.22.0\node_modules\@prisma\client in 391ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+┌─────────────────────────────────────────────────────────┐
+│  Update available 5.22.0 -> 8.0.0-rc.13                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+src/utils/sanitizer.ts(3,31): error TS7016: Could not find a declaration file for module 'qs'. 'C:/Users/DELL/OneDrive/Documents/Codes/anon/core/node_modules/.pnpm/qs@6.16.0/node_modules/qs/lib/index.js' implicitly has an 'any' type.
+  If the 'qs' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/qs'
+ ELIFECYCLE  Command failed with exit code 2.
