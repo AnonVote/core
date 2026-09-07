@@ -6,6 +6,16 @@
  * any future consumer of the AnonVote protocol.
  */
 
+// Re-export ZKP and Paillier types
+export type {
+  PaillierPublicKey,
+  PaillierPrivateKey,
+  HomomorphicEncryptedVote,
+  TallyDecryptionProof,
+  ZKPVerificationReport,
+  MerkleProof,
+} from "./zkp/types";
+
 // ── Ballot ────────────────────────────────────────────────────────────────────
 
 export type BallotStatus = "OPEN" | "CLOSED";

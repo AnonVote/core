@@ -1,12 +1,12 @@
 import type { EncryptedPayload } from "../types";
-import type {
-  PaillierPublicKey,
-} from "../zkp/types";
+import type { PaillierPublicKey } from "../zkp/types";
 
 export type {
   PaillierPublicKey,
+  PaillierPrivateKey,
   HomomorphicEncryptedVote,
   ZKPVerificationReport,
+  TallyDecryptionProof,
   MerkleProof,
 } from "../zkp/types";
 

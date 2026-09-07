@@ -2,11 +2,6 @@
 > @anonvote/crypto@0.1.0 build C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
 > tsc
 
-src/client.ts(22,3): error TS2305: Module '"./types"' has no exported member 'PaillierPublicKey'.
-src/client.ts(23,3): error TS2305: Module '"./types"' has no exported member 'PaillierPrivateKey'.
-src/client.ts(24,3): error TS2305: Module '"./types"' has no exported member 'HomomorphicEncryptedVote'.
-src/client.ts(25,3): error TS2305: Module '"./types"' has no exported member 'TallyDecryptionProof'.
-src/client.ts(26,3): error TS2305: Module '"./types"' has no exported member 'ZKPVerificationReport'.
 src/client.ts(314,48): error TS2304: Cannot find name 'EncryptedPayloadWithKeyRef'.
 src/client.ts(364,48): error TS2304: Cannot find name 'EncryptedPayloadWithKeyRef'.
  ELIFECYCLE  Command failed with exit code 2.
