@@ -154,9 +154,9 @@ describe("AnonVoteClient", () => {
 
     it("throws ValidationError for empty ballotId", async () => {
       const client = new AnonVoteClient(validConfig);
-      await expect(client.uploadVoters("", ["alice@example.com"])).rejects.toThrow(
-        ValidationError,
-      );
+      await expect(
+        client.uploadVoters("", ["alice@example.com"]),
+      ).rejects.toThrow(ValidationError);
     });
 
     it("throws ValidationError for empty voters array", async () => {
@@ -207,7 +207,9 @@ describe("AnonVoteClient", () => {
 
     it("throws ValidationError for empty ballotId", async () => {
       const client = new AnonVoteClient(validConfig);
-      await expect(client.issueBallotTokens("")).rejects.toThrow(ValidationError);
+      await expect(client.issueBallotTokens("")).rejects.toThrow(
+        ValidationError,
+      );
     });
   });
 
@@ -341,13 +343,13 @@ describe("AnonVoteClient", () => {
         });
 
       const client = new AnonVoteClient(validConfig);
-      
+
       // Start the request
       const promise = client.getBallotResults("ballot-123");
-      
+
       // Fast-forward through retry delays
       await jest.runAllTimersAsync();
-      
+
       const result = await promise;
       expect(result.ballotId).toBe("ballot-123");
       expect(fetch).toHaveBeenCalledTimes(2);
@@ -374,7 +376,7 @@ describe("AnonVoteClient", () => {
       (fetch as jest.Mock).mockImplementation(
         () =>
           new Promise((_, reject) => {
-            setTimeout(() => reject(new DOMException("Aborted", "AbortError")), 100);
+            setTimeout(() => reject(new Error("Aborted")), 100);
           }),
       );
 
@@ -384,9 +386,9 @@ describe("AnonVoteClient", () => {
       });
 
       const promise = client.getBallotResults("ballot-123");
-      
+
       await jest.runAllTimersAsync();
-      
+
       await expect(promise).rejects.toThrow(TimeoutError);
     });
   });

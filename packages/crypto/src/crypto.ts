@@ -50,6 +50,21 @@ import { EncryptedVote } from "./types";
  */
 import { getPreferredAdapter } from "./cryptoAdapter";
 
+/**
+ * Hash a voter identifier using SHA-256.
+ *
+ * Normalizes the identifier (trim, lowercase) and produces a 64-character hex string.
+ * Used to store eligibility entries without retaining the original identifier.
+ *
+ * @param id - The voter identifier to hash
+ * @returns 64-character SHA-256 hex string
+ *
+ * @example
+ * ```typescript
+ * const hash = hashIdentifier("voter@example.com");
+ * // hash === "a1b2c3d4..."
+ * ```
+ */
 export function hashIdentifier(id: string): string {
   return getPreferredAdapter().hash(normalizeIdentifier(id));
 }
@@ -296,8 +311,6 @@ export function verifyHomomorphicTallyProof(
 ): boolean {
   return verifyTallyDecryptionProof(proof, publicKey);
 }
-
-
 
 /**
  * Parse and validate a base64-encoded 32-byte ballot key.
