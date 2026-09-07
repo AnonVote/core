@@ -19,6 +19,7 @@ import type {
   CreateElectionParams,
   CastVoteParams,
   EncryptedPayload,
+  EncryptedPayloadWithKeyRef,
   PaillierPublicKey,
   PaillierPrivateKey,
   HomomorphicEncryptedVote,
@@ -313,7 +314,11 @@ export class AnonVoteClient {
 
     const encryptedPayload: EncryptedPayload | EncryptedPayloadWithKeyRef =
       keyRef
-        ? { ...encryptedVote, keyId: keyRef.keyId, keyVersion: keyRef.keyVersion }
+        ? {
+            ...encryptedVote,
+            keyId: keyRef.keyId,
+            keyVersion: keyRef.keyVersion,
+          }
         : encryptedVote;
 
     return {
@@ -380,9 +385,18 @@ export class AnonVoteClient {
       }
     }
 
-    const key = encryptionKey || getCurrentKeyHex(
-      this.config.keyManager ?? { getCurrentKey: () => ({ keyHex: this.config.encryptionKey ?? "", metadata: { id: "", version: 0, derivedAt: "" } }), getKeyVersion: () => null }
-    ) || this.config.encryptionKey;
+    const key =
+      encryptionKey ||
+      getCurrentKeyHex(
+        this.config.keyManager ?? {
+          getCurrentKey: () => ({
+            keyHex: this.config.encryptionKey ?? "",
+            metadata: { id: "", version: 0, derivedAt: "" },
+          }),
+          getKeyVersion: () => null,
+        },
+      ) ||
+      this.config.encryptionKey;
     if (!key) {
       return false;
     }

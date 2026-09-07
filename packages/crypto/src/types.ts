@@ -16,8 +16,6 @@ export type {
   MerkleProof,
 } from "./zkp/types";
 
-// ── Ballot ────────────────────────────────────────────────────────────────────
-
 export type BallotStatus = "OPEN" | "CLOSED";
 
 export interface Option {

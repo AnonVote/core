@@ -2,6 +2,3 @@
 > @anonvote/crypto@0.1.0 build C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
 > tsc
 
-src/client.ts(314,48): error TS2304: Cannot find name 'EncryptedPayloadWithKeyRef'.
-src/client.ts(364,48): error TS2304: Cannot find name 'EncryptedPayloadWithKeyRef'.
- ELIFECYCLE  Command failed with exit code 2.
