@@ -28,11 +28,24 @@ export default [
         console: "readonly",
         process: "readonly",
         Buffer: "readonly",
+        require: "readonly",
+        module: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
       },
     },
     rules: {
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
       "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/ban-ts-comment": [
+        "warn",
+        { "ts-ignore": "allow-with-description" },
+      ],
+      "prefer-const": "warn",
     },
   },
   {
