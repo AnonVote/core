@@ -21,7 +21,7 @@ CONTRACT_DIR="$SCRIPT_DIR/contracts/anonvote"
 WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/anonvote.wasm"
 DEPLOYMENTS_FILE="$SCRIPT_DIR/deployments.json"
 CONTRACT_NAME="anonvote"
-RUST_TOOLCHAIN="1.85"   # Soroban SDK 27.0.6 requires 1.85+ for Edition 2024 support (zeroize v1.9.0)
+RUST_TOOLCHAIN="1.91"   # Soroban SDK 27.0.6 requires 1.91.0 (with wasm32v1-none)
 
 usage() {
   echo "Usage: $0 <testnet|mainnet>"
