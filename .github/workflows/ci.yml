@@ -6,8 +6,17 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # 🔴 ESSENTIAL LAYER — Must pass for PR to merge
+  # ═══════════════════════════════════════════════════════════════════════════════
+
   lint:
+    name: Lint — Code Quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,9 +28,9 @@ jobs:
       - run: pnpm install
       - run: pnpm run lint
 
-  test:
+  typecheck:
+    name: Typecheck — TypeScript & Build
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,66 +39,28 @@ jobs:
           node-version: "22.x"
           cache: "pnpm"
       - run: pnpm install
-      - name: Run tests
+      - run: pnpm run build
+
+  unit-tests:
+    name: Unit Tests — Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install
+      - name: Run unit tests
         run: pnpm run test
         env:
           SOROBAN_CONTRACT_ID: "CAUWQNFJP7TGZW4I7S2LYQ5IEUQJVKXB5JRFIVZFKPX6UVZVACADPMJ"
           SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
           NODE_ENV: "test"
 
-  test-crypto-integration:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          cache: "pnpm"
-      - run: pnpm install
-      - run: pnpm run test:integration --filter=crypto
-        continue-on-error: true
-
-  test-crypto-examples:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          cache: "pnpm"
-      - run: pnpm install
-      - run: pnpm run test:examples --filter=crypto
-        continue-on-error: true
-
-  fips-compliance:
-    name: FIPS 140-2 Compliance Validation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          cache: "pnpm"
-      - run: pnpm install
-      - name: Check OpenSSL version
-        run: |
-          echo "Node.js version:"
-          node --version
-          echo "OpenSSL version:"
-          node -p "process.versions.openssl"
-      - name: Run FIPS compliance tests
-        run: pnpm run test:fips --filter=crypto
-        env:
-          FIPS_VALIDATION_ENABLED: "true"
-          FIPS_VALIDATION_MODE: strict
-          FIPS_LOG_RESULTS: "true"
-        continue-on-error: true
-
-  contract-wasm-build:
-    name: Soroban Contract — WASM Build & Test
+  rust-wasm-build:
+    name: Rust/WASM Build — Soroban Contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,12 +92,49 @@ jobs:
             exit 1
           fi
           echo "WASM OK — ${SIZE} bytes at $WASM"
+
+  rust-tests:
+    name: Rust Tests — Soroban Contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
       - name: Run cargo tests
         run: cargo test --locked
+
+  security-scan:
+    name: Security Audit — Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm audit --audit-level=moderate
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # 🟠 HIGH-PRIORITY LAYER — Informational, can fail without blocking merge
+  # ═══════════════════════════════════════════════════════════════════════════════
 
   contract-service-test:
     name: Contract Service — TypeScript Tests
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -140,9 +148,10 @@ jobs:
         working-directory: packages/contracts/service
         run: npm test
 
-  build:
+  test-crypto-integration:
+    name: Crypto Integration Tests
     runs-on: ubuntu-latest
-    needs: [lint]
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -151,10 +160,12 @@ jobs:
           node-version: "22.x"
           cache: "pnpm"
       - run: pnpm install
-      - run: pnpm run build
+      - run: pnpm run test:integration --filter=crypto
 
-  security-scan:
+  test-crypto-examples:
+    name: Crypto Examples
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -163,18 +174,68 @@ jobs:
           node-version: "22.x"
           cache: "pnpm"
       - run: pnpm install
-      - run: pnpm audit --audit-level=moderate
-        continue-on-error: true
+      - run: pnpm run test:examples --filter=crypto
 
-  all-checks-passed:
+  fips-compliance:
+    name: FIPS 140-2 Compliance
     runs-on: ubuntu-latest
-    needs: [lint, build, contract-service-test]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install
+      - name: Check OpenSSL version
+        run: |
+          echo "Node.js version:"
+          node --version
+          echo "OpenSSL version:"
+          node -p "process.versions.openssl"
+      - name: Run FIPS compliance tests
+        run: pnpm run test:fips --filter=crypto
+        env:
+          FIPS_VALIDATION_ENABLED: "true"
+          FIPS_VALIDATION_MODE: strict
+          FIPS_LOG_RESULTS: "true"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # ✅ MERGE GATE — PR only merges if all essential checks pass
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  pr-merge-gate:
+    name: PR Merge Gate — All Essential Checks
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - typecheck
+      - unit-tests
+      - rust-wasm-build
+      - rust-tests
+      - security-scan
     if: always()
     steps:
-      - name: Check if all critical checks passed
+      - name: Verify all essential checks passed
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.build.result }}" == "failure" ]]; then
-            echo "❌ Critical checks failed (lint or build)"
+          echo "Checking essential CI layer..."
+          echo ""
+
+          FAILED=0
+
+          # Check each essential job
+          [[ "${{ needs.lint.result }}" == "success" ]] && echo "✅ Lint" || { echo "❌ Lint"; FAILED=1; }
+          [[ "${{ needs.typecheck.result }}" == "success" ]] && echo "✅ Typecheck" || { echo "❌ Typecheck"; FAILED=1; }
+          [[ "${{ needs.unit-tests.result }}" == "success" ]] && echo "✅ Unit Tests" || { echo "❌ Unit Tests"; FAILED=1; }
+          [[ "${{ needs.rust-wasm-build.result }}" == "success" ]] && echo "✅ Rust/WASM Build" || { echo "❌ Rust/WASM Build"; FAILED=1; }
+          [[ "${{ needs.rust-tests.result }}" == "success" ]] && echo "✅ Rust Tests" || { echo "❌ Rust Tests"; FAILED=1; }
+          [[ "${{ needs.security-scan.result }}" == "success" ]] && echo "✅ Security Scan" || { echo "❌ Security Scan"; FAILED=1; }
+
+          echo ""
+          if [[ $FAILED -eq 1 ]]; then
+            echo "🚫 MERGE BLOCKED — Essential checks failed"
             exit 1
           fi
-          echo "✅ All critical checks passed!"
+
+          echo "✅ All essential checks passed — PR ready to merge"
