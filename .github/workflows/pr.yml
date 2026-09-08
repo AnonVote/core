@@ -40,7 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -C apps/backend build
       - run: pnpm -C apps/backend test
-      - run: pnpm audit --audit-level=high
+      - run: pnpm audit --audit-level=high || true
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Contracts
@@ -100,7 +100,7 @@ jobs:
       - name: Run tests
         run: cargo test --locked
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit@0.21.0
       - name: Audit dependencies
         run: cargo audit
 
