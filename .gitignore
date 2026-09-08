@@ -7,3 +7,4 @@ coverage/
 .kiro/
 test_snapshots/
 target/
+.turbo/
