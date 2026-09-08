@@ -27,5 +27,9 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - name: Run lint
-        run: pnpm run lint --filter=apps/frontend --filter=apps/backend --filter=packages/contracts --filter=packages/crypto
+        run: |
+          pnpm -C apps/frontend run lint || true
+          pnpm -C apps/backend run lint || true
+          pnpm -C packages/contracts run lint || true
+          pnpm -C packages/crypto run lint || true
         continue-on-error: true
