@@ -1,0 +1,133 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Frontend
+  # ─────────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend — Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build --filter=frontend
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Backend
+  # ─────────────────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend — Build, Test & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build --filter=backend
+      - run: pnpm run test --filter=backend
+      - run: pnpm audit --audit-level=moderate
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Contracts
+  # ─────────────────────────────────────────────────────────────────────────────
+  contracts:
+    name: Contracts — Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test --filter=contracts
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Crypto
+  # ─────────────────────────────────────────────────────────────────────────────
+  crypto:
+    name: Crypto — Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test --filter=crypto
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Rust/Soroban Contract
+  # ─────────────────────────────────────────────────────────────────────────────
+  rust:
+    name: Rust — Build WASM, Test & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+      - name: Build WASM (release)
+        run: cargo build --target wasm32v1-none --release --locked
+      - name: Run tests
+        run: cargo test --locked
+      - name: Audit dependencies
+        run: cargo audit
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Merge Gate — All checks must pass
+  # ─────────────────────────────────────────────────────────────────────────────
+  pr-merge-gate:
+    name: PR Merge Gate
+    runs-on: ubuntu-latest
+    needs: [frontend, backend, contracts, crypto, rust]
+    if: always()
+    steps:
+      - name: Verify all checks passed
+        run: |
+          echo "Checking PR status..."
+          echo ""
+
+          FAILED=0
+
+          [[ "${{ needs.frontend.result }}" == "success" ]] && echo "✅ Frontend" || { echo "❌ Frontend"; FAILED=1; }
+          [[ "${{ needs.backend.result }}" == "success" ]] && echo "✅ Backend" || { echo "❌ Backend"; FAILED=1; }
+          [[ "${{ needs.contracts.result }}" == "success" ]] && echo "✅ Contracts" || { echo "❌ Contracts"; FAILED=1; }
+          [[ "${{ needs.crypto.result }}" == "success" ]] && echo "✅ Crypto" || { echo "❌ Crypto"; FAILED=1; }
+          [[ "${{ needs.rust.result }}" == "success" ]] && echo "✅ Rust" || { echo "❌ Rust"; FAILED=1; }
+
+          echo ""
+          if [[ $FAILED -eq 1 ]]; then
+            echo "🚫 PR blocked — one or more checks failed"
+            exit 1
+          fi
+
+          echo "✅ All checks passed — PR ready to merge"
