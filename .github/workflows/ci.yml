@@ -139,9 +139,144 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  rust-format:
+    name: Rust Format — Code Style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+        name: Check Rust formatting
+
+  rust-clippy:
+    name: Clippy — Lint Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+          components: clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-clippy-
+      - run: cargo clippy --target wasm32v1-none --all-targets --locked -- -D warnings
+        name: Run Clippy linter
+
   # ═══════════════════════════════════════════════════════════════════════════════
   # 🟠 HIGH-PRIORITY LAYER — Informational & Visibility, can fail without blocking merge
   # ═══════════════════════════════════════════════════════════════════════════════
+
+  wasm-size-check:
+    name: WASM Size Validation
+    runs-on: ubuntu-latest
+    needs: rust-wasm-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download WASM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-build
+          path: ./artifacts
+        continue-on-error: true
+      - name: Check WASM size
+        run: |
+          WASM="target/wasm32v1-none/release/anonvote.wasm"
+          if [[ ! -f "$WASM" ]]; then
+            echo "Error: WASM file not found at $WASM"
+            exit 1
+          fi
+
+          SIZE=$(stat -c%s "$WASM" 2>/dev/null || stat -f%z "$WASM" 2>/dev/null || wc -c < "$WASM")
+          SIZE_KB=$((SIZE / 1024))
+
+          # Soroban contracts should typically be < 256KB
+          MAX_SIZE=$((256 * 1024))
+
+          echo "WASM Size: ${SIZE_KB}KB (${SIZE} bytes)"
+
+          if [[ $SIZE -gt $MAX_SIZE ]]; then
+            echo "⚠️  WARNING: WASM exceeds recommended size (256KB)"
+            echo "Current: ${SIZE_KB}KB | Recommended: 256KB"
+          else
+            echo "✅ WASM size OK"
+          fi
+
+  contract-spec-validation:
+    name: Contract Spec — Interface Validation
+    runs-on: ubuntu-latest
+    needs: rust-wasm-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+      - name: Generate contract spec
+        run: |
+          cargo build --target wasm32v1-none --release --locked 2>&1 | tee build.log
+
+          # Extract contract metadata from build output
+          if grep -q "soroban_spec" build.log; then
+            echo "✅ Contract spec generated successfully"
+          else
+            echo "⚠️  Unable to verify contract spec generation"
+          fi
+
+  rust-format-check:
+    name: Rust Format — Enforcement
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+        name: Verify Rust code formatting
+
+  clippy-check:
+    name: Clippy — Code Quality Lints
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+          components: clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-clippy-
+      - run: cargo clippy --target wasm32v1-none --all-targets --locked
+        name: Run Clippy linter
 
   codeql:
     name: CodeQL — Static Analysis
