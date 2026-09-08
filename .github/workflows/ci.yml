@@ -127,9 +127,85 @@ jobs:
       - run: pnpm install
       - run: pnpm audit --audit-level=moderate
 
+  cargo-audit:
+    name: Cargo Audit — Rust Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+      - uses: rustsec/audit-check-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   # ═══════════════════════════════════════════════════════════════════════════════
-  # 🟠 HIGH-PRIORITY LAYER — Informational, can fail without blocking merge
+  # 🟠 HIGH-PRIORITY LAYER — Informational & Visibility, can fail without blocking merge
   # ═══════════════════════════════════════════════════════════════════════════════
+
+  codeql:
+    name: CodeQL — Static Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["typescript", "cpp"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  dependency-review:
+    name: Dependency Review — Supply Chain
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-check_action@main
+        with:
+          path: "."
+          format: "sarif"
+          args: >
+            --enable-experimental
+            --scan .
+      - uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: dependency-check-report.sarif
+
+  secret-scanning:
+    name: Secret Scanning — Credentials Detection
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug
+
+  cargo-deny:
+    name: Cargo Deny — Supply Chain Security
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          log-level: warn
+          command: check
+          arguments: --all-features
 
   contract-service-test:
     name: Contract Service — TypeScript Tests
@@ -215,6 +291,7 @@ jobs:
       - rust-wasm-build
       - rust-tests
       - security-scan
+      - cargo-audit
     if: always()
     steps:
       - name: Verify all essential checks passed
@@ -230,7 +307,8 @@ jobs:
           [[ "${{ needs.unit-tests.result }}" == "success" ]] && echo "✅ Unit Tests" || { echo "❌ Unit Tests"; FAILED=1; }
           [[ "${{ needs.rust-wasm-build.result }}" == "success" ]] && echo "✅ Rust/WASM Build" || { echo "❌ Rust/WASM Build"; FAILED=1; }
           [[ "${{ needs.rust-tests.result }}" == "success" ]] && echo "✅ Rust Tests" || { echo "❌ Rust Tests"; FAILED=1; }
-          [[ "${{ needs.security-scan.result }}" == "success" ]] && echo "✅ Security Scan" || { echo "❌ Security Scan"; FAILED=1; }
+          [[ "${{ needs.security-scan.result }}" == "success" ]] && echo "✅ Security Scan (pnpm audit)" || { echo "❌ Security Scan (pnpm audit)"; FAILED=1; }
+          [[ "${{ needs.cargo-audit.result }}" == "success" ]] && echo "✅ Cargo Audit (Rust deps)" || { echo "❌ Cargo Audit (Rust deps)"; FAILED=1; }
 
           echo ""
           if [[ $FAILED -eq 1 ]]; then
