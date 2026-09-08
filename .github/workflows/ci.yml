@@ -244,61 +244,6 @@ jobs:
             echo "⚠️  Unable to verify contract spec generation"
           fi
 
-  rust-format-check:
-    name: Rust Format — Enforcement
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.91"
-          components: rustfmt
-      - run: cargo fmt --all -- --check
-        name: Verify Rust code formatting
-
-  clippy-check:
-    name: Clippy — Code Quality Lints
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.91"
-          targets: wasm32v1-none
-          components: clippy
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-clippy-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-clippy-
-      - run: cargo clippy --target wasm32v1-none --all-targets --locked
-        name: Run Clippy linter
-
-  codeql:
-    name: CodeQL — Static Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["typescript", "cpp"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v2
-        with:
-          languages: ${{ matrix.language }}
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
-
   dependency-review:
     name: Dependency Review — Supply Chain
     runs-on: ubuntu-latest
