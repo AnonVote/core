@@ -1,53 +1,17 @@
 version: 2
 
-updates:
-  # Rust dependencies
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "04:00"
-    commit-message:
-      prefix: "chore(deps):"
-    reviewers:
-      - AnonVote/core-maintainers
-    allow:
-      - dependency-type: "all"
-    ignore:
-      # Major version updates should be reviewed manually for Soroban SDK
-      - dependency-name: "soroban-sdk"
-        update-types: ["version-update:semver-major"]
-    open-pull-requests-limit: 10
+# Dependabot is disabled for this repository
+# Rationale:
+# - AnonVote is a security-critical crypto protocol
+# - Automated dependency PRs create noise and security review burden
+# - Manual dependency updates allow deliberate audit + testing
+# - CI jobs (cargo-audit, pnpm audit) catch vulnerabilities at build time
+#
+# To manually check for updates, use:
+#   cargo outdated
+#   pnpm outdated
+#   npm outdated (if applicable)
+#
+# GitHub Actions should be updated manually after reviewing changelogs
 
-  # Node.js dependencies
-  - package-ecosystem: npm
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "04:00"
-    commit-message:
-      prefix: "chore(deps):"
-    reviewers:
-      - AnonVote/core-maintainers
-    allow:
-      - dependency-type: "all"
-    ignore:
-      # Major versions require manual review
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
-    open-pull-requests-limit: 10
-
-  # GitHub Actions
-  - package-ecosystem: github-actions
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "04:00"
-    commit-message:
-      prefix: "ci(actions):"
-    reviewers:
-      - AnonVote/core-maintainers
-    open-pull-requests-limit: 5
+updates: []
