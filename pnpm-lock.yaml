@@ -131,8 +131,8 @@ importers:
         specifier: ^1.16.0
         version: 1.20.0
       lenis:
-        specifier: 1.3.23
-        version: 1.3.23(react@18.3.1)
+        specifier: 1.3.26
+        version: 1.3.26(react@18.3.1)
       lucide-react:
         specifier: ^1.34.0
         version: 1.41.0(react@18.3.1)
@@ -2167,6 +2167,7 @@ packages:
   eslint@9.28.0:
     resolution: {integrity: sha512-ocgh41VhRlf9+fVpe7QKzwLj9c92fDiqOj8Y3Sd4/ZmVA4Btx4PlUYPq4pp9JDyupkf1upbEXecxL2mwNV7jPQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -2798,8 +2799,8 @@ packages:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
 
-  lenis@1.3.23:
-    resolution: {integrity: sha512-YxYq3TJqj9sJNv0V9SkyQHejt14xwyIwgDaaMK89Uf9SxQfIszu+gTQSSphh6BWlLTNVKvvXAGkg+Zf+oFIevg==}
+  lenis@1.3.26:
+    resolution: {integrity: sha512-s/xTCZCxTFvHbAN1OzuhNaN5YPJH2ail0XAkctKW1b+RUAG4nUL5UHLXwNko1h8aEeT2jspBXegMgPJd8zcuag==}
     peerDependencies:
       '@nuxt/kit': '>=3.0.0'
       react: '>=17.0.0'
@@ -7100,7 +7101,7 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  lenis@1.3.23(react@18.3.1):
+  lenis@1.3.26(react@18.3.1):
     optionalDependencies:
       react: 18.3.1
 
