@@ -291,13 +291,13 @@ jobs:
         language: ["typescript", "cpp"]
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v2
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v4
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v4
 
   dependency-review:
     name: Dependency Review — Supply Chain
@@ -312,7 +312,7 @@ jobs:
           args: >
             --enable-experimental
             --scan .
-      - uses: github/codeql-action/upload-sarif@v2
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: dependency-check-report.sarif
