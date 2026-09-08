@@ -1,0 +1,22 @@
+# AnonVote Code Owners
+# Enforce review requirements for critical paths
+
+# Soroban smart contract
+src/**                  @AnonVote/core-maintainers
+
+# CI/CD workflows and security
+.github/workflows/**    @AnonVote/core-maintainers
+.github/codeql-config.yml  @AnonVote/core-maintainers
+deny.toml               @AnonVote/core-maintainers
+
+# Cargo & Rust configuration
+Cargo.toml              @AnonVote/core-maintainers
+Cargo.lock              @AnonVote/core-maintainers
+rust-toolchain.toml     @AnonVote/core-maintainers
+
+# Package configuration
+pnpm-lock.yaml          @AnonVote/core-maintainers
+package.json            @AnonVote/core-maintainers
+
+# Root configuration
+*.toml                  @AnonVote/core-maintainers
