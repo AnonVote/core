@@ -99,7 +99,7 @@ jobs:
       - name: Run tests
         run: cargo test --locked
       - name: Install cargo-audit
-        run: cargo install cargo-audit@0.20.0
+        run: cargo install cargo-audit@0.22.2 --locked
       - name: Audit dependencies
         run: cargo audit
 
