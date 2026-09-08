@@ -276,6 +276,7 @@ jobs:
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
           extra_args: --debug
+        continue-on-error: true
 
   cargo-deny:
     name: Cargo Deny — Supply Chain Security

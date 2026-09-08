@@ -18,9 +18,7 @@
 
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 
@@ -154,12 +152,7 @@ impl AnonVoteContract {
 
     /// Record the result publication for a ballot.
     /// result_hash: SHA-256 hex of the tally JSON
-    pub fn record_result(
-        env: Env,
-        caller: Address,
-        ballot_id_hash: String,
-        result_hash: String,
-    ) {
+    pub fn record_result(env: Env, caller: Address, ballot_id_hash: String, result_hash: String) {
         caller.require_auth();
         Self::require_admin(&env, &caller);
         Self::require_ballot_exists(&env, &ballot_id_hash);
