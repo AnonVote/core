@@ -40,7 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -C apps/backend build
       - run: pnpm -C apps/backend test
-      - run: pnpm audit --audit-level=moderate
+      - run: pnpm audit --audit-level=high
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Contracts
@@ -99,6 +99,8 @@ jobs:
         run: cargo build --target wasm32v1-none --release --locked
       - name: Run tests
         run: cargo test --locked
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
       - name: Audit dependencies
         run: cargo audit
 
