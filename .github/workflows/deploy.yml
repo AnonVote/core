@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Least-privilege permissions
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-and-verify:
+    name: Build & Verify Release Artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-release-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-release-${{ runner.os }}-
+
+      - name: Build release WASM
+        run: cargo build --target wasm32v1-none --release --locked
+
+      - name: Verify WASM artifact
+        run: |
+          WASM="target/wasm32v1-none/release/anonvote.wasm"
+          if [[ ! -f "$WASM" ]]; then
+            echo "Error: WASM artifact not found"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$WASM" 2>/dev/null || stat -f%z "$WASM")
+          echo "✅ WASM Release Artifact: ${SIZE} bytes"
+
+      - name: Generate reproducibility attestation
+        run: |
+          echo "Build Attestation:" > attestation.txt
+          echo "  Ref: ${{ github.ref }}" >> attestation.txt
+          echo "  Commit: ${{ github.sha }}" >> attestation.txt
+          echo "  Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> attestation.txt
+          echo "  Rust: $(rustc --version)" >> attestation.txt
+          echo "  Cargo: $(cargo --version)" >> attestation.txt
+          
+          # Compute WASM hash
+          WASM_HASH=$(sha256sum target/wasm32v1-none/release/anonvote.wasm | awk '{print $1}')
+          echo "  WASM SHA256: $WASM_HASH" >> attestation.txt
+          
+          cat attestation.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            target/wasm32v1-none/release/anonvote.wasm
+            attestation.txt
+          retention-days: 90
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-and-verify
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: ./release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/anonvote.wasm
+            release/attestation.txt
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom-and-attestation:
+    name: Generate SBOM & Attestation
+    runs-on: ubuntu-latest
+    needs: build-and-verify
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom-spdx.json
+          retention-days: 90

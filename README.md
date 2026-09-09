@@ -128,16 +128,17 @@ Anyone can visit `/results/:ballotId` and independently confirm the outcome via 
 
 ## Tech Stack
 
-| Layer      | Technology                                            |
-| ---------- | ----------------------------------------------------- |
-| Frontend   | React 18, Vite, TailwindCSS, React Router v6          |
-| Backend    | Node.js 20, Express, TypeScript                       |
-| Database   | PostgreSQL 15 + Prisma ORM                            |
-| Blockchain | Stellar SDK (Testnet / Mainnet)                       |
-| Auth       | JWT via HTTP-only cookies, bcrypt                     |
-| Crypto     | AES-256-GCM vote encryption, SHA-256 identity hashing |
-| Email      | Resend                                                |
-| Testing    | Vitest, React Testing Library                         |
+| Layer           | Technology                                            |
+| --------------- | ----------------------------------------------------- |
+| Frontend        | React 18, Vite, TailwindCSS, React Router v6          |
+| Backend         | Node.js 20, Express, TypeScript                       |
+| Database        | PostgreSQL 15 + Prisma ORM                            |
+| Smart Contracts | Soroban (Rust), WASM                                  |
+| Blockchain      | Stellar SDK (Testnet / Mainnet)                       |
+| Auth            | JWT via HTTP-only cookies, bcrypt                     |
+| Crypto          | AES-256-GCM vote encryption, SHA-256 identity hashing |
+| Email           | Resend                                                |
+| Testing         | Vitest, React Testing Library                         |
 
 ---
 
@@ -184,16 +185,16 @@ docker-compose up -d
 ### 4. Install dependencies and run migrations
 
 ```bash
-cd backend && npm install && npx prisma migrate dev
-cd ../frontend && npm install
+pnpm install
+pnpm run build
+cd apps/backend && pnpm run db:migrate
 ```
 
 ### 5. Start development servers
 
 ```bash
-# In separate terminals:
-npm run dev:backend   # → http://localhost:3001
-npm run dev:frontend  # → http://localhost:5173
+# Start all dev servers (backend, frontend, contracts service)
+pnpm run dev
 ```
 
 ---
@@ -202,23 +203,55 @@ npm run dev:frontend  # → http://localhost:5173
 
 ```
 AnonVote/
-├── backend/
-│   ├── src/
-│   │   ├── routes/       # API route handlers
-│   │   ├── services/     # Business logic (identity, ballot, privacy, result engines)
-│   │   ├── middleware/   # Auth, rate limiting, error handling
-│   │   ├── utils/        # Crypto helpers, deadline scheduler
-│   │   └── tests/        # Unit, integration, and E2E tests
-│   └── prisma/           # Database schema and migrations
-├── frontend/
-│   └── src/
-│       ├── pages/        # All UI pages
-│       ├── components/   # Reusable UI components
-│       ├── hooks/        # useAuth, useBallot
-│       └── api/          # Axios API client
-├── shared/               # Shared TypeScript types
-├── docker-compose.yml    # PostgreSQL local setup
-└── .env.example          # Environment variable template
+├── apps/
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── routes/       # API route handlers
+│   │   │   ├── services/     # Business logic (identity, ballot, privacy, result engines)
+│   │   │   ├── middleware/   # Auth, rate limiting, error handling
+│   │   │   ├── utils/        # Crypto helpers, deadline scheduler
+│   │   │   └── tests/        # Unit, integration, and E2E tests
+│   │   └── prisma/           # Database schema and migrations
+│   └── frontend/
+│       └── src/
+│           ├── pages/        # All UI pages
+│           ├── components/   # Reusable UI components
+│           ├── hooks/        # useAuth, useBallot
+│           └── api/          # Axios API client
+├── packages/
+│   ├── crypto/               # @anonvote/crypto — cryptographic primitives
+│   │   ├── src/
+│   │   ├── tests/
+│   │   └── benchmarks/
+│   └── contracts/            # Soroban smart contracts + TypeScript service
+│       ├── anonvote/         # Rust Soroban contracts (WASM)
+│       └── service/          # TypeScript service layer for contract integration
+├── docs/                     # Whitepaper, specs, API documentation
+├── docker-compose.yml        # PostgreSQL local setup
+├── package.json              # Monorepo root (pnpm workspaces)
+├── turbo.json                # Turborepo task orchestration
+├── pnpm-workspace.yaml       # Workspace configuration
+└── .env.example              # Environment variable template
+```
+
+### Monorepo Setup
+
+This is a **Turborepo monorepo** using **pnpm workspaces**. All packages and applications share a single dependency tree and can reference each other locally.
+
+**Key files:**
+
+- `package.json` — Defines workspace layout and shared scripts
+- `turbo.json` — Configures Turborepo task orchestration and caching
+- `pnpm-workspace.yaml` — pnpm workspace configuration
+
+**Running commands:**
+
+```bash
+pnpm install                    # Install all dependencies
+pnpm run build                  # Build all packages (Turbo orchestrated)
+pnpm run test                   # Test all packages
+pnpm run dev                    # Run all dev servers in parallel
+pnpm run build --filter=crypto  # Build only crypto package
 ```
 
 ---
@@ -317,14 +350,15 @@ When deploying to Mainnet, replace it with the deployed Mainnet contract ID.
 Tests require a running PostgreSQL instance.
 
 ```bash
-# Backend (unit + integration + E2E)
-npm run test:backend
+# Run all tests (Turbo orchestrated)
+pnpm run test
 
-# Frontend (Vitest + React Testing Library, 28 tests)
-npm run test:frontend
+# Test specific package
+pnpm run test --filter=crypto
+pnpm run test --filter=backend
 ```
 
-Coverage includes: crypto utilities, organization registration and login, token issuance, vote submission, audit counts, and a full end-to-end voting flow.
+Coverage includes: crypto utilities, organization registration and login, token issuance, vote submission, audit counts, FIPS compliance validation, and full end-to-end voting flows.
 
 ---
 
@@ -396,3 +430,9 @@ Issues are labeled with their corresponding milestone so you can see what stage 
 ## License
 
 [MIT](LICENSE)
+
+# CI Test Branch
+This branch tests the new lean CI workflow.
+
+#   F i n a l   C I   t e s t  
+ 

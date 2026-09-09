@@ -1,0 +1,20 @@
+# AnonVote — deployed Soroban contract IDs
+#
+# This file is updated automatically by deploy.sh after each deployment.
+# Keep it committed so the contract ID is always traceable in git history.
+#
+# Format: one entry per network
+#   testnet: <CONTRACT_ID>
+#   mainnet: <CONTRACT_ID>
+#
+# To deploy:
+#   cp .env.example .env
+#   # Fill in STELLAR_SECRET_KEY in .env
+#   source .env
+#   ./deploy.sh testnet
+#
+# The script will update deployments.json and print the contract ID.
+# Copy it here and into backend/.env as SOROBAN_CONTRACT_ID=<id>
+
+testnet: CDPSKEL3SXLUQWU55EWIZY2BAXJOT4CQOXMQUVCRPM2J74LDTULFINPH
+mainnet: (not yet deployed)

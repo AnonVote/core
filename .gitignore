@@ -5,3 +5,6 @@ dist/
 .DS_Store
 coverage/
 .kiro/
+test_snapshots/
+target/
+.turbo/

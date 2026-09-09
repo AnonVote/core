@@ -1,0 +1,927 @@
+
+> @anonvote/crypto@0.1.0 test C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
+> jest --runInBand --testPathIgnorePatterns="(docs\.test\.ts|AnonVoteClient\.test\.ts)"
+
+PASS tests/examples.test.ts (58.53 s)
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:54:31.699Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/stress/vote-volume.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:28.216Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/encryption-pipeline.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:28.960Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/error-handling.test.ts
+PASS tests/fipsCompliance.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:29.619Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/client.test.ts
+PASS tests/random.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:30.384Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:30.434Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:30.470Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/integration/happy-path.test.ts
+PASS tests/integration/concurrency.test.ts
+PASS tests/zkp-proofs.test.ts
+PASS tests/integration/ballot-state-machine.test.ts
+PASS tests/sdk-client.test.ts
+PASS tests/crypto.test.ts
+PASS tests/errors.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:31.799Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/zkp-integration.test.ts
+  ● Console
+
+    console.log
+      
+      === FIPS 140-2 Compliance Validation ===
+
+      at logValidationResult (src/fipsValidator.ts:463:11)
+
+    console.log
+      Timestamp: 2026-09-07T13:55:31.952Z
+
+      at logValidationResult (src/fipsValidator.ts:464:11)
+
+    console.log
+      Overall Status: ✓ COMPLIANT
+
+      at logValidationResult (src/fipsValidator.ts:465:11)
+
+    console.log
+      Checks:
+
+      at logValidationResult (src/fipsValidator.ts:467:11)
+
+    console.log
+        ✓ Algorithm Availability
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          FIPS-approved algorithms available: SHA-256, AES-256-GCM
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ AES-256-GCM Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          AES-256-GCM: key=256 bits, IV=96 bits, tag=128 bits
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ SHA-256 Parameters
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          SHA-256: output=256 bits, deterministic, collision-resistant
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ CSPRNG Quality
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          CSPRNG: using crypto.randomBytes/getRandomValues (FIPS DRBG), 256-bit output
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ IV Uniqueness
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          IV uniqueness verified: 100 unique IVs generated
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+        ✓ Key Generation
+
+      at logValidationResult (src/fipsValidator.ts:470:13)
+
+    console.log
+          Key generation verified: 100 unique 256-bit keys
+
+      at logValidationResult (src/fipsValidator.ts:471:13)
+
+    console.log
+      
+      Warnings:
+
+      at logValidationResult (src/fipsValidator.ts:475:13)
+
+    console.log
+        ⚠ Node.js not running in FIPS mode. For true FIPS 140-2 certification, rebuild Node.js with OpenSSL FIPS module and enable FIPS mode.
+
+      at logValidationResult (src/fipsValidator.ts:477:15)
+
+    console.log
+      
+      ======================================
+
+      at logValidationResult (src/fipsValidator.ts:488:11)
+
+PASS tests/zkp-threshold.test.ts
+PASS tests/keyManagement.test.ts
+PASS tests/zkp-math.test.ts
+PASS tests/zkp-paillier.test.ts
+PASS tests/zkp-merkle.test.ts
+PASS tests/utils.test.ts
+
+Test Suites: 21 passed, 21 total
+Tests:       375 passed, 375 total
+Snapshots:   0 total
+Time:        63.607 s, estimated 65 s
+Ran all test suites.

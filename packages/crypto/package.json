@@ -1,0 +1,80 @@
+{
+  "name": "@anonvote/crypto",
+  "version": "0.1.0",
+  "description": "Cryptographic primitives and token utilities for the AnonVote ecosystem",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "require": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --runInBand --testPathIgnorePatterns=\"(docs\\.test\\.ts|AnonVoteClient\\.test\\.ts)\"",
+    "test:examples": "jest --runInBand tests/examples.test.ts",
+    "test:integration": "jest --runInBand -c jest.integration.config.js",
+    "test:integration:stress": "jest --runInBand -c jest.stress.config.js",
+    "test:fips": "jest --runInBand tests/fipsCompliance.test.ts",
+    "validate:fips": "tsx examples/fips-compliance-check.ts",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "docs": "typedoc",
+    "prepublishOnly": "npm run build && npm test",
+    "typecheck:bench": "tsc -p tsconfig.benchmarks.json",
+    "bench": "npm run bench:encrypt && npm run bench:decrypt && npm run bench:hash && npm run bench:token && npm run bench:perf-hooks && npm run bench:zkp-tally",
+    "bench:encrypt": "tsx benchmarks/encrypt.bench.ts",
+    "bench:decrypt": "tsx benchmarks/decrypt.bench.ts",
+    "bench:hash": "tsx benchmarks/hash.bench.ts",
+    "bench:token": "tsx benchmarks/generateToken.bench.ts",
+    "bench:perf-hooks": "tsx benchmarks/perf-hooks.bench.ts",
+    "bench:zkp-tally": "tsx benchmarks/zkp-tally.bench.ts",
+    "bench:homomorphic": "tsx benchmarks/homomorphic.bench.ts",
+    "bench:memory": "node --expose-gc --import tsx benchmarks/memory-profile.ts"
+  },
+  "keywords": [
+    "crypto",
+    "voting",
+    "anonymous",
+    "encryption",
+    "stellar"
+  ],
+  "author": "AnonVote",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anon/core.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/jest": "29.5.12",
+    "@types/node": "20.11.30",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
+    "@typescript-eslint/parser": "^8.68.0",
+    "eslint": "^10.9.1",
+    "@typescript-eslint/eslint-plugin": "8.33.1",
+    "@typescript-eslint/parser": "8.33.1",
+    "eslint": "9.28.0",
+    "jest": "29.7.0",
+    "tinybench": "2.9.0",
+    "ts-jest": "29.1.2",
+    "tsx": "4.16.0",
+    "typedoc": "^0.28.20",
+    "typescript": "5.4.3",
+    "typescript-eslint": "^8.65.0"
+  }
+}

@@ -1,0 +1,39 @@
+
+> @anonvote/crypto@0.1.0 lint C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto
+> eslint src/ tests/
+
+(node:23892) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/DELL/OneDrive/Documents/Codes/anon/core/packages/crypto/eslint.config.js?mtime=1788784693223 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\src\client.ts
+  28:15  warning  'KeyManager' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\src\crypto.ts
+    2:10  warning  'CryptoError' is defined but never used      @typescript-eslint/no-unused-vars
+    2:23  warning  'ValidationError' is defined but never used  @typescript-eslint/no-unused-vars
+  314:10  warning  '_parseBallotKey' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\src\cryptoAdapter.ts
+  3:41  warning  'bytesToHex' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\src\fipsValidator.ts
+  415:12  warning  'error' is defined but never used                                              @typescript-eslint/no-unused-vars
+  461:1   warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\src\zkp\paillier.ts
+  49:7  warning  'p' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\tests\AnonVoteClient.test.ts
+  55:15  warning  'authToken' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\tests\fipsCompliance.test.ts
+  5:3  warning  'FIPSValidationResult' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\OneDrive\Documents\Codes\anon\core\packages\crypto\tests\keyManagement.test.ts
+  24:15  warning  'KeyManager' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 11 problems (0 errors, 11 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+
