@@ -1,0 +1,87 @@
+language: en-US
+
+tone_instructions: "Be direct and concise. Flag real problems only — avoid generic style comments."
+
+reviews:
+
+  profile: assertive
+
+  request_changes_workflow: true
+
+  high_level_summary: true
+
+  poem: false
+
+  review_status: true
+
+  collapse_walkthrough: false
+
+  path_filters:
+
+    - "!docs/**"
+
+    - "!**/*.md"
+
+  path_instructions:
+
+    - path: "packages/crypto/**"
+
+      instructions: |
+
+        This is a cryptographic primitives package. Flag any:
+
+        - console.log or console.error statements
+
+        - Raw voter identifiers, tokens, or vote options in any variable name or log
+
+        - Missing auth tag verification in decryptVote
+
+        - IV reuse or non-random IV generation
+
+        - External crypto dependencies added to package.json
+
+    - path: "apps/backend/**"
+
+      instructions: |
+
+        Flag any:
+
+        - Raw voter identifiers written to the database without hashing
+
+        - Vote options stored in plaintext
+
+        - Token values appearing in logs, error messages, or API responses
+
+        - Missing prisma.$transaction on vote write + token invalidation
+
+        - Unhandled promise rejections on database or Stellar operations
+
+    - path: "packages/contracts/**"
+
+      instructions: |
+
+        Flag any:
+
+        - Missing ballot existence checks before counter increments
+
+        - Missing auth guards on admin-only functions
+
+        - Hardcoded RPC URLs or network passphrases
+
+        - Contract functions with no error handling
+
+  auto_review:
+
+    enabled: true
+
+    drafts: false
+
+    base_branches:
+
+      - main
+
+      - develop
+
+chat:
+
+  auto_reply: true
